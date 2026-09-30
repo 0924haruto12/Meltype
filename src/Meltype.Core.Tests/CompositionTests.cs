@@ -614,7 +614,7 @@ internal static class CompositionTests
             // 報告: Shift で打つ記号が全角で打てない、/ が打てない。英語の中では半角のまま。
             ["$%&"] = "＄％＆", ["kyouha(tenki)"] = "きょうは（てんき）", ["hello@example"] = "hello@example",
             // 報告: ca / cu / co で か く こ
-            ["cacuco"] = "かくこ", ["oknotasuku"] = "okのたすく",
+            ["cacuco"] = "かくこ", ["GPL3.0"] = "GPL3.0", ["3.14desu"] = "3.14です", ["oknotasuku"] = "okのたすく",
         };
         foreach (var (typed, expected) in cases)
         {

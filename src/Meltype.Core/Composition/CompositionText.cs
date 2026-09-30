@@ -94,6 +94,12 @@ public sealed class CompositionText
         }
         // 記号・数字の前で、途中の n は ん に、読めない子音は英字のまま確定させる。
         Normalize(final: true);
+        // 数字の後の . と , は小数点・桁区切り (GPL3.0、1,000)。句点・読点にしない。
+        if (c is ',' or '.' && _units.Count > 0 && _units[^1].Raw is [var previous] && char.IsAsciiDigit(previous))
+        {
+            _units.Add(new CompositionUnit(c.ToString(), c.ToString()));
+            return;
+        }
         // 、 や 。 を 3 つ続けたら ... にする (、、、 → ...)。
         if (c is ',' or '.')
         {

@@ -719,17 +719,28 @@ public sealed class CompositionController
     private List<Clause> ConvertJapanese(string kana)
     {
         // ローマ字として読めずに残った英字 (こほぃc の c) と半角の記号 (... @) は、変換エンジンに渡すと別の記号 (© ．．． ＠) にされるので、
-        // そのままの文節にする。数字は変換エンジンに渡す (1から5)。
-        static bool Keep(char c) => c is >= '!' and <= '~' && !char.IsAsciiDigit(c);
-        if (kana.Any(Keep))
+        // そのままの文節にする。数字は、記号・英字とつながっていればそのまま (3.0 の 3 を 1 文字だけ渡すと ❸ にされる)、
+        // それ以外は変換エンジンに渡す (2026ねん → 2026年)。
+        var keep = new bool[kana.Length];
+        for (var i = 0; i < kana.Length; i++) keep[i] = kana[i] is >= '!' and <= '~' && !char.IsAsciiDigit(kana[i]);
+        for (var i = 0; i < kana.Length; i++)
+        {
+            if (!char.IsAsciiDigit(kana[i])) continue;
+            var end = i;
+            while (end < kana.Length && char.IsAsciiDigit(kana[end])) end++;
+            var touches = (i > 0 && keep[i - 1]) || (end < kana.Length && keep[end]);
+            for (var k = i; k < end; k++) keep[k] = touches;
+            i = end - 1;
+        }
+        if (keep.Any(k => k))
         {
             var result = new List<Clause>();
             var start = 0;
             for (var i = 1; i <= kana.Length; i++)
             {
-                if (i < kana.Length && Keep(kana[i]) == Keep(kana[start])) continue;
+                if (i < kana.Length && keep[i] == keep[start]) continue;
                 var run = kana[start..i];
-                if (Keep(run[0])) result.Add(new Clause(run, false, Distinct([run, .. _options.Candidates?.Lookup(run) ?? [], CompositionText.ToFullWidth(run)])));
+                if (keep[start]) result.Add(new Clause(run, false, Distinct([run, .. _options.Candidates?.Lookup(run) ?? [], CompositionText.ToFullWidth(run)])));
                 else result.AddRange(ConvertJapanese(run));
                 start = i;
             }
