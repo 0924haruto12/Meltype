@@ -285,7 +285,7 @@ IME 自動切替:
 
 ```powershell
 dotnet build Meltype.sln
-dotnet run --project src/Meltype.Tests                                   # テスト (xUnit を使わない簡易ランナー)
+dotnet run --project src/Meltype.Tests                                   # テスト (Windows: 共通のテスト + Windows のスペルチェッカー)
 dotnet run --project src/Meltype.Tests -- CompositionTests               # 名前に一致するテストだけ
 dotnet run --project src/Meltype.Tests -- --explain konnichiwa hello      # 1 文字ずつの判定理由 (IME 自動切替)
 dotnet run --project src/Meltype.Tests -- --convert きょうはいいてんき     # 変換エンジンの結果と文節の区切り
@@ -293,20 +293,28 @@ dotnet run --project src/Meltype.Tests -- --context この本は:あつい      
 dotnet run --project src/Meltype.Tests -- --eval                          # 品質テスト: カテゴリーごとの正解率と外れた例
 ```
 
+### Mac・Linux でのテスト
+
+OS に依存しない部分 (`src/Meltype.Core`: 英語 / 日本語の判定・ローマ字・変換ボックスの中身・辞書・学習・設定) と、そのテスト (`src/Meltype.Core.Tests`) は Mac・Linux でも動きます (Mac 版・Linux 版の土台)。.NET 10 SDK を入れて次を実行します。GitHub Actions でも Ubuntu と macOS で毎回流しています。
+
+```bash
+dotnet run --project src/Meltype.Core.Tests                 # すべてのテスト
+dotnet run --project src/Meltype.Core.Tests -- --eval       # 品質テスト (スペルチェッカーは使わない)
+```
+
 ### 品質テスト (採点テスト)
 
-`src/Meltype.Tests/QualityTests.cs` に、日本語の文・英文・混在・英語とも日本語とも読める語・英語の後の短い語・記号と数字・小書き文字・大文字・かな入力・コードの行 (コメント / 文字列の判定)・文章ファイルの判定・絵文字・もしかして の例をまとめてあります。期待値は「理想の結果」で書いてあり、`--eval` でカテゴリーごとの正解率と外れた例を表示します。通常のテストでは、全体 95% 以上・どのカテゴリーも 80% 以上を基準にして、ある直しで別の場所が壊れたら気づけるようにしています。Windows の英語スペルチェッカーが使える環境では実際と同じくそれも使います (`MELTYPE_NO_SPELLCHECK=1` で使わずに測れます)。新しい不具合の報告を受けたら、まずここに例を足してから直すのがおすすめです。
+`src/Meltype.Core.Tests/QualityTests.cs` に、日本語の文・英文・混在・英語とも日本語とも読める語・英語の後の短い語・記号と数字・小書き文字・大文字・かな入力・コードの行 (コメント / 文字列の判定)・文章ファイルの判定・絵文字・もしかして の例をまとめてあります。期待値は「理想の結果」で書いてあり、`--eval` でカテゴリーごとの正解率と外れた例を表示します。通常のテストでは、全体 95% 以上・どのカテゴリーも 80% 以上を基準にして、ある直しで別の場所が壊れたら気づけるようにしています。Windows の英語スペルチェッカーが使える環境では実際と同じくそれも使います (`MELTYPE_NO_SPELLCHECK=1` で使わずに測れます)。新しい不具合の報告を受けたら、まずここに例を足してから直すのがおすすめです。
 
-- `src/Meltype/` — 本体
-  - `Composition/` Meltype キーボード (変換ボックス・英語の判定・変換・文脈・学習)
-  - `Input/` キーボードフックと IME 自動切替の入力セッション
-  - `Detection/` ローマ字・英語・辞書・Typo の判定器
-  - `IME/` Microsoft IME の操作 (IMM32 / TSF)
-  - `Learning/` IME 自動切替の学習
-  - `Config/` `UI/` `Diagnostics/` 設定・トレイと画面・ログ
-- `src/Meltype.Tests/` — 判定 (設計書 §30 のケース)、入力セッション (欠落・二重入力・順序)、変換ボックス、学習のテスト
+- `src/Meltype.Core/` — OS に依存しない部分 (Windows・Mac・Linux 共通)
+  - `Composition/` 変換ボックスの中身 (英語の区間の判定・変換の流れ・候補・文脈・学習・ユーザー辞書・もしかして)
+  - `Detection/` ローマ字・英語・辞書・かな・Typo の判定器
+  - `Input/` キーの表し方、IME 自動切替の入力セッション、コードの行の判定
+  - `Learning/` `Config/` `Diagnostics/` IME 自動切替の学習・設定・ログ
+- `src/Meltype/` — Windows 版 (キーボードフック、変換ボックスの画面、Microsoft IME の変換エンジン・IMM32 / TSF、UI Automation、スペルチェッカー、トレイ)
+- `src/Meltype.Core.Tests/` — 共通部分のテスト (判定・入力セッション・変換ボックス・学習・品質テスト)。Mac・Linux でも動く
+- `src/Meltype.Tests/` — Windows 版のテストと調査用の道具 (共通部分のテストもまとめて流す)
 - `dictionaries/` — 組み込み辞書
-- `legacy/` — 旧実装 (自前ローマ字変換版と、アプリ内に読み込ませる TSF 版)。ビルド対象外
 
 ## 制限
 

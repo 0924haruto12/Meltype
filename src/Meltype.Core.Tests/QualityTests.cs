@@ -294,7 +294,7 @@ Dictionary<string, (int Pass, int Total)> ByCategory, List<string> Failures)
         }
 
         // 実際と同じく、使えるなら Windows のスペルチェッカーも使う。
-        var spell = WindowsSpellChecker.Shared.IsAvailable && Environment.GetEnvironmentVariable("MELTYPE_NO_SPELLCHECK") is null ? WindowsSpellChecker.Shared : null;
+        var spell = TestSupport.WordChecker is { IsAvailable: true } checker && Environment.GetEnvironmentVariable("MELTYPE_NO_SPELLCHECK") is null ? checker : null;
         CompositionTests.Detector.SpellChecker = spell;
         try
         {

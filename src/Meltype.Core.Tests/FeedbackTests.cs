@@ -22,8 +22,8 @@ internal static class FeedbackTests
     /// <summary>Windows のスペルチェッカーを使って打つ (使えない環境では null)。</summary>
     private static string? TypeWithSpellChecker(string typed, DetectionLevel level = DetectionLevel.Balanced)
     {
-        if (!WindowsSpellChecker.Shared.IsAvailable) return null;
-        CompositionTests.Detector.SpellChecker = WindowsSpellChecker.Shared;
+        if (TestSupport.WordChecker is not { IsAvailable: true } checker) return null;
+        CompositionTests.Detector.SpellChecker = checker;
         try
         {
             var k = new CompositionTests.Keyboard { Level = level };

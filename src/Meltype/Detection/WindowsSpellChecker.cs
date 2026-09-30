@@ -12,7 +12,7 @@ namespace Meltype.Detection;
 /// 普通の英単語 (meeting, name, tomorrow …) はこちらで補う。結果は語ごとに覚えておく。
 /// 使えない環境 (英語のスペルチェッカーが無い) では常に false を返す。
 /// </summary>
-public sealed class WindowsSpellChecker
+public sealed class WindowsSpellChecker : IWordChecker
 {
     private static readonly Guid ClsidSpellCheckerFactory = new("7AB36653-1796-484B-BDFA-E74F1DB7C1DC");
 

@@ -81,6 +81,8 @@ internal static class RuntimeClosure
 
         var app = Open(Path.Combine(appDirectory, "Meltype.dll")) ?? throw new FileNotFoundException("Meltype.dll が見つかりません。");
         Scan(app);
+        // OS に依存しない部分 (Meltype.Core.dll) が使う型もたどる。
+        if (Open(Path.Combine(appDirectory, "Meltype.Core.dll")) is { } core) Scan(core);
         foreach (var name in AlwaysKeep)
         {
             if (assemblies.TryGetValue(name, out var assembly))

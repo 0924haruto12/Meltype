@@ -1,35 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Yukishiro
 
-using System.Reflection;
-
 namespace Meltype.Tests;
 
-[AttributeUsage(AttributeTargets.Method)]
-internal sealed class TestAttribute : Attribute;
-
-internal sealed class AssertionException(string message) : Exception(message);
-
-internal static class Assert
-{
-    public static void True(bool condition, string message)
-    {
-        if (!condition) throw new AssertionException(message);
-    }
-
-    public static void Equal<T>(T expected, T actual, string message = "")
-    {
-        if (!EqualityComparer<T>.Default.Equals(expected, actual))
-            throw new AssertionException($"{message} 期待値: {expected} / 実際: {actual}".Trim());
-    }
-}
-
-/// <summary>[Test] の付いた static メソッドをすべて実行する最小限のテストランナー。</summary>
+/// <summary>
+/// Windows 版のテストと調査用の道具。Meltype.Core.Tests のテスト (OS に依存しない部分) もまとめて流し、
+/// そのときは Windows のスペルチェッカーを使う。
+/// </summary>
 internal static class TestRunner
 {
     [STAThread]
     public static int Main(string[] args)
     {
+        TestSupport.WordChecker = Detection.WindowsSpellChecker.Shared;
         // dotnet run --project src/Meltype.Tests -- --convert きょうはいいてんきです
         // で、Microsoft IME の変換エンジン (MSIME.Japan) が使えるかを確かめる。
         if (args.FirstOrDefault() == "--type")
@@ -117,50 +100,8 @@ internal static class TestRunner
             return converter.IsAvailable ? 0 : 1;
         }
 
-        // dotnet run --project src/Meltype.Tests -- --explain konnichiwa hello
-        // で、1 文字ずつの判定とその理由を表示する (辞書・閾値の調整用)。
-        if (args.FirstOrDefault() == "--explain")
-        {
-            var engine = TestSupport.CreateEngine();
-            foreach (var word in args.Skip(1))
-            {
-                for (var i = 1; i <= word.Length; i++)
-                {
-                    var prefix = word[..i];
-                    var result = engine.Evaluate(new Detection.DetectionInput(prefix, prefix.Select(c => (int)char.ToUpperInvariant(c)).ToArray(), i == word.Length));
-                    Console.WriteLine(result.Describe());
-                    if (result.Verdict != Detection.Verdict.Undecided) break;
-                }
-                Console.WriteLine();
-            }
-            return 0;
-        }
+        if (args.FirstOrDefault() == "--explain") { TestHost.Explain(args.Skip(1)); return 0; }
 
-        var filter = args.FirstOrDefault();
-        var tests = typeof(TestRunner).Assembly.GetTypes()
-            .SelectMany(t => t.GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic))
-            .Where(m => m.GetCustomAttribute<TestAttribute>() is not null)
-            .Where(m => filter is null || $"{m.DeclaringType!.Name}.{m.Name}".Contains(filter, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(m => m.DeclaringType!.Name).ThenBy(m => m.Name)
-            .ToList();
-
-        var failed = 0;
-        foreach (var test in tests)
-        {
-            var name = $"{test.DeclaringType!.Name}.{test.Name}";
-            try
-            {
-                test.Invoke(null, null);
-                Console.WriteLine($"  PASS  {name}");
-            }
-            catch (TargetInvocationException ex) when (ex.InnerException is not null)
-            {
-                failed++;
-                Console.WriteLine($"  FAIL  {name}\n        {ex.InnerException.Message.Replace("\n", "\n        ")}");
-            }
-        }
-        Console.WriteLine();
-        Console.WriteLine($"{tests.Count - failed}/{tests.Count} passed");
-        return failed == 0 ? 0 : 1;
+        return TestHost.Run([typeof(TestSupport).Assembly, typeof(TestRunner).Assembly], args.FirstOrDefault());
     }
 }

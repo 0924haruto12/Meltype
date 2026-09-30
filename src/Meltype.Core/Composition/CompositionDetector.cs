@@ -47,7 +47,7 @@ public sealed class CompositionDetector
     public RomajiDetector Romaji => _romaji;
 
     /// <summary>普通の英単語の判定に使う Windows のスペルチェッカー。null なら同梱の辞書だけ。</summary>
-    public WindowsSpellChecker? SpellChecker { get; set; }
+    public IWordChecker? SpellChecker { get; set; }
 
     /// <summary>ユーザーが英字 / かなに直して覚えた語 (自動の判定より優先する)。</summary>
     public LanguageMemory? Memory { get; set; }

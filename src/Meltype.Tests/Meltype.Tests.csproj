@@ -10,5 +10,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Meltype\Meltype.csproj" />
+    <ProjectReference Include="..\Meltype.Core.Tests\Meltype.Core.Tests.csproj" />
   </ItemGroup>
 </Project>
