@@ -312,6 +312,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             // 英数状態: ローマ字かどうかを判定するために、単語の打ち始めの英字だけを受け取る。
             // 英語と分かった単語の続きは、区切り (Space など) まで素通しする。
             if (!letter || !settings.DirectModeAutoDetect || settings.DetectionLevel == DetectionLevel.Manual || _directEnglishWord) return false;
+            if (_composition?.Focus.CanCapture != true) Log.Info("英数状態: 入力欄を確認できないので判定しない");
         }
         else if (!letter && !punctuation)
         {

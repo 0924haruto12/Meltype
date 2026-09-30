@@ -304,6 +304,7 @@ public sealed class CompositionController
                 return;
             }
             // 英字以外のキー・Shift で判定を打ち切り、英語として出してから、そのキーを普通に処理する。
+            Diagnostics.Log.Info($"英数状態の判定を打ち切り: キー 0x{vk:X2} (Shift {_swallowedShift.Count})");
             ReleaseHeldAsEnglish();
         }
 
@@ -430,6 +431,7 @@ public sealed class CompositionController
             // 英数状態: ローマ字かどうか判定できるまで保留する。大文字で始まる語は英語なのでそのまま通す。
             if (_options.ClassifyDirect is null || _swallowedShift.Count > 0 || char.IsAsciiLetterUpper(c!.Value))
             {
+                Diagnostics.Log.Info($"英数状態: 「{c}」は大文字 / Shift なので英語のまま");
                 ReplayDown(e);
                 _options.DirectDecided?.Invoke(false);
             }
@@ -540,6 +542,7 @@ public sealed class CompositionController
     private void DecideHeld(bool final)
     {
         var verdict = _options.ClassifyDirect!(_heldLetters.ToString(), final);
+        Diagnostics.Log.Info($"英数状態の判定: 「{_heldLetters}」→ {verdict}{(final ? " (打ち終わり)" : "")}");
         if (verdict == Verdict.Japanese) SwitchHeldToJapanese();
         else if (verdict != Verdict.Undecided || final) ReleaseHeldAsEnglish();
     }
@@ -714,12 +717,40 @@ public sealed class CompositionController
     /// </summary>
     private List<Clause> ConvertJapanese(string kana)
     {
+        // ローマ字として読めずに残った英字 (こほぃc の c) は、変換エンジンに渡すと記号 (©) にされるので、英字のままの文節にする。
+        if (kana.Any(char.IsAsciiLetter))
+        {
+            var result = new List<Clause>();
+            var start = 0;
+            for (var i = 1; i <= kana.Length; i++)
+            {
+                if (i < kana.Length && char.IsAsciiLetter(kana[i]) == char.IsAsciiLetter(kana[start])) continue;
+                var run = kana[start..i];
+                if (char.IsAsciiLetter(run[0])) result.Add(new Clause(run, false, Distinct(run, CompositionText.ToFullWidth(run))));
+                else result.AddRange(ConvertJapanese(run));
+                start = i;
+            }
+            return result;
+        }
         if (_options.UserDictionary?.Split(kana) is not { } pieces) return ConvertWithEngine(kana);
         var clauses = new List<Clause>();
+        var registered = new List<Clause>();
         foreach (var (reading, word) in pieces)
         {
-            if (word is null) clauses.AddRange(ConvertWithEngine(reading));
-            else clauses.Add(new Clause(reading, false, JapaneseCandidates(reading, word)));
+            if (word is null)
+            {
+                clauses.AddRange(ConvertWithEngine(reading));
+                continue;
+            }
+            var clause = new Clause(reading, false, JapaneseCandidates(reading, word));
+            clauses.Add(clause);
+            registered.Add(clause);
+        }
+        // 同梱の語句 (しょせん → 所詮) も、文脈の手がかり (試合 → 初戦) と学習で選び直せるようにする。
+        foreach (var clause in registered)
+        {
+            var surrounding = (_precedingText ?? "") + string.Concat(clauses.Where(c => c != clause).Select(c => c.Text)) + (_followingText ?? "");
+            if ((_options.ContextRules?.Choose(clause.Reading, surrounding) ?? _options.History?.Get(clause.Reading)) is { } preferred) Prefer(clause, preferred);
         }
         return clauses;
     }

@@ -110,6 +110,19 @@ public sealed class CompositionDetector
                     break;
                 }
             }
+            // 途中で終わる英語の区間 (te + al… の teal) より、少し後ろから末尾まで続く長い英単語 (alcoholic) があれば、そちらを取る
+            // (sometealcoholic → 染めて + alcoholic。teal を取ると残りの coholic がローマ字になってしまう)。
+            if (found > i && found < n && !kanaInput && !IsAsciiSymbol(units[i]))
+            {
+                for (var k = i + 1; k < found; k++)
+                {
+                    if (IsLongEnglishWord(Raw(units, k, n) + pending) && n - k > found - i)
+                    {
+                        found = -1;
+                        break;
+                    }
+                }
+            }
             if (found < 0)
             {
                 i++;
@@ -337,6 +350,15 @@ public sealed class CompositionDetector
         if (!stem.All(char.IsAsciiLetterLower) || suffix is not ("t" or "s" or "re" or "ve" or "ll" or "d" or "m")) return false;
         if (suffix == "t") return stem.Length >= 2 && stem[^1] == 'n';
         return stem == "i" || _english.Words.ContainsWord(stem) || _proper.Contains(stem);
+    }
+
+    /// <summary>ローマ字として読めない、5 文字以上の英単語 (alcoholic, pressure)。</summary>
+    private bool IsLongEnglishWord(string raw)
+    {
+        if (raw.Length < 5 || !raw.All(char.IsAsciiLetter)) return false;
+        var lower = raw.ToLowerInvariant();
+        if (_romaji.Analyze(lower).IsValid) return false;
+        return _english.Words.ContainsWord(lower) || _proper.Contains(lower) || SpellChecker?.IsWord(lower) == true;
     }
 
     private bool IsKnownCapitalizedWord(string word)
