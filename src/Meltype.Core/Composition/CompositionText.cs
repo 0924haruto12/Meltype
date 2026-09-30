@@ -84,6 +84,14 @@ public sealed class CompositionText
             Normalize(final: false);
             return;
         }
+        if (_pending.Length > 0 && char.ToLowerInvariant(_pending[^1]) == 'z' && ZSymbol(c) is { } z)
+        {
+            var raw = _pending[^1].ToString() + c;
+            _pending.Length--;
+            Normalize(final: true);
+            _units.Add(new CompositionUnit(z.ToString(), raw));
+            return;
+        }
         // 記号・数字の前で、途中の n は ん に、読めない子音は英字のまま確定させる。
         Normalize(final: true);
         _units.Add(new CompositionUnit(Symbol(c).ToString(), c.ToString()));
@@ -402,18 +410,33 @@ public sealed class CompositionText
         return _detector.Romaji.ConvertLenient(pending.ToLowerInvariant(), final);
     }
 
+    /// <summary>日本語の中で打った記号 (Microsoft IME と同じく全角)。英語の区間では打ったままの半角で出す。数字は半角のまま。</summary>
     private static char Symbol(char c) => c switch
     {
         '-' => 'ー',
         ',' => '、',
         '.' => '。',
-        '?' => '？',
-        '!' => '！',
         '[' => '「',
         ']' => '」',
         '~' => '～',
-        '/' => '・',
+        '\'' => '’',
+        '"' => '”',
+        // JIS キーボードの ￥ キー
+        '\\' => '￥',
+        _ when c is >= '!' and <= '~' && !char.IsAsciiLetterOrDigit(c) => (char)(c + 0xFEE0),
         _ => c,
+    };
+
+    /// <summary>z + 記号 (Microsoft IME と同じ): z/ → ・、z. → …、z, → ‥、z- → ～、z[ → 『、z] → 』。</summary>
+    private static char? ZSymbol(char c) => c switch
+    {
+        '/' => '・',
+        '.' => '…',
+        ',' => '‥',
+        '-' => '～',
+        '[' => '『',
+        ']' => '』',
+        _ => null,
     };
 
     public static string ToKatakana(string hiragana)

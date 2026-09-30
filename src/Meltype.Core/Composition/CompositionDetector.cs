@@ -95,6 +95,7 @@ public sealed class CompositionDetector
             // 英文の中の記号 (, . ! ? -) は読点・句点にせず半角のまま。日本語の文の中の英単語の後 (今日はgoogle、) は日本語の記号。
             // (かな入力では 、。 も かなのキーなので対象外)
             if (!kanaInput && IsAsciiSymbol(units[i]) && PrecededByEnglish(i) == true && segments.All(s => s.IsEnglish)) found = i + 1;
+            if (!kanaInput && found < 0 && level != DetectionLevel.Manual) found = CapitalizedWordEnd(units, i, pending, final);
             for (var j = n; j > i && found < 0; j--)
             {
                 // 区間の後ろ: 末尾まで打っているならキャレットの後ろの文字、途中なら続きの日本語。
@@ -193,7 +194,7 @@ public sealed class CompositionDetector
     private static int Score(bool? english) => english switch { true => 1, false => -1, null => 0 };
 
     private static bool IsAsciiSymbol(CompositionUnit unit) =>
-        unit.Raw.Length == 1 && unit.Raw[0] is ',' or '.' or '!' or '?' or '-' or '\'' or ':' or ';' or '[' or ']' or '(' or ')' or '/' or '"' or '~';
+        unit.Raw.Length == 1 && unit.Raw[0] is >= '!' and <= '~' && !char.IsAsciiLetterOrDigit(unit.Raw[0]);
 
     /// <param name="final">打ち終わった (Space・Enter)。末尾の区間でも、英単語の打ちかけ (amaz) は英語の根拠にしない。</param>
     /// <param name="unreadable">区間にローマ字として読めなかった英字がある (zoom + de の m、bug + wo の g)。</param>
@@ -201,6 +202,7 @@ public sealed class CompositionDetector
     {
         // まだ続きを打つかもしれない末尾の区間 (打ちかけの英単語を英語と見てよい)。
         var growing = atEnd && !final;
+        if (IsContraction(span)) return level != DetectionLevel.Manual || char.IsAsciiLetterUpper(span[0]);
         if (span.Length == 0 || !span.All(char.IsAsciiLetter)) return false;
         var lower = span.ToLowerInvariant();
         var inDictionary = _english.Words.ContainsWord(lower);
@@ -299,6 +301,48 @@ public sealed class CompositionDetector
         if (japanese || context < 0) return false;
         var minimum = level switch { DetectionLevel.Aggressive => 2, DetectionLevel.Conservative => 4, _ => 3 };
         return lower.Length >= minimum;
+    }
+
+    /// <summary>
+    /// 大文字で始まる語 (Shift を押して打った) の後ろに日本語が続いているなら、その語の終わり (単位の位置)。無ければ -1。
+    /// 大文字で始まる区間は末尾まで英語になるので、そのままでは AutoIMEnotesuto → 全部英字 になってしまう。
+    /// 語は、知っている英単語 (Github) か、大文字で終わる語 (AutoIME, OK, NHK)。後ろは 3 文字以上の小文字で、ローマ字として読めるもの。
+    /// </summary>
+    private int CapitalizedWordEnd(IReadOnlyList<CompositionUnit> units, int start, string pending, bool final)
+    {
+        var n = units.Count;
+        var whole = Raw(units, start, n) + pending;
+        if (whole.Length == 0 || !char.IsAsciiLetterUpper(whole[0]) || !whole.All(char.IsAsciiLetter)) return -1;
+        // 全体が英単語・固有名詞 (Tokyo, Github) なら区切らない。
+        if (IsKnownCapitalizedWord(whole)) return -1;
+        for (var k = n - 1; k > start; k--)
+        {
+            var head = Raw(units, start, k);
+            var rest = Raw(units, k, n) + pending;
+            if (rest.Length < 3 || !rest.All(char.IsAsciiLetterLower)) continue;
+            var analysis = _romaji.Analyze(rest);
+            if (!analysis.IsValid || (final && analysis.Partial.Length > 0 && analysis.Partial != "n")) continue;
+            if (head.Length >= 2 && char.IsAsciiLetterUpper(head[^1]) || head.Length >= 3 && IsKnownCapitalizedWord(head)) return k;
+        }
+        return -1;
+    }
+
+    /// <summary>英語の短縮形 (don't, it's, I'm, you're, we'll, can't)。' の前が英単語か n't の形。</summary>
+    private bool IsContraction(string span)
+    {
+        var apostrophe = span.IndexOf('\'');
+        if (apostrophe <= 0 || apostrophe != span.LastIndexOf('\'')) return false;
+        var stem = span[..apostrophe].ToLowerInvariant();
+        var suffix = span[(apostrophe + 1)..].ToLowerInvariant();
+        if (!stem.All(char.IsAsciiLetterLower) || suffix is not ("t" or "s" or "re" or "ve" or "ll" or "d" or "m")) return false;
+        if (suffix == "t") return stem.Length >= 2 && stem[^1] == 'n';
+        return stem == "i" || _english.Words.ContainsWord(stem) || _proper.Contains(stem);
+    }
+
+    private bool IsKnownCapitalizedWord(string word)
+    {
+        var lower = word.ToLowerInvariant();
+        return Memory?.Get(lower) == true || _english.Words.ContainsWord(lower) || _proper.Contains(lower);
     }
 
     /// <summary>最初の 3 文字以内でローマ字として読めなくなる、4 文字以上の語 (日本語の打ち間違いでもないもの)。</summary>

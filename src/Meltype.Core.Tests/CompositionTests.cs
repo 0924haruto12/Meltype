@@ -82,11 +82,26 @@ internal static class CompositionTests
         {
             if (VirtualKeys.IsLetter(e.Vk)) return shift || PhysicalShift ? (char)e.Vk : char.ToLowerInvariant((char)e.Vk);
             var shifted = shift || PhysicalShift;
-            // JIS 配列: Shift+1 = !, Shift+/ = ?, Shift+^ = ~
-            if (shifted && e.Vk is 0x31 or 0xBF or 0xDE) return e.Vk switch { 0x31 => '!', 0xBF => '?', _ => '~' };
-            if (e.Vk is >= 0x30 and <= 0x39) return (char)e.Vk;
-            return e.Vk switch { 0xBD => '-', 0xBC => ',', 0xBE => '.', 0xDB => '[', 0xDD => ']', 0xBF => '/', _ => null };
+            foreach (var (c, key) in JisKeys)
+            {
+                if (key.Vk == e.Vk && key.Shift == shifted) return c;
+            }
+            return null;
         }
+
+        /// <summary>JIS 配列の数字・記号のキー (文字 → 仮想キー, Shift)。</summary>
+        public static readonly Dictionary<char, (int Vk, bool Shift)> JisKeys = new()
+        {
+            ['0'] = (0x30, false), ['1'] = (0x31, false), ['2'] = (0x32, false), ['3'] = (0x33, false), ['4'] = (0x34, false),
+            ['5'] = (0x35, false), ['6'] = (0x36, false), ['7'] = (0x37, false), ['8'] = (0x38, false), ['9'] = (0x39, false),
+            ['!'] = (0x31, true), ['"'] = (0x32, true), ['#'] = (0x33, true), ['$'] = (0x34, true), ['%'] = (0x35, true),
+            ['&'] = (0x36, true), ['\''] = (0x37, true), ['('] = (0x38, true), [')'] = (0x39, true),
+            ['-'] = (0xBD, false), ['='] = (0xBD, true), ['^'] = (0xDE, false), ['~'] = (0xDE, true), ['\\'] = (0xDC, false), ['|'] = (0xDC, true),
+            ['@'] = (0xC0, false), ['`'] = (0xC0, true), ['['] = (0xDB, false), ['{'] = (0xDB, true),
+            [';'] = (0xBB, false), ['+'] = (0xBB, true), [':'] = (0xBA, false), ['*'] = (0xBA, true), [']'] = (0xDD, false), ['}'] = (0xDD, true),
+            [','] = (0xBC, false), ['<'] = (0xBC, true), ['.'] = (0xBE, false), ['>'] = (0xBE, true), ['/'] = (0xBF, false), ['?'] = (0xBF, true),
+            ['_'] = (0xE2, true),
+        };
 
         public bool IsShiftDown() => PhysicalShift;
 
@@ -174,9 +189,8 @@ internal static class CompositionTests
             if (!k.IsDown || _ctrlHeld) return false;
             var letter = VirtualKeys.IsLetter(k.Vk);
             if (Direct) return letter && !_directEnglishWord && Level != Meltype.Config.DetectionLevel.Manual;
-            if (_shiftHeld && k.Vk is 0x31 or VirtualKeys.Oem2 or 0xDE or 0xC0) return true;
             if (Kana && Detection.KanaDetector.IsKanaKey(k.Vk)) return true;
-            return letter || k.Vk is VirtualKeys.OemComma or VirtualKeys.OemPeriod or VirtualKeys.OemMinus or VirtualKeys.Oem2 or VirtualKeys.Oem4 or VirtualKeys.Oem6 or (>= 0x30 and <= 0x39);
+            return letter || k.Vk is >= 0x30 and <= 0x39 or >= 0xBA and <= 0xC0 or >= 0xDB and <= 0xDF or 0xE2;
         }
 
         /// <summary>フックと同じく、関所が閉じていれば英字キーで変換ボックスを開く。</summary>
@@ -214,20 +228,15 @@ internal static class CompositionTests
                 else if (c == ' ') Press(VirtualKeys.Space);
                 else if (c == '\n') Press(VirtualKeys.Return);
                 else if (c == '\b') Press(VirtualKeys.Back);
-                else if (c is '!' or '?' or '~')
+                else if (FakeHost.JisKeys.TryGetValue(c, out var key) && key.Shift)
                 {
                     Host.PhysicalShift = !Gate.IsCaptured;
                     Key(VirtualKeys.LShift);
-                    Press(c switch { '!' => 0x31, '?' => 0xBF, _ => 0xDE });
+                    Press(key.Vk);
                     Key(VirtualKeys.LShift, up: true);
                     Host.PhysicalShift = false;
                 }
-                else if (c == '-') Press(0xBD);
-                else if (c == '[') Press(0xDB);
-                else if (c == ']') Press(0xDD);
-                else if (c == '/') Press(0xBF);
-                else if (c == ',') Press(0xBC);
-                else if (c == '.') Press(0xBE);
+                else if (FakeHost.JisKeys.TryGetValue(c, out key)) Press(key.Vk);
                 else Press(char.ToUpperInvariant(c));
             }
         }
@@ -601,7 +610,31 @@ internal static class CompositionTests
     public static void Symbols_StartComposition()
     {
         // 報告: かぎかっこが入力できない。
-        var cases = new Dictionary<string, string> { ["[kagi]"] = "「かぎ」", ["-"] = "ー", ["/"] = "・", [","] = "、" };
+        var cases = new Dictionary<string, string> { ["[kagi]"] = "「かぎ」", ["-"] = "ー", ["/"] = "／", ["z/"] = "・", ["#"] = "＃", ["("] = "（", ["@"] = "＠", [","] = "、",
+            // 報告: Shift で打つ記号が全角で打てない、/ が打てない。英語の中では半角のまま。
+            ["$%&"] = "＄％＆", ["kyouha(tenki)"] = "きょうは（てんき）", ["hello@example"] = "hello@example",
+            // 報告: ca / cu / co で か く こ
+            ["cacuco"] = "かくこ",
+        };
+        foreach (var (typed, expected) in cases)
+        {
+            var k = new Keyboard();
+            k.Type(typed);
+            Assert.Equal(expected, k.Showing, $"「{typed}」");
+        }
+    }
+
+    [Test]
+    public static void CapitalizedWord_FollowedByJapanese()
+    {
+        // 報告: 今日はAutoIMEnotesutowosimasu が全部英字になる。大文字で始まる語の後ろの日本語は日本語にする。
+        var cases = new Dictionary<string, string>
+        {
+            ["AutoIMEnotesuto"] = "AutoIMEのてすと", ["Githubdekaku"] = "Githubでかく", ["OKdesu"] = "OKです",
+            ["Tokyo"] = "Tokyo", ["Hello"] = "Hello",
+            // 報告: I don't → どん't。短縮形は英語。
+            ["don't"] = "don't", ["I'm"] = "I'm",
+        };
         foreach (var (typed, expected) in cases)
         {
             var k = new Keyboard();

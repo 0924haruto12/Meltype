@@ -302,26 +302,22 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         var settings = _settings;
         if (!settings.Enabled || settings.Mode != InputMode.Keyboard) return false;
         var letter = VirtualKeys.IsLetter(e.Vk);
-        // 句読点・かぎかっこ・長音・中黒・数字 (、。「」ー・0-9) でも変換ボックスを開く (Shift なしのときだけ)。
-        var punctuation = e.Vk is VirtualKeys.OemComma or VirtualKeys.OemPeriod or VirtualKeys.OemMinus or VirtualKeys.Oem2 or VirtualKeys.Oem4 or VirtualKeys.Oem6
-            || e.Vk is >= 0x30 and <= 0x39;
-        // Shift を押して打つ ！ ？ ～ (Shift+1 / Shift+/ / Shift+^ (JIS) / Shift+` (US))。
-        var shiftedSymbol = e.Vk is 0x31 or VirtualKeys.Oem2 or 0xDE or 0xC0;
-        var shift = IsDown(VirtualKeys.Shift);
-        // かな入力 (JIS): かなのキー (数字・記号のキーも含む) はすべて、Shift を押していても入力を始める。
-        if (settings.InputStyle == InputStyle.Kana && !_keyboardDirect && KanaDetector.IsKanaKey(e.Vk)) punctuation = shiftedSymbol = true;
+        // 句読点・かぎかっこ・長音・数字・記号のキー (Shift を押して打つ ＃＄％（）＠ なども) でも変換ボックスを開く。
+        // 日本語の中では全角、英語の中では半角になる。
+        var punctuation = e.Vk is >= 0x30 and <= 0x39 or >= 0xBA and <= 0xC0 or >= 0xDB and <= 0xDF or 0xE2;
+        // かな入力 (JIS): かなのキー (数字・記号のキーも含む) はすべて入力を始める。
+        if (settings.InputStyle == InputStyle.Kana && !_keyboardDirect && KanaDetector.IsKanaKey(e.Vk)) punctuation = true;
         if (_keyboardDirect)
         {
             // 英数状態: ローマ字かどうかを判定するために、単語の打ち始めの英字だけを受け取る。
             // 英語と分かった単語の続きは、区切り (Space など) まで素通しする。
             if (!letter || !settings.DirectModeAutoDetect || settings.DetectionLevel == DetectionLevel.Manual || _directEnglishWord) return false;
         }
-        else if (!letter && !punctuation && !(shift && shiftedSymbol))
+        else if (!letter && !punctuation)
         {
             return false;
         }
         if (IsDown(VirtualKeys.Control) || IsDown(VirtualKeys.Menu) || IsDown(VirtualKeys.LWin) || IsDown(VirtualKeys.RWin)) return false;
-        if (punctuation && shift && !shiftedSymbol) return false;
         if (!_foreground.Check(settings).Allowed) return false;
         // 文字入力欄 (パスワード以外) にフォーカスがあるときだけ。ショートカットキーやゲームの操作を横取りしない。
         if (_composition?.Focus.CanCapture != true) return false;

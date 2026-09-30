@@ -411,7 +411,7 @@ public sealed class CompositionController
     }
 
     /// <summary>変換ボックスを開く記号・数字 (フック側の MeltypeEngine.StartsComposition と合わせる)。</summary>
-    internal static bool StartsWithSymbol(char c) => char.IsAsciiDigit(c) || c is ',' or '.' or '[' or ']' or '-' or '/' or '!' or '?' or '~';
+    internal static bool StartsWithSymbol(char c) => c is >= '!' and <= '~' && !char.IsAsciiLetter(c);
 
     /// <summary>変換ボックスが空のときの最初の打鍵。英字・句読点なら入力を始め、それ以外はそのまま通す。</summary>
     private void StartWith(KeyEvent e)

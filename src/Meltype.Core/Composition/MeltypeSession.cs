@@ -198,8 +198,8 @@ public sealed class MeltypeSession
     {
         if (ch is not { } c) return false;
         if (VirtualKeys.IsLetter(e.Vk) && char.IsAsciiLetter(c)) return true;
-        // 句読点・かぎかっこ・長音・中黒・数字、Shift で打つ ！？～
-        return CompositionController.StartsWithSymbol(c) && (!shift || c is '!' or '?' or '~');
+        // 句読点・かぎかっこ・長音・数字・記号 (Shift で打つものも)
+        return CompositionController.StartsWithSymbol(c);
     }
 
     /// <summary>変換ボックスからの指示を集めて、1 回のキー入力の結果にまとめる。</summary>
