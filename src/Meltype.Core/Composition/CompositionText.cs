@@ -427,6 +427,24 @@ public sealed class CompositionText
         _ => c,
     };
 
+    /// <summary>全角の記号 (＃ （ ％ ’ ￥) を半角に戻す。かな・漢字・句読点 (、。「」ー) はそのまま。</summary>
+    public static string SymbolsToHalfWidth(string text)
+    {
+        var chars = text.ToCharArray();
+        for (var i = 0; i < chars.Length; i++)
+        {
+            chars[i] = chars[i] switch
+            {
+                '’' => '\'',
+                '”' => '"',
+                '￥' => '\\',
+                >= '！' and <= '～' when !char.IsLetterOrDigit(chars[i]) => (char)(chars[i] - 0xFEE0),
+                _ => chars[i],
+            };
+        }
+        return new string(chars);
+    }
+
     /// <summary>z + 記号 (Microsoft IME と同じ): z/ → ・、z. → …、z, → ‥、z- → ～、z[ → 『、z] → 』。</summary>
     private static char? ZSymbol(char c) => c switch
     {

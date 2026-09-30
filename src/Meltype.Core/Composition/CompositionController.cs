@@ -695,7 +695,13 @@ public sealed class CompositionController
 
     private static void AddRawCandidates(Clause clause)
     {
-        if (clause.Raw is not { } raw || !raw.Any(char.IsAsciiLetter)) return;
+        // 全角にした記号 (＃ （ ％) は、半角に戻した候補も出す (Space を続けて押すと半角の # ( %)。
+        if (clause.Candidates.Count > 0 && CompositionText.SymbolsToHalfWidth(clause.Candidates[0]) is var half && half != clause.Candidates[0] &&
+            !clause.Candidates.Contains(half))
+        {
+            clause.Candidates.Add(half);
+        }
+        if (clause.Raw is not { } raw || !raw.Any(c => c is >= '!' and <= '~')) return;
         foreach (var candidate in new[] { raw, CompositionText.ToFullWidth(raw) })
         {
             if (!clause.Candidates.Contains(candidate)) clause.Candidates.Add(candidate);

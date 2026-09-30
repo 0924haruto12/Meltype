@@ -625,6 +625,15 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Symbols_HalfWidthCandidate()
+    {
+        // 報告: Space を続けて押して、記号も半角で出せるように。
+        var k = new Keyboard();
+        k.Type("# ");
+        Assert.True(k.Host.View!.Candidates.Contains("#"), "＃ の候補に # がある: " + string.Join(",", k.Host.View.Candidates));
+    }
+
+    [Test]
     public static void CapitalizedWord_FollowedByJapanese()
     {
         // 報告: 今日はAutoIMEnotesutowosimasu が全部英字になる。大文字で始まる語の後ろの日本語は日本語にする。
