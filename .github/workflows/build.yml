@@ -36,19 +36,39 @@ jobs:
   # Mozc の変換ヘルパー (native/mozc) をビルドする。初回は 30〜40 分かかるので、配布用の zip を作るとき
   # (タグ・手動実行) と、ヘルパーのソースを変えたときだけ。Bazel の結果はキャッシュして次から速くする。
   mozc:
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || contains(join(github.event.commits.*.modified, ','), 'native/mozc/') || contains(join(github.event.commits.*.added, ','), 'native/mozc/')
+    if: github.event_name != 'pull_request'
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+        with:
+          fetch-depth: 0
+      # タグ・手動実行ならビルドする。push なら、native/mozc かこのファイルが変わったときだけ (変わっていなければ数秒で終わる)。
+      - name: Check
+        id: check
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* || "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          elif [[ -z "$BEFORE" || "$BEFORE" =~ ^0+$ ]] || git diff --name-only "$BEFORE" "$GITHUB_SHA" -- native/mozc .github/workflows/build.yml | grep -q .; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "native/mozc は変わっていないので、Mozc のビルドは飛ばします。"
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          BEFORE: ${{ github.event.before }}
+      - if: steps.check.outputs.build == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - name: Bazelisk
+        if: steps.check.outputs.build == 'true'
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path C:\tools | Out-Null
           Invoke-WebRequest -Uri https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-windows-amd64.exe -OutFile C:\tools\bazelisk.exe
-      - uses: actions/cache@v4
+      - if: steps.check.outputs.build == 'true'
+        uses: actions/cache@v4
         with:
           path: |
             C:\bazel-cache
@@ -57,9 +77,11 @@ jobs:
           restore-keys: |
             mozc-${{ hashFiles('native/mozc/MOZC_COMMIT') }}-
       - name: Build Mozc helper
+        if: steps.check.outputs.build == 'true'
         shell: powershell
         run: .\native\mozc\Build-MozcHelper.ps1 -MozcSource C:\mozc -Python python -Bazelisk C:\tools\bazelisk.exe -DiskCache C:\bazel-cache
-      - uses: actions/upload-artifact@v4
+      - if: steps.check.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
         with:
           name: mozc-helper
           path: native/mozc/bin/
