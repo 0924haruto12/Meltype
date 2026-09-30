@@ -70,6 +70,7 @@ public sealed class CompositionText
     {
         if (char.IsAsciiLetter(c))
         {
+            SplitEnglishFinalN(c);
             // 直前の「ローマ字として読めなかった英字」は、次の文字と合わせると読めることがある
             // (test の t を消して u を打つ → s + u = す)。入力途中の子音に戻して読み直す。
             var pulled = new StringBuilder();
@@ -86,6 +87,29 @@ public sealed class CompositionText
         // 記号・数字の前で、途中の n は ん に、読めない子音は英字のまま確定させる。
         Normalize(final: true);
         _units.Add(new CompositionUnit(Symbol(c).ToString(), c.ToString()));
+    }
+
+    /// <summary>
+    /// 英単語の最後の n と、続けて打った n + 母音 (の・な …) が「nn → ん」とまとまってしまうのを防ぐ
+    /// (python + no → pythonno → python + ん + お ではなく python + の)。
+    /// 直前の単位が nn でできた ん で、その前の英字と 1 つ目の n で知っている英単語になり、今打ったのが母音か y なら、
+    /// ん を 1 つ目の n だけにして、2 つ目の n を今打った文字とつなげる。
+    /// </summary>
+    private void SplitEnglishFinalN(char c)
+    {
+        if (_pending.Length > 0 || _units.Count < 2 || char.ToLowerInvariant(c) is not ('a' or 'i' or 'u' or 'e' or 'o' or 'y')) return;
+        if (_units[^1] is not { Kana: "ん" } last || !last.Raw.Equals("nn", StringComparison.OrdinalIgnoreCase)) return;
+        // 直前の英字の並び (英字だけの単位) の後ろの部分 + n が英単語か (きょうは + python の python)。
+        var letters = new StringBuilder();
+        for (var i = _units.Count - 2; i >= 0 && _units[i].Raw.All(char.IsAsciiLetter); i--) letters.Insert(0, _units[i].Raw);
+        var run = letters.ToString() + last.Raw[0];
+        for (var start = 0; start <= run.Length - 3; start++)
+        {
+            if (!_detector.IsKnownEnglishWord(run[start..])) continue;
+            _units[^1] = new CompositionUnit("ん", last.Raw[..1]);
+            _pending.Append(last.Raw[1]);
+            return;
+        }
     }
 
     /// <summary>1 音 (または 1 文字) 消す。入力途中の子音があればそれを 1 文字消す。</summary>
@@ -211,6 +235,47 @@ public sealed class CompositionText
             segments[^1] = segments[^1] with { Kana = segments[^1].Kana + PendingText(final: true) };
         }
         return segments;
+    }
+
+    /// <summary>
+    /// <see cref="ConversionSegments"/> の segmentIndex 番目 (日本語の区間) の読みのうち [start, start + length) に対応する、打った英字
+    /// (あぴ → api)。変換の候補に「打ったままの英字」を出すのに使う。読みの区切りが 1 音の区切りと合わないときや、かな入力では null。
+    /// </summary>
+    public string? RawForReading(int segmentIndex, int start, int length)
+    {
+        if (KanaInput) return null;
+        var segments = Segments(final: true);
+        if (segmentIndex < 0 || segmentIndex >= segments.Count) return null;
+        // 区間ごとに単位を割り当てる (区間の Raw の長さぶんの単位)。
+        var unit = 0;
+        for (var s = 0; s < segmentIndex; s++)
+        {
+            var remaining = segments[s].Raw.Length;
+            while (unit < _units.Count && remaining > 0) remaining -= _units[unit++].Raw.Length;
+        }
+        var pieces = new List<(string Kana, string Raw)>();
+        var rawLength = segments[segmentIndex].Raw.Length - (segmentIndex == segments.Count - 1 ? _pending.Length : 0);
+        while (unit < _units.Count && rawLength > 0)
+        {
+            pieces.Add((_units[unit].Kana, _units[unit].Raw));
+            rawLength -= _units[unit++].Raw.Length;
+        }
+        if (segmentIndex == segments.Count - 1 && _pending.Length > 0) pieces.Add((PendingText(final: true), Pending));
+
+        var builder = new StringBuilder();
+        var position = 0;
+        foreach (var (kana, raw) in pieces)
+        {
+            var end = position + kana.Length;
+            if (end > start && position < start + length)
+            {
+                // 1 音の途中で区切れているなら、打った英字に対応させられない。
+                if (position < start || end > start + length) return null;
+                builder.Append(raw);
+            }
+            position = end;
+        }
+        return builder.Length > 0 ? builder.ToString() : null;
     }
 
     /// <param name="final">確定・変換のときは true (語末の n を ん にする)。</param>

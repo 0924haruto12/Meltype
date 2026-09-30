@@ -332,3 +332,40 @@ internal static class LanguageLearningTests
         }
     }
 }
+
+internal static class RawCandidateTests
+{
+    [Test]
+    public static void Conversion_OffersTypedLetters_AndLearns()
+    {
+        var memory = new LanguageMemory(null);
+        CompositionTests.Detector.Memory = memory;
+        try
+        {
+            var k = new CompositionTests.Keyboard(languages: memory);
+            k.Type("api ");
+            var candidates = k.Host.View!.Candidates;
+            Assert.True(candidates.Contains("api") && candidates.Contains("ａｐｉ"), $"候補に打ったままの英字と全角の英字: {string.Join(" ", candidates)}");
+            // Space を連打して英字まで送る
+            for (var i = 0; i < 10 && k.Host.View!.Candidates[k.Host.View.SelectedIndex] != "api"; i++) k.Press(VirtualKeys.Space);
+            k.Type("\n");
+            Assert.Equal("api", k.Host.Document);
+            Assert.Equal(true, memory.Get("api"), "英字を選んで確定したので覚える");
+        }
+        finally
+        {
+            CompositionTests.Detector.Memory = null;
+        }
+    }
+
+    [Test]
+    public static void EnglishWordEndingInN_BeforeParticle()
+    {
+        foreach (var (typed, expected) in new[] { ("pythonnobug", "pythonのbug"), ("kotlinnihenkou", "kotlinにへんこう"), ("kannji", "かんじ"), ("konnnichiha", "こんにちは") })
+        {
+            var k = new CompositionTests.Keyboard();
+            k.Type(typed);
+            Assert.Equal(expected, k.Showing, typed);
+        }
+    }
+}

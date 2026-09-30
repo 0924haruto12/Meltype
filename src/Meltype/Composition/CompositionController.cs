@@ -173,6 +173,9 @@ public sealed class CompositionController
 
         /// <summary>Windows の変換候補 API の候補を足したか。</summary>
         public bool Expanded { get; set; }
+
+        /// <summary>この文節の読みを打ったときの英字 (あぴ → api)。分からなければ null。</summary>
+        public string? Raw { get; set; }
     }
 
     public CompositionController(CaptureGate gate, CompositionDetector detector, IKanjiConverter converter, ICompositionHost host, CompositionOptions? options = null)
@@ -652,20 +655,40 @@ public sealed class CompositionController
     private void StartConversion()
     {
         var clauses = new List<Clause>();
-        foreach (var segment in _text.ConversionSegments())
+        var segments = _text.ConversionSegments();
+        for (var s = 0; s < segments.Count; s++)
         {
+            var segment = segments[s];
             if (segment.IsEnglish)
             {
                 clauses.Add(new Clause(segment.Raw, true, EnglishCandidates(segment.Raw)));
                 continue;
             }
             if (segment.Kana.Length == 0) continue;
-            clauses.AddRange(ConvertJapanese(segment.Kana));
+            var japanese = ConvertJapanese(segment.Kana);
+            // 候補の最後に、打ったままの英字 (あぴ → api) と全角の英字も出す (Space を連打して英字に戻せる)。
+            var offset = 0;
+            foreach (var clause in japanese)
+            {
+                clause.Raw = _text.RawForReading(s, offset, clause.Reading.Length);
+                offset += clause.Reading.Length;
+                AddRawCandidates(clause);
+            }
+            clauses.AddRange(japanese);
         }
         if (clauses.Count == 0) return;
         _clauses = clauses;
         _selectedClause = 0;
         _converting = true;
+    }
+
+    private static void AddRawCandidates(Clause clause)
+    {
+        if (clause.Raw is not { } raw || !raw.Any(char.IsAsciiLetter)) return;
+        foreach (var candidate in new[] { raw, CompositionText.ToFullWidth(raw) })
+        {
+            if (!clause.Candidates.Contains(candidate)) clause.Candidates.Add(candidate);
+        }
     }
 
     /// <summary>
@@ -1001,12 +1024,18 @@ public sealed class CompositionController
     /// <summary>選び直した文節を学習する (次に同じ読みを変換したとき最初の候補にする)。</summary>
     private void Learn()
     {
+        // 変換の候補から打ったままの英字 (api) を選んで確定したら、その語は次から英字にする (F10 と同じ)。
+        foreach (var clause in _clauses.Where(c => !c.IsEnglish && c.Changed && c.Raw is { } raw && c.Text == raw))
+        {
+            _options.Languages?.Remember(clause.Raw!, english: true);
+        }
         if (_options.History is not { } history) return;
         // 1 文字の読み (き → 記) を覚えると、関係ない変換 (き + ごうとう) まで巻き込むので 2 文字以上だけ。
         foreach (var clause in _clauses.Where(c => !c.IsEnglish && c.Changed && c.Reading.Length >= 2))
         {
             // かな・カタカナのまま確定したのは、その場限りのことが多いので覚えない。
-            if (clause.Text == clause.Reading || clause.Text == CompositionText.ToKatakana(clause.Reading)) continue;
+            // 打ったままの英字を選んだのは、上で英語として覚えた。
+            if (clause.Text == clause.Reading || clause.Text == CompositionText.ToKatakana(clause.Reading) || clause.Text == clause.Raw) continue;
             history.Remember(clause.Reading, clause.Text);
         }
     }

@@ -178,6 +178,18 @@ public sealed class CompositionDetector
         return _english.Words.ContainsWord(lower) || SpellChecker?.IsWord(lower) == true;
     }
 
+    /// <summary>
+    /// 知っている英単語か (同梱の辞書・固有名詞・ユーザーが英字に直して覚えた語・4 文字以上ならスペルチェッカー)。
+    /// python + no の n のように、英単語の最後の n と次の音がくっつくのを防ぐのに使う。
+    /// </summary>
+    public bool IsKnownEnglishWord(string word)
+    {
+        var lower = word.ToLowerInvariant();
+        if (lower.Length < 3 || !lower.All(char.IsAsciiLetterLower)) return false;
+        if (Memory?.Get(lower) is { } learned) return learned;
+        return _english.Words.ContainsWord(lower) || _proper.Contains(lower) || (lower.Length >= 4 && SpellChecker?.IsWord(lower) == true);
+    }
+
     private static int Score(bool? english) => english switch { true => 1, false => -1, null => 0 };
 
     private static bool IsAsciiSymbol(CompositionUnit unit) =>
