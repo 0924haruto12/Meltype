@@ -94,6 +94,8 @@ public sealed class CandidateDictionary
     {
         for (var length = reading.Length; length >= 1; length--)
         {
+            // 1 文字の読み (い → 位 胃 …) は、その読みだけの文節のときだけ (いきを → 位きを にしない)。
+            if (length == 1 && reading.Length > 1) break;
             if (_entries.TryGetValue(reading[..length], out var words))
             {
                 var rest = reading[length..];
