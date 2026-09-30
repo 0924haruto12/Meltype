@@ -8,7 +8,7 @@ namespace AutoIME;
 /// <summary>バージョン・著作権・ライセンスの表示 (トレイの「AutoIME について...」)。</summary>
 internal static class AppInfo
 {
-    public const string SourceUrl = "https://github.com/yksr-melt/AutoIME";
+    public const string SourceUrl = "https://github.com/yksr-melt/yksr-AutoIME";
     public const string CommercialContact = "ibutya0319@gmail.com";
 
     public static string Version =>

@@ -74,5 +74,5 @@ Uninstall.cmd をダブルクリックすると、停止・自動起動の解除
 
 ■ ライセンス
 AutoIME は GNU GPL v3 (LICENSE.txt) で配布しています。無保証です。
-ソースコード: https://github.com/yksr-melt/AutoIME
+ソースコード: https://github.com/yksr-melt/yksr-AutoIME
 同梱の .NET ランタイム (app\dotnet) は MIT ライセンスです。
