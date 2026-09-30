@@ -499,6 +499,17 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Conversion_ContextRulesIke()
+    {
+        var rules = ContextRules.Load(null);
+        Assert.Equal("行け", rules.Choose("いけ", "ねむ学校"), "学校いけ → 行け (池にしない)");
+        Assert.Equal("行けよ", rules.Choose("いけよ", "早く"), "助詞付きでも 行け");
+        Assert.Equal("池", rules.Choose("いけ", "公園の"), "公園なら 池");
+        Assert.Equal(null, rules.Choose("いけん", "学校の"), "意見 を 行けん にしない");
+        Assert.Equal(null, rules.Choose("いけない", "学校で"), "いけない を 行けない にしない");
+    }
+
+    [Test]
     public static void Conversion_ContextRulesPickTheRightWord()
     {
         var k = new Keyboard();
