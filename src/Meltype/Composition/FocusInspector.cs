@@ -192,6 +192,24 @@ public sealed class FocusInspector : IDisposable
         return (null, null);
     }
 
+    /// <summary>
+    /// キャレットより前の文字列 (最大 300 文字) を読んで callback に渡す (このクラスのスレッドから呼ばれる)。
+    /// コードエディターで、キャレットがコメントや文字列の中にあるかを調べるのに使う。TextPattern が無ければ null。
+    /// </summary>
+    public void RequestTextBeforeCaret(Action<string?> callback) => Enqueue(() =>
+    {
+        string? before = null;
+        try
+        {
+            if (Automation()?.Focused() is { IsPassword: false } element) before = element.Surrounding(300)?.Before;
+        }
+        catch
+        {
+            // 読めなければ分からないまま (コードとして扱う)。
+        }
+        callback(before);
+    });
+
     /// <summary>自己診断用: UI Automation でデスクトップの要素を取れるか。</summary>
     public static string Probe() => new UiAutomation().Root() is { } root ? ControlTypeName(root.ControlType) : "(取れない)";
 

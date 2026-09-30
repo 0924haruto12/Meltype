@@ -57,6 +57,7 @@ internal static class TestRunner
         }
         if (args.FirstOrDefault() == "--winmd") { WinMdProbe.Run(args[1], args.Skip(2)); return 0; }
         if (args.FirstOrDefault() == "--candidates") { using var winrt = new Composition.WinRtCandidates(); foreach (var r in args.Skip(1)) Console.WriteLine($"{r}: {string.Join(", ", winrt.Get(r))}"); foreach (var e in Diagnostics.Log.Snapshot()) Console.WriteLine(e); return 0; }
+        if (args.FirstOrDefault() == "--eval") { Quality.Print(Quality.Run()); return 0; }
         if (args.FirstOrDefault() == "--render-forms")
         {
             // 調査用: 設定画面とユーザー辞書の画面を表示せずに画像にする。
@@ -66,9 +67,11 @@ internal static class TestRunner
             invoker.CreateControl();
             using var service = new Composition.CompositionService(invoker, Composition.CompositionDetector.CreateDefault(), new Composition.CompositionOptions { UserDictionary = new Composition.UserDictionary(null) });
             service.UserDictionary.Add("きごうとう", "記号等");
+            var composition = new Composition.CompositionWindow();
+            composition.ShowView(new Composition.CompositionView("えがお", ["笑顔", "😊", "😄", "☺️", "(^^)", "(*^^*)", "(´▽｀)"], 1, true, "Space/↓ 候補"), new Point(-5000, -5000));
             var indicator = new Composition.ModeIndicatorWindow();
             indicator.Flash(true, new Point(-5000, -5000));
-            foreach (var form in new Form[] { new UI.SettingsForm(engine), new UI.UserDictionaryForm(service), indicator })
+            foreach (var form in new Form[] { new UI.SettingsForm(engine), new UI.UserDictionaryForm(service), indicator, composition })
             {
                 using (form)
                 {

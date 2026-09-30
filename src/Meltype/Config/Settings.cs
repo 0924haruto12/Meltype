@@ -47,7 +47,19 @@ public sealed class AppRule
     [DisplayName("自動切替"), Description("false にするとこのアプリでは一切キーを保留しません。")]
     public bool Enabled { get; set; } = true;
 
-    public override string ToString() => $"{Process}: {(Enabled ? "ON" : "OFF")}";
+    [DisplayName("種類"), Description("コード = コードエディターやターミナル。基本は英数で、コメントや \"…\" の中だけ日本語を判定します。")]
+    public AppProfile Profile { get; set; } = AppProfile.General;
+
+    public override string ToString() => $"{Process}: {(Enabled ? "ON" : "OFF")}, {Profile}";
+}
+
+/// <summary>アプリの種類。アプリに合わせて、英語と日本語のどちらを基本にするかを変える。</summary>
+public enum AppProfile
+{
+    /// <summary>一般 (文章を書くアプリ)。日本語が基本で、英単語を自動で見分ける。</summary>
+    [Description("一般")] General,
+    /// <summary>コードエディター・ターミナル。英数が基本で、コメントと文字列 ("…") の中だけ日本語を判定する。</summary>
+    [Description("コード")] Code,
 }
 
 /// <summary>
@@ -126,7 +138,7 @@ public sealed class Settings
     [Browsable(false)]
     public int SettingsVersion { get; set; } = CurrentVersion;
 
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     [Category("4. セッション"), DisplayName("新しいセッションとみなす無入力時間 (ms)")]
     public int SessionIdleMs { get; set; } = 1500;
@@ -149,7 +161,7 @@ public sealed class Settings
     [Category("7. アプリ"), DisplayName("全画面アプリでは無効"), Description("ゲームや動画など全画面のウィンドウではキーを保留しません。")]
     public bool ExcludeFullscreen { get; set; } = true;
 
-    [Category("7. アプリ"), DisplayName("アプリ別設定"), Description("プロセス名ごとに自動切替の ON/OFF を指定します。")]
+    [Category("7. アプリ"), DisplayName("アプリ別設定"), Description("プロセス名ごとに、自動切替の ON/OFF と種類を指定します。種類「コード」(コードエディター・ターミナル) では基本は英数のままで、コメント (// # -- など) と文字列 (\"…\" など) の中だけ日本語を判定します。コードの行で 半角/全角 を押すと、その行だけ日本語で入力できます。README.md などの文章ファイルを開いているときは一般として扱います。")]
     public List<AppRule> AppRules { get; set; } = DefaultAppRules();
 
     [Category("8. ログ"), DisplayName("ファイルにログを書く"), Description("%LOCALAPPDATA%\\Meltype\\meltype.log に判定ログを書きます。判定対象の先頭数文字が含まれます。")]
@@ -164,24 +176,37 @@ public sealed class Settings
         new() { Process = "VirtualBoxVM.exe", Enabled = false },
         new() { Process = "vmware-vmx.exe", Enabled = false },
         new() { Process = "vmware.exe", Enabled = false },
-        new() { Process = "Code.exe", Enabled = true },
-        new() { Process = "WindowsTerminal.exe", Enabled = true },
+        .. CodeApps.Select(process => new AppRule { Process = process, Enabled = true, Profile = AppProfile.Code }),
     ];
 
-    public bool IsAppEnabled(string? processName)
+    /// <summary>既定で「コード」として扱うアプリ (コードエディター・IDE・ターミナル)。</summary>
+    public static readonly string[] CodeApps =
+    [
+        "Code.exe", "Code - Insiders.exe", "Cursor.exe", "Windsurf.exe", "zed.exe", "devenv.exe",
+        "idea64.exe", "pycharm64.exe", "webstorm64.exe", "rider64.exe", "clion64.exe", "goland64.exe",
+        "phpstorm64.exe", "rubymine64.exe", "datagrip64.exe", "studio64.exe", "sublime_text.exe", "notepad++.exe",
+        "WindowsTerminal.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "wezterm-gui.exe", "alacritty.exe", "mintty.exe",
+    ];
+
+    public bool IsAppEnabled(string? processName) => FindRule(processName)?.Enabled ?? true;
+
+    /// <summary>アプリの種類 (アプリ別設定に無ければ一般)。</summary>
+    public AppProfile ProfileFor(string? processName) => FindRule(processName)?.Profile ?? AppProfile.General;
+
+    private AppRule? FindRule(string? processName)
     {
-        if (string.IsNullOrEmpty(processName)) return true;
+        if (string.IsNullOrEmpty(processName)) return null;
         foreach (var rule in AppRules)
         {
-            if (string.Equals(rule.Process, processName, StringComparison.OrdinalIgnoreCase)) return rule.Enabled;
+            if (string.Equals(rule.Process, processName, StringComparison.OrdinalIgnoreCase)) return rule;
         }
-        return true;
+        return null;
     }
 
     public Settings Clone()
     {
         var copy = (Settings)MemberwiseClone();
-        copy.AppRules = AppRules.Select(r => new AppRule { Process = r.Process, Enabled = r.Enabled }).ToList();
+        copy.AppRules = AppRules.Select(r => new AppRule { Process = r.Process, Enabled = r.Enabled, Profile = r.Profile }).ToList();
         return copy;
     }
 
@@ -213,6 +238,16 @@ public sealed class Settings
         }
         // v3: Meltype キーボード (変換ボックス) を追加。v2 以前の config.json には Mode が無いので、
         // 読み込み時に初期値 (Keyboard) になる。
+        if (SettingsVersion < 4)
+        {
+            // v4: アプリの種類 (コード) を追加。コードエディター・ターミナルを「コード」にする (ユーザーが OFF にしたものはそのまま)。
+            foreach (var process in CodeApps)
+            {
+                var rule = FindRule(process);
+                if (rule is null) AppRules.Add(new AppRule { Process = process, Enabled = true, Profile = AppProfile.Code });
+                else rule.Profile = AppProfile.Code;
+            }
+        }
         SettingsVersion = CurrentVersion;
         return true;
     }

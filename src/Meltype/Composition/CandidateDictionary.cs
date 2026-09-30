@@ -19,8 +19,18 @@ public sealed class CandidateDictionary
     {
         var dictionary = new CandidateDictionary();
         dictionary.AddText(Detection.DictionarySource.ReadEmbedded("candidates.txt"));
+        dictionary.AddTabText(Detection.DictionarySource.ReadEmbedded("emoji.txt"));
         if (userDirectory is not null)
         {
+            var emoji = Path.Combine(userDirectory, "emoji.txt");
+            try
+            {
+                if (File.Exists(emoji)) dictionary.AddTabText(File.ReadAllText(emoji));
+            }
+            catch (Exception ex)
+            {
+                Diagnostics.Log.Warn($"ユーザーの絵文字辞書を読めませんでした: {ex.Message}");
+            }
             var path = Path.Combine(userDirectory, "candidates.txt");
             try
             {
@@ -42,6 +52,21 @@ public sealed class CandidateDictionary
             var hash = line.IndexOf('#');
             if (hash >= 0) line = line[..hash];
             var parts = line.Split([' ', '\t', '\r', '　'], StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2) continue;
+            Add(parts[0], parts.Skip(1));
+        }
+    }
+
+    /// <summary>
+    /// 絵文字・顔文字の辞書 (emoji.txt)。顔文字には空白や # が入るので、区切りはタブだけ、コメントは行頭の # だけ。
+    /// </summary>
+    public void AddTabText(string text)
+    {
+        foreach (var rawLine in text.Split('\n'))
+        {
+            var line = rawLine.TrimEnd('\r');
+            if (line.TrimStart().StartsWith('#')) continue;
+            var parts = line.Split('\t', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (parts.Length < 2) continue;
             Add(parts[0], parts.Skip(1));
         }

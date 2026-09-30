@@ -61,9 +61,9 @@ public sealed class CompositionDetector
     /// <param name="englishSentence">キャレットの前が英文 (空白で区切った英単語が 2 語以上続いて空白で終わる: "I want ")。
     /// 日本語の文の中の英単語 (GitHub の) より強い英語の根拠として扱う。</param>
     public IReadOnlyList<CompositionSegment> Segment(IReadOnlyList<CompositionUnit> units, string pending, bool? precedingEnglish = null, bool? followingEnglish = null,
-        DetectionLevel level = DetectionLevel.Balanced, bool englishSentence = false, bool kanaInput = false)
+        DetectionLevel level = DetectionLevel.Balanced, bool englishSentence = false, bool kanaInput = false, bool final = false)
     {
-        var segments = FindSpans(units, pending, precedingEnglish, followingEnglish, level, englishSentence && precedingEnglish == true, kanaInput);
+        var segments = FindSpans(units, pending, precedingEnglish, followingEnglish, level, englishSentence && precedingEnglish == true, kanaInput, final);
         if (kanaInput) return segments;
         // 辞書にない英単語 (stackoverflow など) を最初から打っているなら全体を英語にする。
         // 途中の区間 (… flow) だけを英語にすると「sたcこvえrflow」のようになってしまう。
@@ -76,7 +76,7 @@ public sealed class CompositionDetector
         return segments;
     }
 
-    private List<CompositionSegment> FindSpans(IReadOnlyList<CompositionUnit> units, string pending, bool? precedingEnglish, bool? followingEnglish, DetectionLevel level, bool englishSentence, bool kanaInput)
+    private List<CompositionSegment> FindSpans(IReadOnlyList<CompositionUnit> units, string pending, bool? precedingEnglish, bool? followingEnglish, DetectionLevel level, bool englishSentence, bool kanaInput, bool final)
     {
         var n = units.Count;
         var segments = new List<CompositionSegment>();
@@ -97,8 +97,9 @@ public sealed class CompositionDetector
                 // 区間の後ろ: 末尾まで打っているならキャレットの後ろの文字、途中なら続きの日本語。
                 var after = j == n ? followingEnglish : false;
                 var english = kanaInput
-                    ? IsEnglishSpanKana(Raw(units, i, j), Kana(units, i, j), atEnd: j == n, BeforeScore(i), after, level)
-                    : IsEnglishSpan(Raw(units, i, j) + (j == n ? pending : ""), atEnd: j == n, BeforeScore(i), after, startOfInput: i == 0, level);
+                    ? IsEnglishSpanKana(Raw(units, i, j), Kana(units, i, j), atEnd: j == n, BeforeScore(i), after, level, final)
+                    : IsEnglishSpan(Raw(units, i, j) + (j == n ? pending : ""), atEnd: j == n, BeforeScore(i), after, startOfInput: i == 0, level, final,
+                        unreadable: HasUnreadable(units, i, j));
                 if (english)
                 {
                     found = j;
@@ -156,8 +157,9 @@ public sealed class CompositionDetector
         if (_proper.Contains(lower)) return true;
         var analysis = _romaji.Analyze(lower);
         if (!analysis.IsValid) return _english.Words.ContainsWord(lower) || _english.IsPrefix(lower) || lower.Length >= 4;
-        var word = _english.Words.ContainsWord(lower) || (lower.Length >= 4 && SpellChecker?.IsWord(lower) == true);
-        return word && analysis.Partial.Length > 0 && analysis.Partial != "n" && !_japanese.IsPrefix(lower);
+        // 確定するときに呼ぶので、語は打ち終わっている (it が itai の打ちかけかは気にしない)。
+        var word = _english.Words.ContainsWord(lower) || SpellChecker?.IsWord(lower) == true;
+        return word && analysis.Partial.Length > 0 && analysis.Partial != "n";
     }
 
     /// <summary>
@@ -178,8 +180,12 @@ public sealed class CompositionDetector
     private static bool IsAsciiSymbol(CompositionUnit unit) =>
         unit.Raw.Length == 1 && unit.Raw[0] is ',' or '.' or '!' or '?' or '-' or '\'' or ':' or ';' or '[' or ']' or '(' or ')' or '/' or '"' or '~';
 
-    private bool IsEnglishSpan(string span, bool atEnd, int before, bool? after, bool startOfInput, DetectionLevel level)
+    /// <param name="final">打ち終わった (Space・Enter)。末尾の区間でも、英単語の打ちかけ (amaz) は英語の根拠にしない。</param>
+    /// <param name="unreadable">区間にローマ字として読めなかった英字がある (zoom + de の m、bug + wo の g)。</param>
+    private bool IsEnglishSpan(string span, bool atEnd, int before, bool? after, bool startOfInput, DetectionLevel level, bool final = false, bool unreadable = false)
     {
+        // まだ続きを打つかもしれない末尾の区間 (打ちかけの英単語を英語と見てよい)。
+        var growing = atEnd && !final;
         if (span.Length == 0 || !span.All(char.IsAsciiLetter)) return false;
         var lower = span.ToLowerInvariant();
         var inDictionary = _english.Words.ContainsWord(lower);
@@ -190,7 +196,7 @@ public sealed class CompositionDetector
         var smallKanaSpelling = !_romaji.Analyze(lower).IsValid && _romaji.AnalyzeFragment(lower) is { IsValid: true, Partial: "" };
         var spellWord = !inDictionary && !smallKanaSpelling && SpellChecker?.IsWord(lower) == true;
         var exact = inDictionary || (spellWord && !_romaji.Analyze(lower).IsValid);
-        var prefix = atEnd && lower.Length >= 4 && !conservative && !smallKanaSpelling && _english.IsPrefix(lower);
+        var prefix = growing && lower.Length >= 4 && !conservative && !smallKanaSpelling && _english.IsPrefix(lower);
 
         // 大文字で始まる語 (Shift を押して打った) は固有名詞や英文。1 文字 (I) でも、末尾まで打っている途中でも英語。
         // 手動でもこれだけは英語にする (Shift を押したのはユーザーの明示的な指定)。
@@ -207,7 +213,10 @@ public sealed class CompositionDetector
         {
             return true;
         }
-        if (atEnd && lower.Length >= 4 && !conservative && !smallKanaSpelling && _proper.HasPrefix(lower) && !_japanese.IsPrefix(lower)) return true;
+        if (growing && lower.Length >= 4 && !conservative && !smallKanaSpelling && _proper.HasPrefix(lower) && !_japanese.IsPrefix(lower)) return true;
+
+        // 英単語で、ローマ字として読めない英字を含む (zoom + でかいぎ → m が読めない)。日本語の文の途中でも英語。
+        if (unreadable && (exact || spellWord) && lower.Length >= 3) return true;
 
         // 英語とも日本語とも読める語 (sushi, repo, make) は前後の両方で決める。前が英語なら +1・日本語なら -1、
         // 後ろも同じように数え、合計が必要な点数に届けば英語 (どちらも分からない・食い違うときは日本語)。
@@ -217,9 +226,9 @@ public sealed class CompositionDetector
         var ambiguous = level switch
         {
             // 積極的でも、助詞と同じ形の 2 文字 (ni, ga) は英単語の先頭というだけでは英語にしない。
-            DetectionLevel.Aggressive => startOfInput && atEnd ? exact || spellWord || (lower.Length >= 3 && _english.IsPrefix(lower)) : exact || spellWord,
+            DetectionLevel.Aggressive => startOfInput && atEnd ? exact || spellWord || (!final && lower.Length >= 3 && _english.IsPrefix(lower)) : exact || spellWord,
             DetectionLevel.Conservative => (exact || spellWord) && (lower.Length >= 3 || before >= 2),
-            _ => startOfInput && atEnd ? exact || spellWord || lower.Length == 1 || (!smallKanaSpelling && _english.IsPrefix(lower)) : (exact || spellWord) && lower.Length >= 3,
+            _ => startOfInput && atEnd ? exact || spellWord || lower.Length == 1 || (!final && !smallKanaSpelling && _english.IsPrefix(lower)) : (exact || spellWord) && lower.Length >= 3,
         };
         var needed = level switch
         {
@@ -242,22 +251,24 @@ public sealed class CompositionDetector
         }
         // ローマ字として読めても、末尾が子音の英単語 (git, zoom, about) で、日本語の語の途中でもないなら英語。
         // スペルチェッカーだけが知っている語 (meeting, my) は、前が日本語でないときだけ。
-        if (spellWord && atEnd && before >= 0 && analysis.Partial.Length > 0 && analysis.Partial != "n" && !_japanese.IsPrefix(lower)) return true;
-        return atEnd && exact && (!conservative || lower.Length >= 3) && analysis.Partial.Length > 0 && analysis.Partial != "n" && !_japanese.IsPrefix(lower);
+        // 打ち終わっていれば、日本語の語の打ちかけ (it → itai) かどうかは気にしなくてよい。
+        var notJapanesePrefix = final || !_japanese.IsPrefix(lower);
+        if (spellWord && atEnd && before >= 0 && analysis.Partial.Length > 0 && analysis.Partial != "n" && notJapanesePrefix) return true;
+        return atEnd && exact && (!conservative || lower.Length >= 3) && analysis.Partial.Length > 0 && analysis.Partial != "n" && notJapanesePrefix;
     }
 
     /// <summary>
     /// かな入力 (JIS) の区間が英語か。打ったキーの英字 (Raw) が英単語で、かなとしては日本語の語にならないなら英語。
     /// かなとしても日本語の語 (の先頭) になるなら、ローマ字入力の「英語とも日本語とも読める語」と同じく前後の文脈で決める。
     /// </summary>
-    private bool IsEnglishSpanKana(string span, string kana, bool atEnd, int before, bool? after, DetectionLevel level)
+    private bool IsEnglishSpanKana(string span, string kana, bool atEnd, int before, bool? after, DetectionLevel level, bool final = false)
     {
         if (span.Length == 0 || !span.All(char.IsAsciiLetter)) return false;
         var lower = span.ToLowerInvariant();
         var inDictionary = _english.Words.ContainsWord(lower) || (lower.Length >= 4 && _proper.Contains(lower));
         // キー列が偶然スペルチェッカーの語になることがあるので、スペルチェッカーの語は 4 文字以上だけ。
         var word = inDictionary || (lower.Length >= 4 && SpellChecker?.IsWord(lower) == true);
-        var prefix = atEnd && level == DetectionLevel.Aggressive && lower.Length >= 4 && _english.IsPrefix(lower);
+        var prefix = atEnd && !final && level == DetectionLevel.Aggressive && lower.Length >= 4 && _english.IsPrefix(lower);
 
         // Shift を押して打った大文字で始まる語は英語 (手動でも)。
         if (char.IsAsciiLetterUpper(span[0]) && (word || prefix || atEnd)) return true;
@@ -294,6 +305,16 @@ public sealed class CompositionDetector
     {
         var kana = string.Concat(Enumerable.Range(start, end - start).Select(k => units[k].Kana));
         return new CompositionSegment(false, kana, Raw(units, start, end) + pending);
+    }
+
+    /// <summary>単位 [start, end) に、ローマ字として読めなかった英字 (かなにならなかった 1 文字) があるか。</summary>
+    private static bool HasUnreadable(IReadOnlyList<CompositionUnit> units, int start, int end)
+    {
+        for (var k = start; k < end; k++)
+        {
+            if (units[k] is { Raw.Length: 1 } unit && unit.Kana == unit.Raw && char.IsAsciiLetter(unit.Raw[0])) return true;
+        }
+        return false;
     }
 
     private static string Kana(IReadOnlyList<CompositionUnit> units, int start, int end) =>

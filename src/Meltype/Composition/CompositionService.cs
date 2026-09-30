@@ -191,11 +191,25 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         }
     }
 
-    public void Replay(KeyEvent e) => _injector.Inject([e]);
+    /// <summary>
+    /// Meltype がアプリへ送り直したキー (矢印・Ctrl の操作・確定し直しの BackSpace など)。
+    /// 自分で送ったキーはフックに届かないので、今の行の追いかけ (コードのコメント判定) に使う。
+    /// </summary>
+    public event Action<KeyEvent>? KeyReplayed;
+
+    /// <summary>送り直したクリック (キャレットが動く)。</summary>
+    public event Action? MouseReplayed;
+
+    public void Replay(KeyEvent e)
+    {
+        _injector.Inject([e]);
+        KeyReplayed?.Invoke(e);
+    }
 
     public void DeleteBackward(int count)
     {
         if (count <= 0) return;
+        for (var i = 0; i < count; i++) KeyReplayed?.Invoke(new KeyEvent(VirtualKeys.Back, 0, false, false, false, 0));
         var events = new List<KeyEvent>(count * 2);
         for (var i = 0; i < count; i++)
         {
@@ -228,6 +242,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             _ => (0u, 0u),
         };
         if (button == 0) return;
+        MouseReplayed?.Invoke();
         // 元のクリック位置で再生する (保留中にカーソルが動いていても同じ場所をクリックする)。
         var left = Native.GetSystemMetrics(Native.SM_XVIRTUALSCREEN);
         var top = Native.GetSystemMetrics(Native.SM_YVIRTUALSCREEN);
@@ -251,18 +266,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         Native.SendInput(1, [input], Marshal.SizeOf<Native.INPUT>());
     }
 
-    public char? CharFromKey(KeyEvent e, bool shift)
-    {
-        shift |= (Native.GetAsyncKeyState(VirtualKeys.Shift) & 0x8000) != 0;
-        var state = new byte[256];
-        if (shift) state[VirtualKeys.Shift] = state[VirtualKeys.LShift] = 0x80;
-        var foreground = Native.GetForegroundWindow();
-        var layout = Native.GetKeyboardLayout(Native.GetWindowThreadProcessId(foreground, out _));
-        var buffer = new char[8];
-        // flags 0x4: キーボードの状態 (デッドキー) を変更しない (Windows 10 1607 以降)。
-        var count = Native.ToUnicodeEx((uint)e.Vk, (uint)e.Scan, state, buffer, buffer.Length, 0x4, layout);
-        return count == 1 && !char.IsControl(buffer[0]) ? buffer[0] : null;
-    }
+    public char? CharFromKey(KeyEvent e, bool shift) => KeyText.CharFromKey(e.Vk, e.Scan, shift);
 
     /// <summary>
     /// 入力モード (日本語なら「あ」、英数なら「A」) をカーソルの近くに一瞬出す。どのスレッドから呼んでもよい。

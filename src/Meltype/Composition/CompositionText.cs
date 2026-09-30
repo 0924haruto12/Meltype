@@ -167,15 +167,19 @@ public sealed class CompositionText
         _units.All(u => u.Raw.All(c => char.IsAsciiDigit(c) || c is '.' or ',' or ':' or '-' or '/'));
 
     /// <summary>今の表示が英字 (か数字) だけか (Space で「確定して空白」にするかどうか)。</summary>
-    public bool IsAlphanumeric => Mode switch
+    public bool IsAlphanumeric => IsAlphanumericAt(final: false);
+
+    /// <summary>今の表示が英字 (か数字) だけか。final なら打ち終わったとみなして判定する (Space・Enter のとき)。</summary>
+    public bool IsAlphanumericAt(bool final) => Mode switch
     {
         DisplayMode.HalfWidthAlphanumeric or DisplayMode.FullWidthAlphanumeric => true,
-        DisplayMode.Auto => IsNumeric || Segments().All(s => s.IsEnglish),
+        DisplayMode.Auto => IsNumeric || Segments(final).All(s => s.IsEnglish),
         _ => false,
     };
 
     /// <summary>自動判定の区間分け (Mode が Auto のときに使う)。</summary>
-    public IReadOnlyList<CompositionSegment> Segments() => _detector.Segment(_units, Pending, PrecedingEnglish, FollowingEnglish, EffectiveLevel, PrecedingEnglishSentence, KanaInput);
+    /// <param name="final">打ち終わった (Space・Enter で確定・変換する) ときは true。英単語の打ちかけ (amaz → amazon) を英語の根拠にしない。</param>
+    public IReadOnlyList<CompositionSegment> Segments(bool final = false) => _detector.Segment(_units, Pending, PrecedingEnglish, FollowingEnglish, EffectiveLevel, PrecedingEnglishSentence, KanaInput, final);
 
     /// <summary>判定の強さが「手動」のとき、標準の判定なら英字にする部分 (提案)。無ければ null。</summary>
     public string? Suggestion()
@@ -201,7 +205,7 @@ public sealed class CompositionText
     /// <summary>変換用の区間分け。末尾の入力途中の子音は確定扱い (n → ん) にして日本語区間の読みに含める。</summary>
     public IReadOnlyList<CompositionSegment> ConversionSegments()
     {
-        var segments = Segments().ToList();
+        var segments = Segments(final: true).ToList();
         if (segments.Count > 0 && !segments[^1].IsEnglish)
         {
             segments[^1] = segments[^1] with { Kana = segments[^1].Kana + PendingText(final: true) };
@@ -224,7 +228,7 @@ public sealed class CompositionText
     public string RenderSegments(bool final, Func<string, string>? convert)
     {
         var builder = new StringBuilder();
-        var segments = Segments();
+        var segments = Segments(final);
         for (var i = 0; i < segments.Count; i++)
         {
             var segment = segments[i];

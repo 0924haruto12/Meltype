@@ -325,8 +325,8 @@ public sealed class CompositionController
                 return;
             case VirtualKeys.Space:
                 // 英語と判定した語で終わっているなら、変換ではなく確定して空白を入れる (日本語の部分は漢字にして確定)。
-                if (_text.IsAlphanumeric) Commit(suffix: " ");
-                else if (EndsWithEnglish()) CommitText(_text.RenderSegments(final: true, Convert) + " ", english: true, _text.Raw);
+                if (_text.IsAlphanumericAt(final: true)) Commit(suffix: " ");
+                else if (EndsWithEnglish(final: true)) CommitText(_text.RenderSegments(final: true, Convert) + " ", english: true, _text.Raw);
                 else if (_text.Mode == DisplayMode.Auto && _detector.IsEnglishAtWordEnd(_text.Raw, _options.Level())) CommitText(_text.Raw + " ", english: true, _text.Raw);
                 else
                 {
@@ -905,7 +905,7 @@ public sealed class CompositionController
     {
         var converting = _converting && _clauses.Count > 0;
         var text = converting ? string.Concat(_clauses.Select(c => c.Text)) : CurrentDisplay(final: true);
-        var english = converting ? _clauses.All(c => c.IsEnglish) : _text.IsAlphanumeric;
+        var english = converting ? _clauses.All(c => c.IsEnglish) : _text.IsAlphanumericAt(final: true);
         var chosen = converting && _clauses.Any(c => c.Changed);
         if (converting) Learn();
         CommitText(text + suffix, english, _text.Raw, chosen);
@@ -942,8 +942,9 @@ public sealed class CompositionController
             var start = _correctable.Count - 1;
             while (start > 0 && !_correctable[start - 1].English && _correctable[start - 1].SpaceIntended) start--;
             targets = _correctable.Skip(start).ToList();
-            // 助詞と同じ形の短い語 (to, no) 1 語だけなら直さない (Google と Apple は日本語でもよく書く)。
-            if (targets.Count == 1 && targets[0].Raw.Length <= 2 && targets[0].Raw != "i") return;
+            // 助詞と同じ形の短い語 (to, no) 1 語だけを、大文字で始まる語 (固有名詞) で直すことはしない (Google と Apple は日本語でもよく書く)。
+            // 小文字の英単語で英文と分かったとき (let me know、do it) は直す。
+            if (targets.Count == 1 && targets[0].Raw.Length <= 2 && targets[0].Raw != "i" && char.IsAsciiLetterUpper(raw.FirstOrDefault(char.IsAsciiLetter))) return;
             replacement = string.Concat(targets.Select(t => (t.Raw == "i" ? "I" : t.Raw) + (t.SpaceIntended ? " " : "")));
         }
         else if (previous.English && !english && !_detector.IsAmbiguousWord(raw) && raw.Any(char.IsAsciiLetter))
@@ -1003,8 +1004,8 @@ public sealed class CompositionController
     }
 
     /// <summary>変換ボックスの最後が英語の区間か (Space を空白として扱うか)。</summary>
-    private bool EndsWithEnglish() =>
-        _text.Mode == DisplayMode.Auto && _text.Segments() is { Count: > 0 } segments && segments[^1].IsEnglish;
+    private bool EndsWithEnglish(bool final = false) =>
+        _text.Mode == DisplayMode.Auto && _text.Segments(final) is { Count: > 0 } segments && segments[^1].IsEnglish;
 
     private void ReplayDown(KeyEvent e)
     {

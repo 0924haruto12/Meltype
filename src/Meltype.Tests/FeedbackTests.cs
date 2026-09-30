@@ -237,3 +237,46 @@ internal static class MisspellingTests
         Assert.Equal("ぶれすれっと", k.Showing);
     }
 }
+
+internal static class CodeProfileTests
+{
+    [Test]
+    public static void LineTracker_FollowsTypingAndResets()
+    {
+        var line = new LineTracker();
+        Assert.True(line.Text is null, "最初は分からない");
+        line.NewLine();
+        line.Append("x = 1 ");
+        Assert.Equal(LineKind.Code, LineContext.Classify(line.Text!));
+        line.Append("// ");
+        Assert.Equal(LineKind.Comment, LineContext.Classify(line.Text!), "// の後はコメント");
+        line.Backspace();
+        line.Backspace();
+        line.Backspace();
+        Assert.Equal("x = 1 ", line.Text);
+        line.NewLine();
+        Assert.Equal("", line.Text, "改行で新しい行");
+        line.Invalidate();
+        Assert.True(line.Text is null, "キャレットが動いたら分からない");
+        line.SetFromText("first line\r\n    print(\"こん");
+        Assert.Equal(LineKind.String, LineContext.Classify(line.Text!), "UI Automation で読んだ行の最後の改行より後ろを使う");
+    }
+
+    [Test]
+    public static void Settings_CodeAppsAreCode()
+    {
+        var settings = new Settings();
+        Assert.Equal(AppProfile.Code, settings.ProfileFor("Code.exe"));
+        Assert.Equal(AppProfile.Code, settings.ProfileFor("windowsterminal.exe"), "大文字小文字は区別しない");
+        Assert.Equal(AppProfile.General, settings.ProfileFor("chrome.exe"));
+        Assert.Equal(AppProfile.Code, settings.Clone().ProfileFor("Code.exe"), "複製しても種類を保つ");
+
+        // v3 の設定ファイル (種類が無い) を読み込むと、コードエディター・ターミナルが「コード」になる。ユーザーが OFF にしたものは OFF のまま。
+        var old = new Settings { SettingsVersion = 3, AppRules = [new AppRule { Process = "Code.exe", Enabled = false }, new AppRule { Process = "chrome.exe" }] };
+        old.Migrate();
+        Assert.Equal(AppProfile.Code, old.ProfileFor("Code.exe"));
+        Assert.True(!old.IsAppEnabled("Code.exe"), "OFF のまま");
+        Assert.Equal(AppProfile.Code, old.ProfileFor("pwsh.exe"), "足りないコードアプリを追加");
+        Assert.Equal(AppProfile.General, old.ProfileFor("chrome.exe"));
+    }
+}

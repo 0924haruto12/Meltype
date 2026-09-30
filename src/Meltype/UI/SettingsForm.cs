@@ -164,13 +164,18 @@ internal sealed class SettingsForm : Form
                 s =>
                 {
                     grid.Rows.Clear();
-                    foreach (var rule in (List<AppRule>)property.GetValue(s)!) grid.Rows.Add(rule.Process, rule.Enabled ? On : Off);
+                    foreach (var rule in (List<AppRule>)property.GetValue(s)!) grid.Rows.Add(rule.Process, rule.Enabled ? On : Off, EnumName(typeof(AppProfile), rule.Profile));
                 },
                 s => property.SetValue(s, grid.Rows.Cast<DataGridViewRow>()
                     .Where(r => !r.IsNewRow)
-                    .Select(r => (Process: (r.Cells[0].Value as string ?? "").Trim(), r.Cells[1].Value))
+                    .Select(r => (Process: (r.Cells[0].Value as string ?? "").Trim(), r.Cells[1].Value, Profile: r.Cells[2].Value))
                     .Where(r => r.Process.Length > 0)
-                    .Select(r => new AppRule { Process = r.Process, Enabled = !Equals(r.Value, Off) })
+                    .Select(r => new AppRule
+                    {
+                        Process = r.Process,
+                        Enabled = !Equals(r.Value, Off),
+                        Profile = Equals(r.Profile, EnumName(typeof(AppProfile), AppProfile.Code)) ? AppProfile.Code : AppProfile.General,
+                    })
                     .ToList()));
         }
         return null;
@@ -188,7 +193,7 @@ internal sealed class SettingsForm : Form
     {
         var grid = new DataGridView
         {
-            Height = 170,
+            Height = 260,
             Dock = DockStyle.Fill,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             RowHeadersWidth = 24,
@@ -196,11 +201,19 @@ internal sealed class SettingsForm : Form
             AllowUserToAddRows = true,
             AllowUserToDeleteRows = true,
         };
-        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "プロセス名 (例: code.exe)", FillWeight = 70 });
-        var enabled = new DataGridViewComboBoxColumn { HeaderText = "自動切替", FillWeight = 30, FlatStyle = FlatStyle.Flat };
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "プロセス名 (例: code.exe)", FillWeight = 55 });
+        var enabled = new DataGridViewComboBoxColumn { HeaderText = "自動切替", FillWeight = 22, FlatStyle = FlatStyle.Flat };
         enabled.Items.AddRange(On, Off);
         grid.Columns.Add(enabled);
-        grid.DefaultValuesNeeded += (_, e) => e.Row.Cells[1].Value = On;
+        // 種類: 一般 / コード (コメント・文字列の中だけ日本語)
+        var profile = new DataGridViewComboBoxColumn { HeaderText = "種類", FillWeight = 23, FlatStyle = FlatStyle.Flat };
+        profile.Items.AddRange(Enum.GetValues<AppProfile>().Select(p => (object)EnumName(typeof(AppProfile), p)).ToArray());
+        grid.Columns.Add(profile);
+        grid.DefaultValuesNeeded += (_, e) =>
+        {
+            e.Row.Cells[1].Value = On;
+            e.Row.Cells[2].Value = EnumName(typeof(AppProfile), AppProfile.General);
+        };
         return grid;
     }
 

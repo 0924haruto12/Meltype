@@ -111,6 +111,10 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     public void AttachComposition(Composition.CompositionService composition)
     {
         _composition = composition;
+        // 変換ボックスで確定した文字と、Meltype が送り直したキーも、今の行の追いかけに入れる (自分で送ったキーはフックに届かない)。
+        composition.Controller.Committed += text => _line.Append(text);
+        composition.KeyReplayed += e => TrackLine(e);
+        composition.MouseReplayed += InvalidateLine;
         composition.Focus.Invalidate();
         if (IsKeyboardActive) CloseSystemImeAsync();
     }
@@ -153,7 +157,11 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             }
             return true;
         }
-        if (settings.Mode != InputMode.Keyboard) return _session.OnKey(e);
+        if (settings.Mode != InputMode.Keyboard)
+        {
+            if (!e.Injected) TrackLine(e);
+            return _session.OnKey(e);
+        }
         // 変換ボックスの準備前・終了処理中は何もしない (素通し)。
         if (_composition is not { } composition) return false;
 
@@ -163,6 +171,14 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             if (e.IsDown)
             {
                 lock (_swallowedToggleUps) _swallowedToggleUps.Add(e.Vk);
+                // コードの行 (コメント・文字列の外) では、この行だけ日本語にする / 戻す。
+                if (!_keyboardDirect && IsCodeApp(settings) && (_codeJapanese || InCode(settings)))
+                {
+                    _codeJapanese = !_codeJapanese;
+                    Log.Info(_codeJapanese ? "コードの行: この行は日本語で入力 (改行まで)" : "コードの行: 英数に戻す");
+                    composition.ShowMode(_codeJapanese);
+                    return true;
+                }
                 KeyboardDirect = !_keyboardDirect;
                 return true;
             }
@@ -173,7 +189,94 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         var swallowed = composition.Gate.OnKey(e, StartsComposition);
         // Meltype を通らずにアプリへ届いたキーはキャレットを動かすかもしれない。直前の語を確定し直さないようにする。
         if (!swallowed && e.IsDown && !VirtualKeys.IsModifier(e.Vk)) composition.ForgetLastCommit();
+        if (!swallowed && !e.Injected) TrackLine(e);
         return swallowed;
+    }
+
+    // ---- アプリの種類「コード」: コメント・文字列の中だけ日本語 ----
+
+    private readonly LineTracker _line = new();
+    private long _lineVersion;
+    private System.Threading.Timer? _lineTimer;
+    private volatile bool _codeJapanese;
+    private LineKind? _lastLineKind;
+
+    /// <summary>前面のアプリが「コード」(コードエディター・ターミナル) か。文章のファイル (README.md など) を開いているなら違う。</summary>
+    private bool IsCodeApp(Settings settings)
+    {
+        var app = _foreground.Current;
+        return settings.ProfileFor(app.ProcessName) == AppProfile.Code && !LineContext.IsDocumentTitle(KeyText.WindowTitle(app.Window));
+    }
+
+    /// <summary>
+    /// 前面のアプリが「コード」で、キャレットがコード (コメント・文字列の外) にあるか。フックのスレッドで呼ばれる。
+    /// 今の行が分からないときはコードとみなし、UI Automation で読みに行く。
+    /// </summary>
+    private bool InCode(Settings settings)
+    {
+        if (_codeJapanese || !IsCodeApp(settings)) return false;
+        var line = _line.Text;
+        if (line is null)
+        {
+            RequestLine(0);
+            return true;
+        }
+        return LineContext.Classify(line) == LineKind.Code;
+    }
+
+    /// <summary>アプリへ届いたキーで、今の行を追いかける。</summary>
+    private void TrackLine(KeyEvent e)
+    {
+        if (!e.IsDown || VirtualKeys.IsModifier(e.Vk)) return;
+        if (e.Vk == VirtualKeys.Return)
+        {
+            _line.NewLine();
+            _codeJapanese = false;
+            return;
+        }
+        if (e.Vk == VirtualKeys.Back)
+        {
+            _line.Backspace();
+            return;
+        }
+        if (e.Vk == VirtualKeys.Escape) return;
+        // Ctrl・Alt・Win の操作 (貼り付け・元に戻す …)、Tab (補完)、キャレットを動かすキーの後は分からない。
+        if (IsDown(VirtualKeys.Control) || IsDown(VirtualKeys.Menu) || IsDown(VirtualKeys.LWin) || IsDown(VirtualKeys.RWin) ||
+            e.Vk is VirtualKeys.Tab or (>= 0x21 and <= 0x28) or 0x2E)
+        {
+            InvalidateLine();
+            return;
+        }
+        if (KeyText.CharFromKey(e.Vk, e.Scan, false) is { } c) _line.Append(c.ToString());
+    }
+
+    private void InvalidateLine()
+    {
+        _line.Invalidate();
+        _codeJapanese = false;
+        Interlocked.Increment(ref _lineVersion);
+        // キャレットの移動がアプリに届くのを少し待ってから読む。
+        if (_settings.ProfileFor(_foreground.Current.ProcessName) == AppProfile.Code) RequestLine(80);
+    }
+
+    /// <summary>UI Automation で、今の行のキャレットより前を読む (delayMs 後)。</summary>
+    private void RequestLine(int delayMs)
+    {
+        if (_composition is not { } composition) return;
+        var version = Interlocked.Read(ref _lineVersion);
+        void Read() => composition.Focus.RequestTextBeforeCaret(before =>
+        {
+            // 読んでいる間にキャレットが動いた・打鍵で分かったなら使わない。
+            if (before is null || version != Interlocked.Read(ref _lineVersion) || _line.IsKnown) return;
+            _line.SetFromText(before);
+        });
+        if (delayMs <= 0)
+        {
+            Read();
+            return;
+        }
+        var timer = new System.Threading.Timer(_ => Read(), null, delayMs, Timeout.Infinite);
+        Interlocked.Exchange(ref _lineTimer, timer)?.Dispose();
     }
 
     /// <summary>フックのスレッドで呼ばれる。この打鍵で変換ボックスを開くか。</summary>
@@ -205,7 +308,17 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         if (punctuation && shift && !shiftedSymbol) return false;
         if (!_foreground.Check(settings).Allowed) return false;
         // 文字入力欄 (パスワード以外) にフォーカスがあるときだけ。ショートカットキーやゲームの操作を横取りしない。
-        return _composition?.Focus.CanCapture == true;
+        if (_composition?.Focus.CanCapture != true) return false;
+        // コードエディター・ターミナル: コードの中は英数のまま通す (補完もそのまま効く)。コメント・文字列の中は日本語を判定する。
+        if (!_keyboardDirect && IsCodeApp(settings))
+        {
+            var code = InCode(settings);
+            var kind = code ? LineKind.Code : LineKind.Comment;
+            if (letter && _lastLineKind is { } last && last != kind) _composition?.ShowMode(!code);
+            if (letter) _lastLineKind = kind;
+            if (code) return false;
+        }
+        return true;
     }
 
     /// <summary>英数状態で打ち始めた英字がローマ字 (日本語) かを、IME 自動切替と同じ判定器で調べる。UI スレッドから呼ばれる。</summary>
@@ -236,10 +349,15 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             {
                 composition.Focus.Invalidate();
                 composition.ResetContext();
+                InvalidateLine();
             }
             return false;
         }
-        if (IsButtonDown(e.Message)) _session.OnContextChanged(Environment.TickCount64);
+        if (IsButtonDown(e.Message))
+        {
+            _session.OnContextChanged(Environment.TickCount64);
+            InvalidateLine();
+        }
         return false;
     }
 
@@ -296,6 +414,8 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     CollectPermission ISessionEnvironment.CanCollect()
     {
         var permission = _foreground.Check(_settings);
+        // コードエディター・ターミナルのコードの中 (コメント・文字列の外) では判定しない。
+        if (permission.Allowed && InCode(_settings)) permission = CollectPermission.Deny("コードの中 (コメント・文字列の外)");
         if (permission.Allowed)
         {
             // 既に日本語入力になっているなら保留する意味がない (遅延を出さない)。
@@ -390,6 +510,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
 
     private void OnFocusChanged()
     {
+        InvalidateLine();
         _composition?.Focus.Invalidate();
         _directEnglishWord = false;
         _composition?.ResetContext();
@@ -399,6 +520,13 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     private void OnForegroundChanged(IntPtr window)
     {
         _foreground.Refresh(window);
+        InvalidateLine();
+        _lastLineKind = null;
+        var app = _foreground.Current;
+        if (_settings.ProfileFor(app.ProcessName) == AppProfile.Code)
+        {
+            Log.Info($"{app.ProcessName} は「コード」: コメントと文字列の中だけ日本語を判定します (半角/全角 でこの行だけ日本語)。");
+        }
         _composition?.Focus.Invalidate();
         _directEnglishWord = false;
         _composition?.ResetContext();
@@ -487,6 +615,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         _monitor.Dispose();
         _sessionTimer.Dispose();
         _pollTimer.Dispose();
+        _lineTimer?.Dispose();
         _saveTimer.Dispose();
         _flushQueue.CompleteAdding();
         if (_worker.IsAlive) _worker.Join(3000); // Start 前 (起動に失敗したとき) でも Dispose できるように
