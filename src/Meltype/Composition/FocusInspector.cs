@@ -136,6 +136,9 @@ public sealed class FocusInspector : IDisposable
     {
         try
         {
+            // Meltype 自身の画面 (設定のドロップダウンなど) には UI Automation で問い合わせない。
+            // 自分の UI スレッドに問い合わせが割り込むと、開いているドロップダウンが閉じてしまう。
+            if (Input.ForegroundTracker.IsOwnWindow(Native.GetForegroundWindow())) return new FocusInfo(false, false, null, "Meltype の画面");
             var element = Automation()?.Focused();
             if (element is null) return new FocusInfo(false, false, null, "フォーカスなし");
             var type = element.ControlType;

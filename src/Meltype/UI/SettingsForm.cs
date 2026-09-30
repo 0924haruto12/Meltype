@@ -33,8 +33,10 @@ internal sealed class SettingsForm : Form
         _engine = engine;
         Text = "Meltype 設定";
         StartPosition = FormStartPosition.CenterScreen;
-        Size = new Size(660, 820);
-        MinimumSize = new Size(520, 520);
+        // 画面に収まる高さにする (中身はスクロールできる)。
+        var area = Screen.FromPoint(Cursor.Position).WorkingArea;
+        Size = new Size(Math.Min(640, area.Width - 40), Math.Min(640, area.Height - 60));
+        MinimumSize = new Size(480, 400);
         Font = new Font("Yu Gothic UI", 9.5F);
 
         // 1 列の表に分類ごとの枠を縦に並べる (どの枠も画面の幅いっぱいにそろう)。
@@ -66,12 +68,20 @@ internal sealed class SettingsForm : Form
         var ok = new Button { Text = "OK", Width = 90 };
         var cancel = new Button { Text = "キャンセル", Width = 90, DialogResult = DialogResult.Cancel };
         var defaults = new Button { Text = "既定値に戻す", Width = 110 };
-        ok.Click += (_, _) =>
+        // OK と × (閉じる) は保存する。変更を捨てるのは キャンセル だけ。
+        var discard = false;
+        ok.Click += (_, _) => Close();
+        cancel.Click += (_, _) =>
         {
-            _engine.ApplySettings(Collect());
+            discard = true;
             Close();
         };
-        cancel.Click += (_, _) => Close();
+        FormClosing += (_, _) =>
+        {
+            if (discard) return;
+            var next = Collect();
+            if (next.ToJson() != _engine.Settings.Clone().Normalize().ToJson()) _engine.ApplySettings(next);
+        };
         defaults.Click += (_, _) =>
         {
             LoadFrom(new Settings());
@@ -159,26 +169,122 @@ internal sealed class SettingsForm : Form
         }
         if (type == typeof(List<AppRule>))
         {
-            var grid = AppRulesGrid();
+            var grid = _rulesGrid = AppRulesGrid();
+            return new Binding(property, grid,
+                s =>
+                {
+                    RefreshKindChoices(s.AppKinds.Select(k => k.Name));
+                    grid.Rows.Clear();
+                    foreach (var rule in (List<AppRule>)property.GetValue(s)!)
+                    {
+                        var kind = rule.Kind is { Length: > 0 } name && s.AppKinds.Any(k => k.Name == name) ? name : EnumName(typeof(AppProfile), rule.Profile);
+                        grid.Rows.Add(rule.Process, rule.Enabled ? On : Off, kind);
+                    }
+                },
+                s => property.SetValue(s, grid.Rows.Cast<DataGridViewRow>()
+                    .Where(r => !r.IsNewRow)
+                    .Select(r => (Process: (r.Cells[0].Value as string ?? "").Trim(), r.Cells[1].Value, Kind: r.Cells[2].Value as string ?? ""))
+                    .Where(r => r.Process.Length > 0)
+                    .Select(r =>
+                    {
+                        var builtIn = Enum.GetValues<AppProfile>().Where(p => EnumName(typeof(AppProfile), p) == r.Kind).Cast<AppProfile?>().FirstOrDefault();
+                        return new AppRule
+                        {
+                            Process = r.Process,
+                            Enabled = !Equals(r.Value, Off),
+                            Profile = builtIn ?? AppProfile.General,
+                            Kind = builtIn is null && r.Kind.Length > 0 ? r.Kind : null,
+                        };
+                    })
+                    .ToList()));
+        }
+        if (type == typeof(List<AppKind>))
+        {
+            var grid = AppKindsGrid();
             return new Binding(property, grid,
                 s =>
                 {
                     grid.Rows.Clear();
-                    foreach (var rule in (List<AppRule>)property.GetValue(s)!) grid.Rows.Add(rule.Process, rule.Enabled ? On : Off, EnumName(typeof(AppProfile), rule.Profile));
-                },
-                s => property.SetValue(s, grid.Rows.Cast<DataGridViewRow>()
-                    .Where(r => !r.IsNewRow)
-                    .Select(r => (Process: (r.Cells[0].Value as string ?? "").Trim(), r.Cells[1].Value, Profile: r.Cells[2].Value))
-                    .Where(r => r.Process.Length > 0)
-                    .Select(r => new AppRule
+                    foreach (var kind in (List<AppKind>)property.GetValue(s)!)
                     {
-                        Process = r.Process,
-                        Enabled = !Equals(r.Value, Off),
-                        Profile = Equals(r.Profile, EnumName(typeof(AppProfile), AppProfile.Code)) ? AppProfile.Code : AppProfile.General,
-                    })
-                    .ToList()));
+                        grid.Rows.Add(kind.Name, EnumName(typeof(AppProfile), kind.Base),
+                            kind.DetectionLevel is { } level ? EnumName(typeof(DetectionLevel), level) : SameAsGlobal,
+                            kind.LiveConversion is { } live ? (live ? On : Off) : SameAsGlobal,
+                            kind.StartInEnglish ? On : Off);
+                    }
+                },
+                s => property.SetValue(s, ReadKinds(grid)));
         }
         return null;
+    }
+
+    private const string SameAsGlobal = "全体と同じ";
+    private DataGridView? _rulesGrid;
+
+    private static List<AppKind> ReadKinds(DataGridView grid) => grid.Rows.Cast<DataGridViewRow>()
+        .Where(r => !r.IsNewRow && (r.Cells[0].Value as string ?? "").Trim().Length > 0)
+        .Select(r => new AppKind
+        {
+            Name = ((string)r.Cells[0].Value).Trim(),
+            Base = Equals(r.Cells[1].Value, EnumName(typeof(AppProfile), AppProfile.Code)) ? AppProfile.Code : AppProfile.General,
+            DetectionLevel = Enum.GetValues<DetectionLevel>().Where(l => Equals(r.Cells[2].Value, EnumName(typeof(DetectionLevel), l))).Cast<DetectionLevel?>().FirstOrDefault(),
+            LiveConversion = Equals(r.Cells[3].Value, On) ? true : Equals(r.Cells[3].Value, Off) ? false : null,
+            StartInEnglish = Equals(r.Cells[4].Value, On),
+        })
+        .GroupBy(k => k.Name).Select(g => g.First())
+        .ToList();
+
+    /// <summary>アプリ別設定の「種類」の選択肢を、一般 / コード + 独自の種類 にする。</summary>
+    private void RefreshKindChoices(IEnumerable<string> kinds)
+    {
+        if (_rulesGrid?.Columns[2] is not DataGridViewComboBoxColumn column) return;
+        var choices = Enum.GetValues<AppProfile>().Select(p => EnumName(typeof(AppProfile), p)).Concat(kinds).Distinct().ToList();
+        // 使われている値が選択肢から消えるとエラーになるので、今の値も残す。
+        foreach (DataGridViewRow row in _rulesGrid.Rows)
+        {
+            if (row.Cells[2].Value is string value && !choices.Contains(value)) choices.Add(value);
+        }
+        column.Items.Clear();
+        column.Items.AddRange(choices.Cast<object>().ToArray());
+    }
+
+    private DataGridView AppKindsGrid()
+    {
+        var grid = new DataGridView
+        {
+            Height = 140,
+            Dock = DockStyle.Fill,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            RowHeadersWidth = 24,
+            BackgroundColor = SystemColors.Window,
+            AllowUserToAddRows = true,
+            AllowUserToDeleteRows = true,
+        };
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "名前 (例: チャット)", FillWeight = 26 });
+        grid.Columns.Add(Choices("元にする種類", 18, Enum.GetValues<AppProfile>().Select(p => EnumName(typeof(AppProfile), p))));
+        grid.Columns.Add(Choices("判定の強さ", 20, [SameAsGlobal, .. Enum.GetValues<DetectionLevel>().Select(l => EnumName(typeof(DetectionLevel), l))]));
+        grid.Columns.Add(Choices("ライブ変換", 18, [SameAsGlobal, On, Off]));
+        grid.Columns.Add(Choices("最初は英数", 18, [Off, On]));
+        grid.DefaultValuesNeeded += (_, e) =>
+        {
+            e.Row.Cells[1].Value = EnumName(typeof(AppProfile), AppProfile.General);
+            e.Row.Cells[2].Value = SameAsGlobal;
+            e.Row.Cells[3].Value = SameAsGlobal;
+            e.Row.Cells[4].Value = Off;
+        };
+        // 種類を足したり名前を変えたりしたら、アプリ別設定の「種類」の選択肢にすぐ出す。
+        void Changed() => RefreshKindChoices(ReadKinds(grid).Select(k => k.Name));
+        grid.CellValueChanged += (_, _) => Changed();
+        grid.RowsRemoved += (_, _) => Changed();
+        grid.DataError += (_, e) => e.ThrowException = false;
+        return grid;
+
+        static DataGridViewComboBoxColumn Choices(string header, int weight, IEnumerable<string> items)
+        {
+            var column = new DataGridViewComboBoxColumn { HeaderText = header, FillWeight = weight, FlatStyle = FlatStyle.Flat };
+            column.Items.AddRange(items.Cast<object>().ToArray());
+            return column;
+        }
     }
 
     private ComboBox DropDown(string[] items)
@@ -193,7 +299,7 @@ internal sealed class SettingsForm : Form
     {
         var grid = new DataGridView
         {
-            Height = 260,
+            Height = 200,
             Dock = DockStyle.Fill,
             AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
             RowHeadersWidth = 24,
@@ -214,6 +320,7 @@ internal sealed class SettingsForm : Form
             e.Row.Cells[1].Value = On;
             e.Row.Cells[2].Value = EnumName(typeof(AppProfile), AppProfile.General);
         };
+        grid.DataError += (_, e) => e.ThrowException = false;
         return grid;
     }
 

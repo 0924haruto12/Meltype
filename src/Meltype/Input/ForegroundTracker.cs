@@ -30,6 +30,14 @@ internal sealed class ForegroundTracker
     /// </summary>
     public static System.Collections.Concurrent.ConcurrentDictionary<IntPtr, bool> TypingAllowedWindows { get; } = new();
 
+    /// <summary>Meltype 自身のウィンドウで、入力してよい画面 (ユーザー辞書) ではないもの。</summary>
+    public static bool IsOwnWindow(IntPtr window)
+    {
+        if (window == IntPtr.Zero) return false;
+        Native.GetWindowThreadProcessId(window, out var processId);
+        return processId == OwnProcessId && !TypingAllowedWindows.ContainsKey(window);
+    }
+
     public AppInfo Current
     {
         get

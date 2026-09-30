@@ -37,12 +37,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         detector.SpellChecker = Detection.WindowsSpellChecker.Shared;
         _composition = new Composition.CompositionService(_invoker, detector, new Composition.CompositionOptions
         {
-            LiveConversion = () => _engine.Settings.LiveConversion,
+            LiveConversion = () => _engine.AppSettings.LiveConversion,
             DirectMode = () => _engine.KeyboardDirect,
             ClassifyDirect = _engine.ClassifyDirect,
             DirectDecided = _engine.OnDirectDecided,
-            AutoCorrect = () => _engine.Settings.AutoCorrectAfterCommit && _engine.Settings.DetectionLevel != DetectionLevel.Manual,
-            Level = () => _engine.Settings.DetectionLevel,
+            AutoCorrect = () => _engine.Settings.AutoCorrectAfterCommit && _engine.AppSettings.DetectionLevel != DetectionLevel.Manual,
+            Level = () => _engine.AppSettings.DetectionLevel,
             KanaInput = () => _engine.Settings.InputStyle == InputStyle.Kana,
             ModeIndicator = () => _engine.Settings is { Enabled: true, Mode: InputMode.Keyboard, ShowModeIndicator: true },
         });

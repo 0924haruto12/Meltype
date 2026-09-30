@@ -280,6 +280,36 @@ internal static class CodeProfileTests
         Assert.Equal(AppProfile.Code, old.ProfileFor("pwsh.exe"), "足りないコードアプリを追加");
         Assert.Equal(AppProfile.General, old.ProfileFor("chrome.exe"));
     }
+
+    [Test]
+    public static void Settings_CustomAppKinds()
+    {
+        // 報告: アプリ別設定の種類を、一般とコードだけでなく自分で作れるように。
+        var settings = new Settings
+        {
+            DetectionLevel = DetectionLevel.Balanced,
+            AppKinds = [new AppKind { Name = "チャット", Base = AppProfile.General, DetectionLevel = DetectionLevel.Aggressive, LiveConversion = false, StartInEnglish = true }],
+            AppRules = [new AppRule { Process = "Discord.exe", Kind = "チャット" }, new AppRule { Process = "Code.exe", Profile = AppProfile.Code }],
+        };
+        Assert.Equal(DetectionLevel.Aggressive, settings.ForApp("discord.exe").DetectionLevel, "独自の種類の判定の強さ");
+        Assert.True(!settings.ForApp("Discord.exe").LiveConversion, "独自の種類のライブ変換");
+        Assert.Equal(DetectionLevel.Balanced, settings.ForApp("chrome.exe").DetectionLevel, "ほかのアプリは全体の設定");
+        Assert.True(settings.KindFor("Discord.exe")?.StartInEnglish == true, "最初は英数");
+        Assert.Equal(AppProfile.Code, settings.ProfileFor("Code.exe"));
+
+        var path = Path.Combine(Path.GetTempPath(), $"meltype-kinds-{Guid.NewGuid():N}.json");
+        try
+        {
+            settings.Save(path);
+            var loaded = Settings.Load(path);
+            Assert.Equal("チャット", loaded.KindFor("Discord.exe")?.Name, "保存して読み込んでも種類を保つ");
+            Assert.Equal(DetectionLevel.Aggressive, loaded.Clone().ForApp("Discord.exe").DetectionLevel, "複製しても保つ");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 }
 
 internal static class LanguageLearningTests

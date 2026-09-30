@@ -50,7 +50,26 @@ public sealed class AppRule
     [DisplayName("種類"), Description("コード = コードエディターやターミナル。基本は英数で、コメントや \"…\" の中だけ日本語を判定します。")]
     public AppProfile Profile { get; set; } = AppProfile.General;
 
-    public override string ToString() => $"{Process}: {(Enabled ? "ON" : "OFF")}, {Profile}";
+    /// <summary>ユーザーが作った種類 (<see cref="Settings.AppKinds"/>) の名前。指定があれば Profile より優先。</summary>
+    public string? Kind { get; set; }
+
+    public override string ToString() => $"{Process}: {(Enabled ? "ON" : "OFF")}, {Kind ?? Profile.ToString()}";
+}
+
+/// <summary>
+/// ユーザーが作るアプリの種類 (例: 「チャット」「ゲーム」)。一般 / コード を元に、判定の強さ・ライブ変換・最初の入力モードを変えられる。
+/// null の項目は全体の設定のまま。
+/// </summary>
+public sealed class AppKind
+{
+    public string Name { get; set; } = "";
+    public AppProfile Base { get; set; } = AppProfile.General;
+    public DetectionLevel? DetectionLevel { get; set; }
+    public bool? LiveConversion { get; set; }
+    /// <summary>このアプリに切り替えたら英数 (直接入力) から始める。</summary>
+    public bool StartInEnglish { get; set; }
+
+    public AppKind Clone() => (AppKind)MemberwiseClone();
 }
 
 /// <summary>アプリの種類。アプリに合わせて、英語と日本語のどちらを基本にするかを変える。</summary>
@@ -164,6 +183,9 @@ public sealed class Settings
     [Category("7. アプリ"), DisplayName("アプリ別設定"), Description("プロセス名ごとに、自動切替の ON/OFF と種類を指定します。種類「コード」(コードエディター・ターミナル) では基本は英数のままで、コメント (// # -- など) と文字列 (\"…\" など) の中だけ日本語を判定します。コードの行で 半角/全角 を押すと、その行だけ日本語で入力できます。README.md などの文章ファイルを開いているときは一般として扱います。")]
     public List<AppRule> AppRules { get; set; } = DefaultAppRules();
 
+    [Category("7. アプリ"), DisplayName("独自の種類"), Description("アプリ別設定の「種類」に使える、自分で作る種類です。一般 / コード を元に、判定の強さ・ライブ変換・最初は英数にするか を変えられます (「全体と同じ」なら上の設定のまま)。")]
+    public List<AppKind> AppKinds { get; set; } = [];
+
     [Category("8. ログ"), DisplayName("ファイルにログを書く"), Description("%LOCALAPPDATA%\\Meltype\\meltype.log に判定ログを書きます。判定対象の先頭数文字が含まれます。")]
     public bool FileLog { get; set; }
 
@@ -190,8 +212,23 @@ public sealed class Settings
 
     public bool IsAppEnabled(string? processName) => FindRule(processName)?.Enabled ?? true;
 
-    /// <summary>アプリの種類 (アプリ別設定に無ければ一般)。</summary>
-    public AppProfile ProfileFor(string? processName) => FindRule(processName)?.Profile ?? AppProfile.General;
+    /// <summary>アプリの種類 (アプリ別設定に無ければ一般)。独自の種類なら、その元にした種類。</summary>
+    public AppProfile ProfileFor(string? processName) =>
+        KindFor(processName)?.Base ?? FindRule(processName)?.Profile ?? AppProfile.General;
+
+    /// <summary>アプリに割り当てた独自の種類 (無ければ null)。</summary>
+    public AppKind? KindFor(string? processName) =>
+        FindRule(processName)?.Kind is { Length: > 0 } name ? AppKinds.FirstOrDefault(k => k.Name == name) : null;
+
+    /// <summary>アプリの独自の種類で変えた項目 (判定の強さ・ライブ変換) を反映した設定。変えていなければ自分自身。</summary>
+    public Settings ForApp(string? processName)
+    {
+        if (KindFor(processName) is not { } kind || (kind.DetectionLevel is null && kind.LiveConversion is null)) return this;
+        var copy = Clone();
+        if (kind.DetectionLevel is { } level) copy.DetectionLevel = level;
+        if (kind.LiveConversion is { } live) copy.LiveConversion = live;
+        return copy;
+    }
 
     private AppRule? FindRule(string? processName)
     {
@@ -206,7 +243,8 @@ public sealed class Settings
     public Settings Clone()
     {
         var copy = (Settings)MemberwiseClone();
-        copy.AppRules = AppRules.Select(r => new AppRule { Process = r.Process, Enabled = r.Enabled, Profile = r.Profile }).ToList();
+        copy.AppRules = AppRules.Select(r => new AppRule { Process = r.Process, Enabled = r.Enabled, Profile = r.Profile, Kind = r.Kind }).ToList();
+        copy.AppKinds = AppKinds.Select(k => k.Clone()).ToList();
         return copy;
     }
 
@@ -221,6 +259,7 @@ public sealed class Settings
         FeedbackWindowMs = Math.Clamp(FeedbackWindowMs, 500, 30000);
         ImeTimeoutMs = Math.Clamp(ImeTimeoutMs, 50, 2000);
         AppRules ??= [];
+        AppKinds ??= [];
         AppRules.RemoveAll(r => r is null || string.IsNullOrWhiteSpace(r.Process));
         foreach (var rule in AppRules) rule.Process = rule.Process.Trim();
         return this;
@@ -271,6 +310,9 @@ public sealed class Settings
             return new Settings();
         }
     }
+
+    /// <summary>config.json と同じ形式の文字列 (変更があったかを比べるのに使う)。</summary>
+    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
 
     public void Save(string path)
     {

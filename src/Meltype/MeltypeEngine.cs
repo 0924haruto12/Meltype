@@ -75,6 +75,9 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
 
     public Settings Settings => _settings;
 
+    /// <summary>前面のアプリの独自の種類 (判定の強さ・ライブ変換) を反映した設定。</summary>
+    public Settings AppSettings => _settings.ForApp(_foreground.Current.ProcessName);
+
     public UserModel UserModel => _userModel;
 
     public DetectionResult? LastDecision => _session.LastDecision;
@@ -311,7 +314,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         {
             // 英数状態: ローマ字かどうかを判定するために、単語の打ち始めの英字だけを受け取る。
             // 英語と分かった単語の続きは、区切り (Space など) まで素通しする。
-            if (!letter || !settings.DirectModeAutoDetect || settings.DetectionLevel == DetectionLevel.Manual || _directEnglishWord) return false;
+            if (!letter || !settings.DirectModeAutoDetect || settings.ForApp(_foreground.Current.ProcessName).DetectionLevel == DetectionLevel.Manual || _directEnglishWord) return false;
             if (_composition?.Focus.CanCapture != true) Log.Info("英数状態: 入力欄を確認できないので判定しない");
         }
         else if (!letter && !punctuation)
@@ -337,7 +340,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     /// <summary>英数状態で打ち始めた英字がローマ字 (日本語) かを、IME 自動切替と同じ判定器で調べる。UI スレッドから呼ばれる。</summary>
     public Verdict ClassifyDirect(string letters, bool final)
     {
-        var settings = _settings.Clone();
+        var settings = AppSettings.Clone();
         // かな入力なら打鍵をかな配列として、それ以外はローマ字として判定する。
         settings.InputStyle = settings.InputStyle == InputStyle.Kana ? InputStyle.Kana : InputStyle.Romaji;
         var keys = letters.Select(c => (int)char.ToUpperInvariant(c)).ToArray();
@@ -390,7 +393,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         {
             try
             {
-                if (!IsKeyboardActive || ImeTarget.FromForeground() is not { } target) return;
+                if (!IsKeyboardActive || ForegroundTracker.IsOwnWindow(Native.GetForegroundWindow()) || ImeTarget.FromForeground() is not { } target) return;
                 var state = _imm32.GetState(target);
                 if (state.Mode == IME.ImeMode.Open && _imm32.TrySetOpen(target, false, null, _settings.ImeTimeoutMs))
                 {
@@ -550,6 +553,12 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         _directEnglishWord = false;
         _composition?.ResetContext();
         _session.OnContextChanged(Environment.TickCount64);
+        // 独自の種類で「最初は英数」にしたアプリに切り替えたら英数から始める。
+        if (_settings is { Enabled: true, Mode: InputMode.Keyboard } && !_keyboardDirect && _settings.KindFor(app.ProcessName) is { StartInEnglish: true } kind)
+        {
+            Log.Info($"{app.ProcessName} は「{kind.Name}」: 英数から始めます。");
+            KeyboardDirect = true;
+        }
         if (IsKeyboardActive) CloseSystemImeAsync();
     }
 
@@ -559,6 +568,8 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         try
         {
             if (!_settings.Enabled) return;
+            // Meltype 自身の画面には IME の問い合わせを送らない (設定のドロップダウンが閉じてしまう)。
+            if (ForegroundTracker.IsOwnWindow(Native.GetForegroundWindow())) return;
             var target = ImeTarget.FromForeground();
             if (target is null) return;
             var state = _imm32.GetState(target);
