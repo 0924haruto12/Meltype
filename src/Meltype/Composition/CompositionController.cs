@@ -96,6 +96,9 @@ public sealed class CompositionOptions
     /// <summary>かな入力 (JIS) か。</summary>
     public Func<bool> KanaInput { get; init; } = () => false;
 
+    /// <summary>よくある書き間違い (ブレスレッド → ブレスレット) の辞書。「もしかして」に使う。null なら出さない。</summary>
+    public MisspellingDictionary? Misspellings { get; init; }
+
     /// <summary>入力欄に入ったときなどに、入力モード (あ / A) をカーソルの近くに出すか。</summary>
     public Func<bool> ModeIndicator { get; init; } = () => false;
 }
@@ -337,6 +340,10 @@ public sealed class CompositionController
                 return;
             case VirtualKeys.Escape:
                 _text.Clear();
+                return;
+            case VirtualKeys.Tab when FindMisspelling() is { } typo:
+                // もしかして: 書き間違いを直す。
+                FixMisspelling(typo);
                 return;
             case VirtualKeys.Tab when _text.Suggestion() is not null:
                 // 判定の強さが手動: 提案どおり英字にする。
@@ -593,6 +600,12 @@ public sealed class CompositionController
             case VirtualKeys.Return:
                 Commit();
                 return true;
+            case VirtualKeys.Tab when FindMisspelling() is { } typo:
+                // もしかして: 書き間違いを直して変換し直す。
+                _converting = false;
+                FixMisspelling(typo);
+                StartConversion();
+                return true;
             case VirtualKeys.Back:
             case VirtualKeys.Escape:
                 // 変換を取り消して、かなの入力に戻る。
@@ -602,6 +615,18 @@ public sealed class CompositionController
                 return false;
         }
     }
+
+    private (int Start, int End, Misspelling Misspelling)? FindMisspelling() =>
+        _options.Misspellings is { } dictionary ? _text.FindMisspelling(dictionary) : null;
+
+    private void FixMisspelling((int Start, int End, Misspelling Misspelling) typo)
+    {
+        Diagnostics.Log.Decision($"もしかして: 「{typo.Misspelling.Wrong}」→「{typo.Misspelling.Right}」に直しました。");
+        _text.ReplaceReading(typo.Start, typo.End, typo.Misspelling.Right);
+    }
+
+    /// <summary>「もしかして」の案内 (書き間違いが無ければ空)。</summary>
+    private string MisspellingHint() => FindMisspelling() is { } typo ? $"もしかして: {typo.Misspelling.Right} (Tab)　" : "";
 
     /// <summary>変換前に矢印キーを押したとき: 文節に区切って、← なら最後の文節、→ なら最初の文節を選ぶ。</summary>
     private void EnterClauseSelection(int vk)
@@ -1012,7 +1037,7 @@ public sealed class CompositionController
                 selected.Candidates,
                 selected.Index,
                 true,
-                "←→ 文節　Space/↓ 候補　Shift+←→ 区切り　Enter 確定　Esc 戻る",
+                MisspellingHint() + "←→ 文節　Space/↓ 候補　Shift+←→ 区切り　Enter 確定　Esc 戻る",
                 _clauses.Select(c => c.Text).ToList(),
                 _selectedClause));
         }
@@ -1020,6 +1045,7 @@ public sealed class CompositionController
         {
             var hint = _text.IsAlphanumeric ? "Enter 確定　Space 確定+空白　半角/全角 日本語に" : "Space 変換　←→ 文節　Enter 確定　F7 カタカナ　F10 英字";
             if (_text.Suggestion() is { } suggestion) hint = $"Tab → {suggestion} (英字に)　" + hint;
+            hint = MisspellingHint() + hint;
             _host.Show(new CompositionView(CurrentDisplay(final: false), [], -1, false, hint));
         }
     }

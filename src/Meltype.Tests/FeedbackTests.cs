@@ -186,3 +186,54 @@ internal static class KanaInputTests
         Assert.Equal("Google", shift.Showing, "Shift で打った大文字始まりは英語");
     }
 }
+
+internal static class MisspellingTests
+{
+    [Test]
+    public static void Misspelling_IsSuggestedAndFixedWithTab()
+    {
+        var k = new CompositionTests.Keyboard();
+        k.Type("buresureddo");
+        Assert.Equal("ぶれすれっど", k.Showing);
+        Assert.True(k.Host.View!.Hint.Contains("もしかして: ブレスレット"), k.Host.View.Hint);
+        k.Press(VirtualKeys.Tab);
+        Assert.Equal("ぶれすれっと", k.Showing, "Tab で正しい読みに直す");
+        Assert.True(!k.Host.View!.Hint.Contains("もしかして"), "直した後は出ない");
+        k.Type("\n");
+        Assert.Equal("ぶれすれっと", k.Host.Document);
+    }
+
+    [Test]
+    public static void Misspelling_ListedPairsAndSpellingVariants()
+    {
+        foreach (var (typed, right) in new[]
+        {
+            ("shumire-shon", "シミュレーション"),
+            ("komyunike-shon", null),
+            ("kominyuke-shon", "コミュニケーション"),
+            ("bure-suretto", "ブレスレット"),
+            ("figiasuke-to", "フィギュア"),
+            ("kyouhaiitenki", null),
+            ("buresurettowokau", null),
+        })
+        {
+            var k = new CompositionTests.Keyboard();
+            k.Type(typed);
+            var hint = k.Host.View!.Hint;
+            if (right is null) Assert.True(!hint.Contains("もしかして"), $"{typed}: 誤りではない ({hint})");
+            else Assert.True(hint.Contains($"もしかして: {right}"), $"{typed}: {hint}");
+        }
+    }
+
+    [Test]
+    public static void Misspelling_TabWhileConverting_Reconverts()
+    {
+        var k = new CompositionTests.Keyboard();
+        k.Type("buresureddo ");
+        Assert.True(k.Host.View!.Converting, "Space で変換中");
+        Assert.True(k.Host.View.Hint.Contains("もしかして: ブレスレット"), k.Host.View.Hint);
+        k.Press(VirtualKeys.Tab);
+        Assert.True(k.Host.View!.Converting, "直して変換し直す");
+        Assert.Equal("ぶれすれっと", k.Showing);
+    }
+}

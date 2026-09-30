@@ -48,6 +48,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             AutoCorrect = options.AutoCorrect,
             Level = options.Level,
             KanaInput = options.KanaInput,
+            Misspellings = options.Misspellings ?? MisspellingDictionary.Load(userDirectory),
         };
         Controller = new CompositionController(Gate, detector, _converter, this, resolved);
         _showIndicator = options.ModeIndicator;

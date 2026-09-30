@@ -32,6 +32,7 @@
 ・！ ？ ～ は Shift を押して打つと全角 (英文の後は半角)
 ・Shift を押して打った大文字で始まる語 (Google, W など) は英語
 ・小書き文字は x / l (xa, la = ぁ、ltu = っ)
+・よくある書き間違い (ブレスレッド、シュミレーション など) は「もしかして: ブレスレット (Tab)」と出るので、Tab で直せます
 ・半角/全角 : 英数 (そのまま入力) ⇔ 日本語
 ・Ctrl + 半角/全角 : Meltype 自体の有効 / 無効 (トレイのアイコンのダブルクリックでも同じ)
 
@@ -79,5 +80,5 @@ Uninstall.cmd をダブルクリックすると、停止・自動起動の解除
 
 ■ ライセンス
 Meltype は GNU GPL v3 (LICENSE.txt) で配布しています。無保証です。
-ソースコード: https://github.com/yksr-melt/yksr-Meltype
+ソースコード: https://github.com/yksr-melt/Meltype
 同梱の .NET ランタイム (app\dotnet) は MIT ライセンスです。

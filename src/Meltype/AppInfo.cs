@@ -8,7 +8,7 @@ namespace Meltype;
 /// <summary>バージョン・著作権・ライセンスの表示 (トレイの「Meltype について...」)。</summary>
 internal static class AppInfo
 {
-    public const string SourceUrl = "https://github.com/yksr-melt/yksr-Meltype";
+    public const string SourceUrl = "https://github.com/yksr-melt/Meltype";
     public const string CommercialContact = "ibutya0319@gmail.com";
 
     public static string Version =>

@@ -250,6 +250,82 @@ public sealed class CompositionText
     /// <summary>英語判定を無視してすべてかなにしたもの (F6)。</summary>
     public string AllKana(bool final) => string.Concat(_units.Select(u => u.Kana)) + PendingText(final);
 
+    /// <summary>
+    /// 日本語の部分の読みに書き間違い (ブレスレッド) があれば、その位置 (単位の範囲) と正しい読みを返す。
+    /// 英語として見せている部分や、入力途中の子音は見ない。読みの区切りが単位の区切りと合わないときも null。
+    /// </summary>
+    public (int Start, int End, Misspelling Misspelling)? FindMisspelling(MisspellingDictionary dictionary)
+    {
+        if (Mode != DisplayMode.Auto || _units.Count == 0) return null;
+        var english = UnitIsEnglish();
+        // 日本語の単位が続く範囲ごとに探す。
+        var start = 0;
+        while (start < _units.Count)
+        {
+            if (english[start])
+            {
+                start++;
+                continue;
+            }
+            var end = start;
+            while (end < _units.Count && !english[end]) end++;
+            var offsets = new List<int>();
+            var reading = new StringBuilder();
+            for (var i = start; i < end; i++)
+            {
+                offsets.Add(reading.Length);
+                reading.Append(_units[i].Kana);
+            }
+            offsets.Add(reading.Length);
+            // 語末の n (まだ ん になっていない) も ん として読む (しゅみれーしょn)。
+            if (end == _units.Count && Pending.ToLowerInvariant() is "n" or "nn")
+            {
+                reading.Append('ん');
+                offsets.Add(reading.Length);
+            }
+            if (dictionary.Find(reading.ToString()) is { } found)
+            {
+                var first = offsets.IndexOf(found.Start);
+                var last = offsets.IndexOf(found.Start + found.Length);
+                if (first >= 0 && last > first) return (start + first, start + last, found);
+            }
+            start = end;
+        }
+        return null;
+    }
+
+    /// <summary>単位 [start, end) の読みを、正しい読み (カタカナ) に置き換える。end が単位の数を超えるときは語末の n も含む。</summary>
+    public void ReplaceReading(int start, int end, string rightKatakana)
+    {
+        var hiragana = new string(rightKatakana.Select(c => c is >= 'ァ' and <= 'ヶ' ? (char)(c - 0x60) : c).ToArray());
+        if (end > _units.Count)
+        {
+            _pending.Clear();
+            end = _units.Count;
+        }
+        _units.RemoveRange(start, end - start);
+        // かなの単位にする (英字の Raw を持たないので、英語と判定されることはない)。
+        _units.InsertRange(start, hiragana.Select(c => new CompositionUnit(c.ToString(), c.ToString())));
+    }
+
+    /// <summary>単位ごとに、英語として見せている区間に入っているか。</summary>
+    private bool[] UnitIsEnglish()
+    {
+        var result = new bool[_units.Count];
+        var unit = 0;
+        foreach (var segment in Segments())
+        {
+            var remaining = segment.Raw.Length;
+            while (unit < _units.Count && remaining > 0)
+            {
+                result[unit] = segment.IsEnglish;
+                remaining -= _units[unit].Raw.Length;
+                unit++;
+            }
+        }
+        return result;
+    }
+
     private string PendingText(bool final)
     {
         var pending = Pending;

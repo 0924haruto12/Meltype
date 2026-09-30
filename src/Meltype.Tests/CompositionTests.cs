@@ -105,6 +105,7 @@ internal static class CompositionTests
         private static readonly Detection.ScoreEngine DirectEngine = TestSupport.CreateEngine();
         private static readonly CandidateDictionary Candidates = CandidateDictionary.Load(null);
         private static readonly ContextRules Rules = ContextRules.Load(null);
+        private static readonly MisspellingDictionary Misspellings = MisspellingDictionary.Load(null);
         private bool _directEnglishWord;
 
         /// <summary>自動判定の強さ。</summary>
@@ -162,6 +163,7 @@ internal static class CompositionTests
                 UserDictionary = userDictionary,
                 Level = () => Level,
                 KanaInput = () => Kana,
+                Misspellings = Misspellings,
             });
         }
 
