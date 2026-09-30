@@ -6,7 +6,7 @@ using System.Collections.Concurrent;
 namespace Meltype.Composition;
 
 /// <summary>フォーカスのある要素の情報。</summary>
-public sealed record FocusInfo(bool IsTextInput, bool IsPassword, Rectangle? Bounds, string Description);
+public sealed record FocusInfo(bool IsTextInput, bool IsPassword, Rectangle? Bounds, string Description, string Name = "", string ClassName = "");
 
 /// <summary>
 /// フォーカスのある要素を UI Automation で調べる。
@@ -152,7 +152,7 @@ public sealed class FocusInspector : IDisposable
                 // Windows Terminal などは Edit ではなく TextPattern を持つ独自コントロール。
                 editable = true;
             }
-            return new FocusInfo(editable, false, element.Bounds, description);
+            return new FocusInfo(editable, false, element.Bounds, description, element.Name, element.ClassName);
         }
         catch (Exception ex)
         {

@@ -114,7 +114,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         // 変換ボックスで確定した文字と、Meltype が送り直したキーも、今の行の追いかけに入れる (自分で送ったキーはフックに届かない)。
         composition.Controller.Committed += text => _line.Append(text);
         composition.KeyReplayed += e => TrackLine(e);
-        composition.MouseReplayed += InvalidateLine;
+        composition.MouseReplayed += () => InvalidateLine();
         composition.Focus.Invalidate();
         if (IsKeyboardActive) CloseSystemImeAsync();
     }
@@ -175,7 +175,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
                 if (!_keyboardDirect && IsCodeApp(settings) && (_codeJapanese || InCode(settings)))
                 {
                     _codeJapanese = !_codeJapanese;
-                    Log.Info(_codeJapanese ? "コードの行: この行は日本語で入力 (改行まで)" : "コードの行: 英数に戻す");
+                    Log.Info(_codeJapanese ? "コードの行: 日本語で入力 (エディターは改行まで、ターミナルは別の場所に移るまで)" : "コードの行: 英数に戻す");
                     composition.ShowMode(_codeJapanese);
                     return true;
                 }
@@ -201,15 +201,22 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     private volatile bool _codeJapanese;
     private LineKind? _lastLineKind;
 
-    /// <summary>前面のアプリが「コード」(コードエディター・ターミナル) か。文章のファイル (README.md など) を開いているなら違う。</summary>
-    private bool IsCodeApp(Settings settings)
+    /// <summary>
+    /// 前面のアプリが「コード」(コードエディター・ターミナル) なら、フォーカスのある入力欄の種類。
+    /// 文章のファイル (README.md など) を開いているときや、チャット・AI への入力欄 (Copilot Chat・Claude Code の画面) なら None。
+    /// </summary>
+    private CodeFocus CurrentCodeFocus(Settings settings)
     {
         var app = _foreground.Current;
-        return settings.ProfileFor(app.ProcessName) == AppProfile.Code && !LineContext.IsDocumentTitle(KeyText.WindowTitle(app.Window));
+        if (settings.ProfileFor(app.ProcessName) != AppProfile.Code || LineContext.IsDocumentTitle(KeyText.WindowTitle(app.Window))) return CodeFocus.None;
+        var focus = _composition?.Focus.Current;
+        return LineContext.ClassifyFocus(app.ProcessName, focus?.Name ?? "", focus?.ClassName ?? "");
     }
 
+    private bool IsCodeApp(Settings settings) => CurrentCodeFocus(settings) != CodeFocus.None;
+
     /// <summary>
-    /// 前面のアプリが「コード」で、キャレットがコード (コメント・文字列の外) にあるか。フックのスレッドで呼ばれる。
+    /// 前面のアプリが「コード」で、キャレットがコード (コメント・文字列・AI の入力行の外) にあるか。フックのスレッドで呼ばれる。
     /// 今の行が分からないときはコードとみなし、UI Automation で読みに行く。
     /// </summary>
     private bool InCode(Settings settings)
@@ -228,8 +235,16 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     private void TrackLine(KeyEvent e)
     {
         if (!e.IsDown || VirtualKeys.IsModifier(e.Vk)) return;
+        var terminal = CurrentCodeFocus(_settings) == CodeFocus.Terminal;
         if (e.Vk == VirtualKeys.Return)
         {
+            if (terminal)
+            {
+                // ターミナルの次の行のプロンプト (Claude Code の「> 」など) は出力なので、出てから読む。
+                // AI の入力で 半角/全角 を押して日本語にしていたら、続けて日本語のまま。
+                InvalidateLine(resetJapanese: false, delayMs: 300);
+                return;
+            }
             _line.NewLine();
             _codeJapanese = false;
             return;
@@ -244,19 +259,20 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         if (IsDown(VirtualKeys.Control) || IsDown(VirtualKeys.Menu) || IsDown(VirtualKeys.LWin) || IsDown(VirtualKeys.RWin) ||
             e.Vk is VirtualKeys.Tab or (>= 0x21 and <= 0x28) or 0x2E)
         {
-            InvalidateLine();
+            InvalidateLine(resetJapanese: !terminal);
             return;
         }
         if (KeyText.CharFromKey(e.Vk, e.Scan, false) is { } c) _line.Append(c.ToString());
     }
 
-    private void InvalidateLine()
+    /// <param name="resetJapanese">半角/全角 で日本語にしていた行の設定も戻すか (キャレットが別の場所に動いたとき)。</param>
+    private void InvalidateLine(bool resetJapanese = true, int delayMs = 80)
     {
         _line.Invalidate();
-        _codeJapanese = false;
+        if (resetJapanese) _codeJapanese = false;
         Interlocked.Increment(ref _lineVersion);
         // キャレットの移動がアプリに届くのを少し待ってから読む。
-        if (_settings.ProfileFor(_foreground.Current.ProcessName) == AppProfile.Code) RequestLine(80);
+        if (_settings.ProfileFor(_foreground.Current.ProcessName) == AppProfile.Code) RequestLine(delayMs);
     }
 
     /// <summary>UI Automation で、今の行のキャレットより前を読む (delayMs 後)。</summary>

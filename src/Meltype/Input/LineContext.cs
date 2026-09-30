@@ -14,6 +14,19 @@ public enum LineKind
     Comment,
     /// <summary>文字列の中 ("…" '…' `…`)。日本語を書くことが多い。</summary>
     String,
+    /// <summary>ターミナルで動く AI・チャットの入力 (Claude Code・Codex などの「&gt; 」の後)。日本語を書くことが多い。</summary>
+    Prompt,
+}
+
+/// <summary>「コード」のアプリで、フォーカスのある入力欄の種類。</summary>
+public enum CodeFocus
+{
+    /// <summary>コードを書く場所ではない (チャット・AI への質問、設定の画面など)。一般のアプリと同じに扱う。</summary>
+    None,
+    /// <summary>コードエディター。</summary>
+    Editor,
+    /// <summary>ターミナル (プロンプトは出力なので、改行のたびに読み直す)。</summary>
+    Terminal,
 }
 
 /// <summary>
@@ -25,6 +38,7 @@ public static class LineContext
 {
     public static LineKind Classify(string line)
     {
+        if (IsChatPrompt(line)) return LineKind.Prompt;
         char? quote = null;
         var firstText = true; // まだ空白以外の文字が出ていない
         for (var i = 0; i < line.Length; i++)
@@ -71,6 +85,63 @@ public static class LineContext
             if (atStart && StartsWithIgnoreCase(line, i, "rem ")) return LineKind.Comment;
         }
         return quote is null ? LineKind.Code : LineKind.String;
+    }
+
+    /// <summary>
+    /// ターミナルで動く AI・チャットの入力行か (Claude Code・Gemini CLI の「&gt; 」、Codex の「› 」。枠線の │ は飛ばす)。
+    /// PowerShell の続きの行「&gt;&gt; 」や、シェルのプロンプト (PS C:\&gt;、$、❯) は含めない。
+    /// </summary>
+    private static bool IsChatPrompt(string line)
+    {
+        var i = 0;
+        while (i < line.Length && (char.IsWhiteSpace(line[i]) || line[i] is '│' or '┃' or '║' or '|' or '╎' or '┆')) i++;
+        if (i >= line.Length || line[i] is not ('>' or '›')) return false;
+        return i + 1 == line.Length || line[i + 1] == ' ' || line[i + 1] == '\u00A0';
+    }
+
+    private static readonly string[] ChatWords =
+        ["chat", "チャット", "copilot", "claude", "codex", "gemini", "prompt", "プロンプト", "message", "メッセージ", "ask ", "質問", "composer", "agent", "エージェント", "cascade", "assistant", "アシスタント"];
+
+    private static readonly string[] EditorWords = ["editor", "エディター", "エディタ"];
+
+    private static readonly string[] TerminalWords = ["terminal", "ターミナル", "端末", "console", "コンソール"];
+
+    // VS Code の検索・コマンドパレット・ファイル名の入力など (英数で打つもの)
+    private static readonly string[] SearchWords = ["search", "検索", "command", "コマンド", "quick", "file name", "ファイル名", "filter", "フィルター", "go to", "移動", "find", "replace", "置換"];
+
+    /// <summary>ターミナルのアプリ (アプリ全体がターミナル)。</summary>
+    public static readonly HashSet<string> TerminalProcesses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "WindowsTerminal.exe", "OpenConsole.exe", "conhost.exe", "cmd.exe", "powershell.exe", "pwsh.exe",
+        "wezterm-gui.exe", "alacritty.exe", "mintty.exe",
+    };
+
+    /// <summary>エディター以外の入力欄 (チャット・拡張機能の画面) も多い、Electron 製のエディター。</summary>
+    private static readonly HashSet<string> ElectronEditors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Code.exe", "Code - Insiders.exe", "Cursor.exe", "Windsurf.exe", "zed.exe",
+    };
+
+    /// <summary>
+    /// 「コード」のアプリで、フォーカスのある入力欄がコードを書く場所か (UI Automation の名前・クラス名から)。
+    /// チャット・AI への入力欄 (VS Code の Copilot Chat、Claude Code の画面など) は一般のアプリと同じに扱う。
+    /// VS Code などの Electron 製のエディターは入力欄の種類が多いので、エディター・ターミナル・検索と分かるものだけをコードとする。
+    /// </summary>
+    public static CodeFocus ClassifyFocus(string process, string name, string className)
+    {
+        if (ContainsAny(name, ChatWords)) return CodeFocus.None;
+        if (TerminalProcesses.Contains(process) || ContainsAny(name, TerminalWords) || className.Contains("TermControl", StringComparison.Ordinal)) return CodeFocus.Terminal;
+        if (ElectronEditors.Contains(process)) return ContainsAny(name, EditorWords) || ContainsAny(name, SearchWords) ? CodeFocus.Editor : CodeFocus.None;
+        return CodeFocus.Editor;
+    }
+
+    private static bool ContainsAny(string text, string[] words)
+    {
+        foreach (var word in words)
+        {
+            if (text.Contains(word, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
     }
 
     private static bool StartsWith(string text, int index, string value) =>

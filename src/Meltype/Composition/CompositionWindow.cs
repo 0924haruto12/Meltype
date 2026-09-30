@@ -18,6 +18,7 @@ internal sealed class CompositionWindow : Form
     private readonly Font _candidateFont = new("Yu Gothic UI", 11F);
     private readonly Font _hintFont = new("Yu Gothic UI", 8.5F);
     private CompositionView? _view;
+    private readonly ColorTextRenderer _color = new();
 
     public CompositionWindow()
     {
@@ -103,7 +104,7 @@ internal sealed class CompositionWindow : Form
                     using var highlight = new SolidBrush(Color.FromArgb(90, 76, 160, 255));
                     g.FillRectangle(highlight, x - 1, y - 1, width + 2, _textFont.Height + 2);
                 }
-                TextRenderer.DrawText(g, clauses[i], _textFont, new Point(x, y), Color.White, flags);
+                DrawText(g, clauses[i], _textFont, new Point(x, y), Color.White, selected ? Blend(Background, Color.FromArgb(90, 76, 160, 255)) : Background, flags);
                 using (var underline = new Pen(selected ? Accent : Color.FromArgb(170, 170, 170), selected ? 3 : 1))
                 {
                     g.DrawLine(underline, x + 1, y + _textFont.Height + 1, x + width - 2, y + _textFont.Height + 1);
@@ -114,7 +115,7 @@ internal sealed class CompositionWindow : Form
         }
         else
         {
-            TextRenderer.DrawText(g, view.Text, _textFont, new Point(10, y), Color.White, TextFormatFlags.NoPrefix);
+            DrawText(g, view.Text, _textFont, new Point(10, y), Color.White, Background, TextFormatFlags.NoPrefix);
             var textWidth = TextRenderer.MeasureText(g, view.Text, _textFont).Width;
             y += _textFont.Height;
             using (var underline = new Pen(Color.White, 1) { DashStyle = DashStyle.Dot })
@@ -134,8 +135,9 @@ internal sealed class CompositionWindow : Form
                     using var highlight = new SolidBrush(Color.FromArgb(60, 76, 160, 255));
                     g.FillRectangle(highlight, 4, y - 2, Width - 8, rowHeight);
                 }
-                TextRenderer.DrawText(g, $"{i + 1}  {view.Candidates[i]}", _candidateFont, new Point(12, y),
-                    i == view.SelectedIndex ? Color.White : Color.FromArgb(200, 200, 200), TextFormatFlags.NoPrefix);
+                DrawText(g, $"{i + 1}  {view.Candidates[i]}", _candidateFont, new Point(12, y),
+                    i == view.SelectedIndex ? Color.White : Color.FromArgb(200, 200, 200),
+                    i == view.SelectedIndex ? Blend(Background, Color.FromArgb(60, 76, 160, 255)) : Background, TextFormatFlags.NoPrefix);
                 y += rowHeight;
             }
             y += 6;
@@ -143,13 +145,51 @@ internal sealed class CompositionWindow : Form
         TextRenderer.DrawText(g, view.Hint, _hintFont, new Point(8, y), Color.FromArgb(150, 150, 150), TextFormatFlags.NoPrefix);
     }
 
+    /// <summary>
+    /// 文字列を描く。絵文字を含むならカラーで描く (GDI だと白黒になるため)。back はその場所の背景色 (半透明の強調を重ねた後の色)。
+    /// </summary>
+    private void DrawText(Graphics g, string text, Font font, Point location, Color fore, Color back, TextFormatFlags flags)
+    {
+        if (_color.Available && ColorTextRenderer.ContainsEmoji(text))
+        {
+            var size = TextRenderer.MeasureText(g, text, font, Size.Empty, flags);
+            var width = Math.Min(size.Width + 8, Math.Max(1, Width - location.X - 2));
+            var bounds = new Rectangle(location.X, location.Y, width, Math.Max(size.Height, font.Height));
+            // GetHdc の間は Graphics のプロパティを読めないので、先に文字の大きさを求める。
+            var pixels = font.SizeInPoints * g.DpiY / 72f;
+            var hdc = g.GetHdc();
+            try
+            {
+                if (_color.Draw(hdc, bounds, text, font.Name, pixels, fore, back)) return;
+            }
+            catch (Exception ex)
+            {
+                // カラーで描けなくても、変換ボックスは止めずに白黒で描く。
+                Diagnostics.Log.Warn($"カラー絵文字を描けませんでした: {ex.Message}");
+            }
+            finally
+            {
+                g.ReleaseHdc(hdc);
+            }
+        }
+        TextRenderer.DrawText(g, text, font, location, fore, flags);
+    }
+
+    /// <summary>背景に半透明の色を重ねた後の色。</summary>
+    private static Color Blend(Color back, Color overlay) => Color.FromArgb(
+        back.R + (overlay.R - back.R) * overlay.A / 255,
+        back.G + (overlay.G - back.G) * overlay.A / 255,
+        back.B + (overlay.B - back.B) * overlay.A / 255);
+
     protected override void Dispose(bool disposing)
+
     {
         if (disposing)
         {
             _textFont.Dispose();
             _candidateFont.Dispose();
             _hintFont.Dispose();
+            _color.Dispose();
         }
         base.Dispose(disposing);
     }

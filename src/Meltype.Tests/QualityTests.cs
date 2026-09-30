@@ -187,7 +187,36 @@ internal static class Quality
         ("s = \"a\\\"b", LineKind.String),
         ("url = 'http://x' + ", LineKind.Code),
         ("const s = `template ${x} ", LineKind.String),
+        // ターミナルで動く AI・チャット (Claude Code・Codex など)
+        ("> ", LineKind.Prompt),
+        ("│ > こんにちは", LineKind.Prompt),
+        ("› fix the bug ", LineKind.Prompt),
+        (">> ", LineKind.Code),
+        (@"PS C:\Users\me> ", LineKind.Code),
+        ("$ ls ", LineKind.Code),
+        ("❯ git status ", LineKind.Code),
         ("", LineKind.Code),
+    ];
+
+    /// <summary>「コード」のアプリで、フォーカスのある入力欄の種類 (プロセス名, UI Automation の名前, クラス名)。</summary>
+    private static readonly (string Process, string Name, string ClassName, CodeFocus Expected)[] Focuses =
+    [
+        ("Code.exe", "Editor content;Press Alt+F1 for Accessibility Options.", "", CodeFocus.Editor),
+        ("Code.exe", "The editor is not accessible at this time.", "", CodeFocus.Editor),
+        ("Code.exe", "エディターのコンテンツ", "", CodeFocus.Editor),
+        ("Code.exe", "Chat Input", "", CodeFocus.None),
+        ("Code.exe", "チャット入力", "", CodeFocus.None),
+        ("Code.exe", "", "", CodeFocus.None),
+        ("Code.exe", "Message Claude…", "", CodeFocus.None),
+        ("Code.exe", "Terminal 1, pwsh", "", CodeFocus.Terminal),
+        ("Code.exe", "ターミナル 1、bash", "", CodeFocus.Terminal),
+        ("Code.exe", "Type the name of a command to run.", "", CodeFocus.Editor),
+        ("Cursor.exe", "Composer", "", CodeFocus.None),
+        ("WindowsTerminal.exe", "", "TermControl", CodeFocus.Terminal),
+        ("pwsh.exe", "", "", CodeFocus.Terminal),
+        ("idea64.exe", "Editor", "", CodeFocus.Editor),
+        ("idea64.exe", "AI Assistant chat", "", CodeFocus.None),
+        ("devenv.exe", "", "", CodeFocus.Editor),
     ];
 
     private static readonly (string Title, bool Document)[] Titles =
@@ -250,6 +279,11 @@ internal static class Quality
         {
             var actual = LineContext.Classify(line);
             Score("コードの行", actual == expected, $"「{line}」→ {actual} (期待: {expected})");
+        }
+        foreach (var (process, name, className, expected) in Focuses)
+        {
+            var actual = LineContext.ClassifyFocus(process, name, className);
+            Score("入力欄の種類", actual == expected, $"{process} 「{name}」({className}) → {actual} (期待: {expected})");
         }
         foreach (var (title, expected) in Titles)
         {
