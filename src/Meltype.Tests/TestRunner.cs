@@ -19,13 +19,15 @@ internal static class TestRunner
         {
             // dotnet run --project src/Meltype.Tests -- --type "ke-kiwotabeta "
             // 本物の変換エンジンをつないだ変換ボックスに 1 文字ずつ打ち、表示の変化を見る (ライブ変換 ON)。
+            // 本物のアプリと同じく Windows のスペルチェッカーも使う。
+            CompositionTests.Detector.SpellChecker = Detection.WindowsSpellChecker.Shared;
             using var converter = new Composition.MsImeKanjiConverter();
             using var winrt = new Composition.WinRtCandidates();
             foreach (var text in args.Skip(1))
             {
                 // "前の文字列|打つキー" の形なら、前の文字列をキャレットの前にある確定済みの文字として扱う。
                 var bar = text.IndexOf('|');
-                var keyboard = new CompositionTests.Keyboard(live: true, converter: converter, moreCandidates: r => winrt.Get(r));
+                var keyboard = new CompositionTests.Keyboard(live: true, converter: converter, moreCandidates: r => winrt.Get(r), userDictionary: new Composition.UserDictionary(null));
                 if (bar >= 0) keyboard.Host.PrecedingText = text[..bar];
                 foreach (var c in bar >= 0 ? text[(bar + 1)..] : text)
                 {

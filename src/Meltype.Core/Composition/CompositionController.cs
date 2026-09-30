@@ -751,6 +751,8 @@ public sealed class CompositionController
             var others = string.Concat(clauses.Where((_, k) => k != i).Select(c => c.Text));
             var surrounding = (_precedingText ?? "") + others + (_followingText ?? "");
             var preferred = _options.ContextRules?.Choose(clauses[i].Reading, surrounding) ?? _options.History?.Get(clauses[i].Reading);
+            // 変換エンジンは、文節が「から」だけだと記号 (～) にしてしまう。記号だけの変換結果は、ひらがなの後ろに回す。
+            preferred ??= IsSymbolOnly(clauses[i].Text) && clauses[i].Reading.All(c => c is >= 'ぁ' and <= 'ゖ') ? clauses[i].Reading : null;
             if (preferred is not null) Prefer(clauses[i], preferred);
         }
         return clauses;
@@ -780,6 +782,8 @@ public sealed class CompositionController
     }
 
     private static readonly char[] SentenceEnds = ['。', '！', '？', '\n', '\r'];
+
+    private static bool IsSymbolOnly(string text) => text.Length > 0 && !text.Any(char.IsLetterOrDigit);
 
     private static void Prefer(Clause clause, string text)
     {

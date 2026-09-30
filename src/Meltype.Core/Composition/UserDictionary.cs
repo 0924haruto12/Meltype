@@ -21,30 +21,37 @@ public sealed class UserDictionary
 
     private readonly string? _path;
     private readonly List<UserWord> _words = [];
+    // 同梱の語句 (dictionaries/phrases.txt)。変換エンジンが苦手な語句を補う。ユーザーの登録より後回しで、保存も表示もしない。
+    private readonly List<UserWord> _builtIn = [];
     private Dictionary<string, List<string>> _byReading = new(StringComparer.Ordinal);
     private int _maxReadingLength;
 
-    public UserDictionary(string? path)
+    public UserDictionary(string? path, bool builtIn = true)
     {
         _path = path;
-        if (path is null || !File.Exists(path)) return;
+        if (builtIn) Parse(Detection.DictionarySource.ReadEmbedded("phrases.txt").Split('\n'), _builtIn);
         try
         {
-            foreach (var line in File.ReadAllLines(path, Encoding.UTF8))
-            {
-                if (line.StartsWith('#')) continue;
-                var parts = line.Split('\t');
-                if (parts.Length >= 2 && parts[0].Trim().Length >= MinReadingLength && parts[1].Trim().Length > 0)
-                {
-                    _words.Add(new UserWord(parts[0].Trim(), parts[1].Trim()));
-                }
-            }
+            if (path is not null && File.Exists(path)) Parse(File.ReadAllLines(path, Encoding.UTF8), _words);
         }
         catch (Exception ex)
         {
             Diagnostics.Log.Warn($"ユーザー辞書を読めませんでした: {ex.Message}");
         }
         Rebuild();
+    }
+
+    private static void Parse(IEnumerable<string> lines, List<UserWord> words)
+    {
+        foreach (var line in lines)
+        {
+            if (line.StartsWith('#')) continue;
+            var parts = line.TrimEnd('\r').Split('\t');
+            if (parts.Length >= 2 && parts[0].Trim().Length >= MinReadingLength && parts[1].Trim().Length > 0)
+            {
+                words.Add(new UserWord(parts[0].Trim(), parts[1].Trim()));
+            }
+        }
     }
 
     /// <summary>登録内容が変わるたびに増える (変換結果のキャッシュを捨てるため)。</summary>
@@ -83,7 +90,7 @@ public sealed class UserDictionary
     /// </summary>
     public List<(string Reading, string? Word)>? Split(string kana)
     {
-        if (_words.Count == 0 || kana.Length < MinReadingLength) return null;
+        if (_byReading.Count == 0 || kana.Length < MinReadingLength) return null;
         var pieces = new List<(string Reading, string? Word)>();
         var plain = new StringBuilder();
         var found = false;
@@ -128,10 +135,9 @@ public sealed class UserDictionary
     private void Rebuild()
     {
         var byReading = new Dictionary<string, List<string>>(StringComparer.Ordinal);
-        // 後から登録したものを先にする。
-        for (var i = _words.Count - 1; i >= 0; i--)
+        // 後から登録したものを先にする。同梱の語句はユーザーの登録の後。
+        foreach (var word in Enumerable.Reverse(_words).Concat(_builtIn))
         {
-            var word = _words[i];
             if (!byReading.TryGetValue(word.Reading, out var list)) byReading[word.Reading] = list = [];
             if (!list.Contains(word.Word)) list.Add(word.Word);
         }

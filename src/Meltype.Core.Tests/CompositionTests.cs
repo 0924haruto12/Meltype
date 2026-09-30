@@ -625,6 +625,16 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void BuiltInPhrases_AreSplitOut()
+    {
+        // 報告: 白馬の王子様 → ハクバノ王子サマ、ばらまいてた愛 → ばらまいて他愛
+        var dictionary = new UserDictionary(null);
+        Assert.True(dictionary.Split("はくばのおうじさま")?.Any(p => p.Word == "白馬の王子様") == true, "白馬の王子様");
+        Assert.True(dictionary.Split("ばらまいてたあい")?.First().Word == "ばらまいてた", "ばらまいてた|あい");
+        Assert.Equal(0, dictionary.Count, "同梱の語句はユーザー辞書の一覧に出さない");
+    }
+
+    [Test]
     public static void Symbols_HalfWidthCandidate()
     {
         // 報告: Space を続けて押して、記号も半角で出せるように。
