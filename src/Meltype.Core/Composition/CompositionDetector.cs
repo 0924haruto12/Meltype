@@ -273,6 +273,9 @@ public sealed class CompositionDetector
             // 助詞と同じ形の 2 文字の語 (no, to, ga) は両側が必要。子音で終わる語 (is, at, my) は日本語の語にならないので片側でよい。
             _ => lower.Length <= 2 && _romaji.Analyze(lower) is { IsValid: true, Partial: "" or "n" } ? 2 : 1,
         };
+        // スペルチェッカーだけが知っている、最後までローマ字として読める語 (shite, kore) は、前の英単語 1 つ (push) では足りない
+        // (pushshite → pushして)。英文の続き (+2) か、前後の両方が英語のときだけ。
+        if (spellWord && !inDictionary && _romaji.Analyze(lower) is { IsValid: true, Partial: "" }) needed = Math.Max(needed, 2);
         // 前が英文でも、後ろが日本語なら英文の強さは数えない (I love |sushi| が好き → 食い違うので日本語)。
         if (ambiguous && (after == false ? Math.Min(before, 1) : before) + Score(after) >= needed) return true;
         var analysis = _romaji.Analyze(lower);
