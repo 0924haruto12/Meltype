@@ -653,6 +653,8 @@ internal static class CompositionTests
             ["Tokyo"] = "Tokyo", ["Hello"] = "Hello",
             // 報告: I don't → どん't。短縮形は英語。
             ["don't"] = "don't", ["I'm"] = "I'm",
+            // 報告: TSユーザー → Tシューざー、issue → いっすえ
+            ["TSyu-za-"] = "TSゆーざー", ["issue"] = "issue",
         };
         foreach (var (typed, expected) in cases)
         {

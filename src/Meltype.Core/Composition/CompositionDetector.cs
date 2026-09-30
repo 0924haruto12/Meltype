@@ -251,6 +251,11 @@ public sealed class CompositionDetector
         if (growing && lower.Length >= 4 && !conservative && !smallKanaSpelling && _proper.HasPrefix(lower) && !_japanese.IsPrefix(lower)) return true;
 
         // 英単語で、ローマ字として読めない英字を含む (zoom + でかいぎ → m が読めない)。日本語の文の途中でも英語。
+        // 日本語の後ろで、助詞 + 読めない英字 (の + ts: jissainotsyu) は、英単語 (not) ではなく 助詞 + 英字。
+        if (unreadable && before < 0 && Detection.DictionaryDetector.StartsWithParticle(lower) is { } particle && lower.Length - particle.Length <= 2) return false;
+        // 同梱の辞書の英単語で、ローマ字としては促音 (っ) を使わないと読めない語 (issue = いっすえ, apple) は英語。
+        // 日本語の語 (の先頭) なら除く。
+        if (inDictionary && lower.Length >= 4 && _romaji.Analyze(lower) is { IsValid: true, Sokuon: > 0 } && !_japanese.IsPrefix(lower)) return true;
         // 2 文字でも、同梱の辞書の語で読めない英字がある (ok + notasuku の k) なら英語。
         if (unreadable && (exact || spellWord) && (lower.Length >= 3 || inDictionary)) return true;
 
@@ -332,15 +337,17 @@ public sealed class CompositionDetector
     {
         var n = units.Count;
         var whole = Raw(units, start, n) + pending;
-        if (whole.Length == 0 || !char.IsAsciiLetterUpper(whole[0]) || !whole.All(char.IsAsciiLetter)) return -1;
+        if (whole.Length == 0 || !char.IsAsciiLetterUpper(whole[0])) return -1;
         // 全体が英単語・固有名詞 (Tokyo, Github) なら区切らない。
         if (IsKnownCapitalizedWord(whole)) return -1;
         for (var k = n - 1; k > start; k--)
         {
             var head = Raw(units, start, k);
+            if (!head.All(char.IsAsciiLetter)) continue;
+            // 後ろは小文字のローマ字 (長音の - を含んでもよい: TSyu-za- の yu-za-)。
             var rest = Raw(units, k, n) + pending;
-            if (rest.Length < 3 || !rest.All(char.IsAsciiLetterLower)) continue;
-            var analysis = _romaji.Analyze(rest);
+            if (rest.Length < 3 || !rest.All(c => char.IsAsciiLetterLower(c) || c == '-') || !char.IsAsciiLetterLower(rest[0])) continue;
+            var analysis = _romaji.AnalyzeFragment(rest.Replace("-", ""));
             if (!analysis.IsValid || (final && analysis.Partial.Length > 0 && analysis.Partial != "n")) continue;
             if (head.Length >= 2 && char.IsAsciiLetterUpper(head[^1]) || head.Length >= 3 && IsKnownCapitalizedWord(head)) return k;
         }

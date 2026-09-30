@@ -70,11 +70,20 @@ public sealed class CompositionText
     {
         if (char.IsAsciiLetter(c))
         {
+            // 大文字に続けて打った大文字 (TS, IME の S, M) は略語の 1 文字。後ろのローマ字 (yu) とつなげて かな (しゅ) にしない。
+            var lastTyped = _pending.Length > 0 ? _pending[^1] : _units.Count > 0 && _units[^1].Raw.Length > 0 ? _units[^1].Raw[^1] : '\0';
+            if (char.IsAsciiLetterUpper(c) && char.IsAsciiLetterUpper(lastTyped))
+            {
+                Normalize(final: true);
+                _units.Add(new CompositionUnit(c.ToString(), c.ToString()));
+                return;
+            }
             SplitEnglishFinalN(c);
             // 直前の「ローマ字として読めなかった英字」は、次の文字と合わせると読めることがある
-            // (test の t を消して u を打つ → s + u = す)。入力途中の子音に戻して読み直す。
+            // (test の t を消して u を打つ → s + u = す)。入力途中の子音に戻して読み直す。略語の大文字 (TS の S) は戻さない。
             var pulled = new StringBuilder();
-            while (_units.Count > 0 && _units[^1] is { Raw.Length: 1 } last && last.Kana == last.Raw && char.IsAsciiLetter(last.Raw[0]))
+            while (_units.Count > 0 && _units[^1] is { Raw.Length: 1 } last && last.Kana == last.Raw && char.IsAsciiLetter(last.Raw[0]) &&
+                   !(char.IsAsciiLetterUpper(last.Raw[0]) && _units.Count >= 2 && _units[^2].Raw is { Length: > 0 } before && char.IsAsciiLetterUpper(before[^1])))
             {
                 pulled.Insert(0, last.Raw);
                 _units.RemoveAt(_units.Count - 1);
