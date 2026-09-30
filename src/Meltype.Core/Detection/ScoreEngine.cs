@@ -60,7 +60,9 @@ public sealed class ScoreEngine
     public DetectionResult Evaluate(DetectionInput input, Settings settings)
     {
         var threshold = Math.Max(2, settings.EffectiveJapaneseThreshold);
-        var letters = input.Letters;
+        // c 行 (ca / cu / co = か く こ) は k に読み替えてローマ字・日本語の辞書で調べる (fucarete = fukarete)。英語の判定は打ったまま。
+        var letters = RomajiDetector.ReadCRow(input.Letters);
+        var original = input.Letters;
         var contributions = new List<Contribution>();
 
         if (letters.Length == 0)
@@ -106,8 +108,8 @@ public sealed class ScoreEngine
             kanaPlausible = _kana.Evaluate(input.Keys, contributions);
         }
 
-        _english.Evaluate(letters, contributions);
-        if (settings.LearningEnabled) _user?.Evaluate(letters, contributions);
+        _english.Evaluate(original, contributions);
+        if (settings.LearningEnabled) _user?.Evaluate(original, contributions);
 
         var japanese = contributions.Sum(c => c.Japanese);
         var english = contributions.Sum(c => c.English);

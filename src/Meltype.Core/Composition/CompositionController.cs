@@ -717,16 +717,18 @@ public sealed class CompositionController
     /// </summary>
     private List<Clause> ConvertJapanese(string kana)
     {
-        // ローマ字として読めずに残った英字 (こほぃc の c) は、変換エンジンに渡すと記号 (©) にされるので、英字のままの文節にする。
-        if (kana.Any(char.IsAsciiLetter))
+        // ローマ字として読めずに残った英字 (こほぃc の c) と半角の記号 (... @) は、変換エンジンに渡すと別の記号 (© ．．． ＠) にされるので、
+        // そのままの文節にする。数字は変換エンジンに渡す (1から5)。
+        static bool Keep(char c) => c is >= '!' and <= '~' && !char.IsAsciiDigit(c);
+        if (kana.Any(Keep))
         {
             var result = new List<Clause>();
             var start = 0;
             for (var i = 1; i <= kana.Length; i++)
             {
-                if (i < kana.Length && char.IsAsciiLetter(kana[i]) == char.IsAsciiLetter(kana[start])) continue;
+                if (i < kana.Length && Keep(kana[i]) == Keep(kana[start])) continue;
                 var run = kana[start..i];
-                if (char.IsAsciiLetter(run[0])) result.Add(new Clause(run, false, Distinct(run, CompositionText.ToFullWidth(run))));
+                if (Keep(run[0])) result.Add(new Clause(run, false, Distinct([run, .. _options.Candidates?.Lookup(run) ?? [], CompositionText.ToFullWidth(run)])));
                 else result.AddRange(ConvertJapanese(run));
                 start = i;
             }

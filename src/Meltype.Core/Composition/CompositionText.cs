@@ -94,6 +94,18 @@ public sealed class CompositionText
         }
         // 記号・数字の前で、途中の n は ん に、読めない子音は英字のまま確定させる。
         Normalize(final: true);
+        // 、 や 。 を 3 つ続けたら ... にする (、、、 → ...)。
+        if (c is ',' or '.')
+        {
+            var run = 0;
+            while (run < _units.Count && _units[^(run + 1)].Raw is "," or ".") run++;
+            if (run >= 2)
+            {
+                for (var k = _units.Count - run; k < _units.Count; k++) _units[k] = _units[k] with { Kana = "." };
+                _units.Add(new CompositionUnit(".", c.ToString()));
+                return;
+            }
+        }
         _units.Add(new CompositionUnit(Symbol(c).ToString(), c.ToString()));
     }
 
@@ -421,6 +433,8 @@ public sealed class CompositionText
         '~' => '～',
         '\'' => '’',
         '"' => '”',
+        // @ はメールアドレス・メンションで使うので、日本語の中でも半角のまま。
+        '@' => '@',
         // JIS キーボードの ￥ キー
         '\\' => '￥',
         _ when c is >= '!' and <= '~' && !char.IsAsciiLetterOrDigit(c) => (char)(c + 0xFEE0),
@@ -437,7 +451,7 @@ public sealed class CompositionText
             {
                 '’' => '\'',
                 '”' => '"',
-                '￥' => '\\',
+                '￥' => '¥',
                 >= '！' and <= '～' when !char.IsLetterOrDigit(chars[i]) => (char)(chars[i] - 0xFEE0),
                 _ => chars[i],
             };

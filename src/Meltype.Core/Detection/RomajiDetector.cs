@@ -114,6 +114,18 @@ public sealed class RomajiDetector
 
     public RomajiAnalysis Analyze(string letters) => Analyze(letters, strictStart: true, composition: false);
 
+    /// <summary>c 行 (ca / cu / co) を k 行に読み替える (ch は そのまま)。英数状態の判定で、fucarete を fukarete として調べるのに使う。</summary>
+    public static string ReadCRow(string letters)
+    {
+        if (!letters.Contains('c')) return letters;
+        var chars = letters.ToCharArray();
+        for (var i = 0; i + 1 < chars.Length; i++)
+        {
+            if (chars[i] == 'c' && chars[i + 1] is 'a' or 'u' or 'o') chars[i] = 'k';
+        }
+        return new string(chars);
+    }
+
     /// <summary>
     /// 変換ボックス用。語の途中から解析し (語頭の「ん」「っ」も許す)、"nn" は Microsoft IME と同じく常に「ん」と読む
     /// (tanni → たんい。こんにちは は konnnichiha)。

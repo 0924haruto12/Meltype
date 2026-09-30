@@ -234,6 +234,9 @@ public sealed class CompositionDetector
         if (level == DetectionLevel.Manual) return false;
         // ユーザーが英字 / かなに直して覚えた語
         if (Memory?.Get(lower) is { } learned) return learned;
+        // c 行の綴りで読める語 (care = かれ) が日本語の途中にあるなら、日本語を打っている (fucarete → ふかれて)。
+        // 入力全体がその語だけのときは英語。
+        if (lower.Contains('c') && (!startOfInput || !atEnd) && _romaji.Analyze(RomajiDetector.ReadCRow(lower)) is { IsValid: true, Partial: "" }) return false;
         // 1 文字は英文の中の a / i だけ。
         if (span.Length < 2 && !(lower is "a" or "i" && before >= 2)) return false;
 
