@@ -35,7 +35,8 @@ $bin = Join-Path $here 'bin'
 # ビルドする Mozc の版 (動作を確かめた commit に固定する)
 $commit = (Get-Content -Raw -LiteralPath (Join-Path $here 'MOZC_COMMIT')).Trim()
 
-if (-not (Test-Path (Join-Path $MozcSource 'src'))) {
+# src の有無ではなく .git で見る (GitHub Actions のキャッシュが src\third_party_cache だけを先に戻すため)。
+if (-not (Test-Path (Join-Path $MozcSource '.git'))) {
     New-Item -ItemType Directory -Force -Path $MozcSource | Out-Null
     Invoke-Native git @('-C', $MozcSource, 'init', '-q') 'git init に失敗しました。'
     Invoke-Native git @('-C', $MozcSource, 'remote', 'add', 'origin', 'https://github.com/google/mozc.git') 'git remote に失敗しました。'

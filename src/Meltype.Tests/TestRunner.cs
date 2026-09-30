@@ -33,13 +33,19 @@ internal static class TestRunner
             {
                 // "前の文字列|打つキー" の形なら、前の文字列をキャレットの前にある確定済みの文字として扱う。
                 var bar = text.IndexOf('|');
-                var keyboard = new CompositionTests.Keyboard(live: true, converter: converter, moreCandidates: converter.Candidates, userDictionary: new Composition.UserDictionary(null));
+                // MELTYPE_DIRECT=1 なら英数 (直接入力) の状態から打ち始める。
+                var direct = Environment.GetEnvironmentVariable("MELTYPE_DIRECT") == "1";
+                var keyboard = new CompositionTests.Keyboard(live: true, direct: direct, converter: converter, moreCandidates: converter.Candidates, userDictionary: new Composition.UserDictionary(null));
                 if (bar >= 0) keyboard.Host.PrecedingText = text[..bar];
                 foreach (var c in bar >= 0 ? text[(bar + 1)..] : text)
                 {
+                    var before = keyboard.Host.Events.Count;
                     keyboard.Type(c.ToString());
                     var view = keyboard.Host.View;
-                    Console.WriteLine($"  {c} → {(view is null ? "(なし)" : view.Converting ? "[" + string.Join("|", view.Clauses!) + "] 候補: " + string.Join(",", view.Candidates) : view.Text)}");
+                    // 変換ボックスを通らずにアプリへ送ったキー (英数状態で英語と判定した打鍵など)
+                    var passed = string.Concat(keyboard.Host.Events.Skip(before).Where(e => e.StartsWith("passed:") || e.StartsWith("down:"))
+                        .Select(e => (char)Convert.ToInt32(e[(e.IndexOf(':') + 1)..], 16)).Where(ch => char.IsAsciiLetterOrDigit(ch) || ch == ' ').Select(char.ToLowerInvariant));
+                    Console.WriteLine($"  {c} → {(view is null ? "(なし)" : view.Converting ? "[" + string.Join("|", view.Clauses!) + "] 候補: " + string.Join(",", view.Candidates) : view.Text)}{(passed.Length > 0 ? $"  (アプリへ: {passed})" : "")}{(direct ? $"  [{(keyboard.Direct ? "英数" : "日本語")}]" : "")}");
                 }
                 Console.WriteLine($"  確定: {string.Join("|", keyboard.Host.Output)}");
                 Console.WriteLine();
