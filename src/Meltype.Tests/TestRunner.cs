@@ -57,6 +57,8 @@ internal static class TestRunner
         }
         if (args.FirstOrDefault() == "--winmd") { WinMdProbe.Run(args[1], args.Skip(2)); return 0; }
         if (args.FirstOrDefault() == "--candidates") { using var winrt = new Composition.WinRtCandidates(); foreach (var r in args.Skip(1)) Console.WriteLine($"{r}: {string.Join(", ", winrt.Get(r))}"); foreach (var e in Diagnostics.Log.Snapshot()) Console.WriteLine(e); return 0; }
+        if (args.FirstOrDefault() == "--reading") { using var c = new Composition.MsImeKanjiConverter(); foreach (var t in args.Skip(1)) Console.WriteLine($"{t} → {c.Reading(t) ?? "(なし)"}"); return 0; }
+        if (args.FirstOrDefault() == "--gen-emoji") { EmojiGenerator.Run(args[1], args[2], args[3]); return 0; }
         if (args.FirstOrDefault() == "--eval") { Quality.Print(Quality.Run()); return 0; }
         if (args.FirstOrDefault() == "--render-forms")
         {

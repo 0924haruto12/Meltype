@@ -20,6 +20,8 @@ public sealed class CandidateDictionary
         var dictionary = new CandidateDictionary();
         dictionary.AddText(Detection.DictionarySource.ReadEmbedded("candidates.txt"));
         dictionary.AddTabText(Detection.DictionarySource.ReadEmbedded("emoji.txt"));
+        // Unicode CLDR の日本語の名前・キーワードから作った絵文字 (手で書いた emoji.txt の後に並ぶ)
+        dictionary.AddTabText(Detection.DictionarySource.ReadEmbedded("emoji-cldr.txt"));
         if (userDirectory is not null)
         {
             var emoji = Path.Combine(userDirectory, "emoji.txt");
@@ -71,6 +73,9 @@ public sealed class CandidateDictionary
             Add(parts[0], parts.Skip(1));
         }
     }
+
+    /// <summary>読みそのものが辞書にあるか (先頭一致ではなく)。</summary>
+    public bool Contains(string reading) => _entries.ContainsKey(reading);
 
     public void Add(string reading, IEnumerable<string> words)
     {

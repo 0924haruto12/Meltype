@@ -130,6 +130,28 @@ public sealed class MsImeKanjiConverter : IKanjiConverter, IDisposable
         }
     }
 
+    /// <summary>
+    /// 漢字かな交じりの文字列の読み (ひらがな) を変換エンジンで求める (逆変換)。辞書を作るとき (絵文字の名前の読み) に使う。
+    /// </summary>
+    internal string? Reading(string text)
+    {
+        const uint FELANG_REQ_REV = 0x00030000;
+        var language = Open();
+        if (language is null) return null;
+        var hr = language.GetJMorphResult(FELANG_REQ_REV, FELANG_CMODE_NOINVISIBLECHAR, text.Length, text, IntPtr.Zero, out var pointer);
+        if (hr < 0 || pointer == IntPtr.Zero) return null;
+        try
+        {
+            var result = Marshal.PtrToStructure<MORRSLT>(pointer);
+            if (result.pwchOutput == IntPtr.Zero || result.cchOutput <= 0 || result.cchOutput > text.Length * 8) return null;
+            return Marshal.PtrToStringUni(result.pwchOutput, result.cchOutput);
+        }
+        finally
+        {
+            Marshal.FreeCoTaskMem(pointer);
+        }
+    }
+
     /// <summary>調査用: 形態素解析の結果を単語ごとに文字列にする。</summary>
     internal string DescribeMorph(string hiragana)
     {

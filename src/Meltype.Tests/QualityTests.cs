@@ -115,6 +115,39 @@ internal static class Quality
         new("混在", "apinoerror", "apiのerror"),
         new("混在", "bugwonaosu", "bugをなおす"),
         new("混在", "windowsnoupdate", "windowsのupdate"),
+        new("日本語", "shiryouwookurimasu", "しりょうをおくります"),
+        new("日本語", "kakuninshitekudasai", "かくにんしてください"),
+        new("日本語", "yoroshiidesuka", "よろしいですか"),
+        new("日本語", "ryoukaishimashita", "りょうかいしました"),
+        new("日本語", "ashitanokaiginitsuite", "あしたのかいぎについて"),
+        new("日本語", "shoushouomachikudasai", "しょうしょうおまちください"),
+        new("日本語", "otsukaresamadeshita", "おつかれさまでした"),
+        new("日本語", "tesutogaowarimashita", "てすとがおわりました"),
+        new("日本語", "sonokenhakentoushimasu", "そのけんはけんとうします"),
+        new("日本語", "mouichidoonegaishimasu", "もういちどおねがいします"),
+        new("日本語", "nanjigaiidesuka", "なんじがいいですか"),
+        new("日本語", "zenzenmondainai", "ぜんぜんもんだいない"),
+        new("日本語", "tokorodesa", "ところでさ"),
+        new("日本語", "hayakukaerou", "はやくかえろう"),
+        new("日本語", "kyouhasamuine", "きょうはさむいね"),
+        new("英語", "good job", "good job"),
+        new("英語", "see you tomorrow", "see you tomorrow"),
+        new("英語", "no problem", "no problem"),
+        new("英語", "hello world", "hello world"),
+        new("英語", "thank you so much", "thank you so much"),
+        new("英語", "we need to fix the bug", "we need to fix the bug"),
+        new("英語", "please take a look at this", "please take a look at this"),
+        new("英語", "the meeting is at nine", "the meeting is at nine"),
+        new("英語", "happy birthday", "happy birthday"),
+        new("英語", "what time is it", "what time is it"),
+        new("混在", "reactdekaita", "reactでかいた"),
+        new("混在", "dockergaugokanai", "dockerがうごかない"),
+        new("混在", "typescriptnikaeta", "typescriptにかえた"),
+        new("混在", "excelnofairu", "excelのふぁいる"),
+        new("混在", "spotifydekiku", "spotifyできく"),
+        new("混在", "microsoftnokaisha", "microsoftのかいしゃ"),
+        new("混在", "kyouhaclaudetohanashita", "きょうはclaudeとはなした"),
+        new("混在", "pythonnobug", "pythonのbug"),
         new("混在", "GitHub no repo", "GitHub のれぽ"),
         new("混在", "Google to Apple", "Google とApple"),
 
@@ -228,7 +261,21 @@ internal static class Quality
         ("Windows PowerShell", false),
     ];
 
-    public sealed record Result(Dictionary<string, (int Pass, int Total)> ByCategory, List<string> Failures)
+    /// <summary>よく使う英単語 (IME 自動切替で日本語と誤判定しないか)。</summary>
+    private static readonly string[] CommonEnglish =
+    [
+        "the", "this", "that", "with", "from", "have", "what", "when", "where", "which", "there", "their", "would", "could", "should",
+        "about", "after", "before", "because", "people", "think", "know", "want", "need", "like", "just", "only", "also", "very", "really",
+        "hello", "thanks", "please", "sorry", "okay", "great", "good", "nice", "cool", "awesome", "right", "left", "yes",
+        "google", "github", "python", "javascript", "windows", "microsoft", "apple", "amazon", "youtube", "twitter", "discord", "slack",
+        "function", "return", "class", "const", "static", "public", "private", "import", "export", "default", "async", "await",
+        "string", "number", "boolean", "array", "object", "value", "index", "count", "length", "result", "error", "debug", "test",
+        "meeting", "schedule", "project", "update", "message", "email", "password", "account", "settings", "download", "install",
+        "morning", "tonight", "tomorrow", "yesterday", "weekend", "holiday", "birthday", "friend", "family", "school", "office",
+    ];
+
+    public sealed record Result(
+Dictionary<string, (int Pass, int Total)> ByCategory, List<string> Failures)
     {
         public int Pass => ByCategory.Values.Sum(v => v.Pass);
         public int Total => ByCategory.Values.Sum(v => v.Total);
@@ -291,9 +338,24 @@ internal static class Quality
             Score("文章ファイル", actual == expected, $"「{title}」→ {actual} (期待: {expected})");
         }
 
+        // IME 自動切替 (打ち始めの数文字で Microsoft IME を ON にするか): 日本語の辞書の語は英語と決めつけない、よく使う英単語は日本語にしない。
+        var scoreEngine = TestSupport.CreateEngine();
+        var japaneseWords = DictionarySource.Load("japanese.txt", null).Where(w => w.Length >= 4).Distinct().ToList();
+        foreach (var word in japaneseWords)
+        {
+            var result = TestSupport.Classify(scoreEngine, word);
+            Score("自動切替: 日本語", result.Verdict != Verdict.English, $"{word} → {result.Verdict} ({result.Summary})");
+        }
+        foreach (var word in CommonEnglish)
+        {
+            var result = TestSupport.Classify(scoreEngine, word);
+            Score("自動切替: 英語", result.Verdict != Verdict.Japanese, $"{word} → {result.Verdict} ({result.Summary})");
+        }
+
         // 絵文字・顔文字の候補
         var candidates = CandidateDictionary.Load(null);
-        foreach (var (reading, expected) in new[] { ("えがお", "😊"), ("かおもじ", "(^^)"), ("ねこ", "🐱"), ("わらい", "(笑)"), ("ありがとう", "🙏"), ("ばんざい", "\\(^o^)/") })
+        foreach (var (reading, expected) in new[] { ("えがお", "😊"), ("かおもじ", "(^^)"), ("ねこ", "🐱"), ("わらい", "(笑)"), ("ありがとう", "🙏"), ("ばんざい", @"\(^o^)/"),
+            ("かんがえるかお", "🤔"), ("かんがえる", "🤔"), ("にほん", "🇯🇵"), ("てへぺろ", "(・ω<)"), ("ぴえん", "🥺"), ("すし", "🍣"), ("はくしゅ", "👏"), ("ろけっと", "🚀"), ("おすし", "🍣"), ("ほのお", "🔥") })
         {
             var list = candidates.Lookup(reading);
             Score("絵文字", list.Contains(expected), $"{reading} → {string.Join(" ", list.Take(6))} (期待: {expected} を含む)");
@@ -305,7 +367,8 @@ internal static class Quality
         {
             ("ぶれすれっど", "ブレスレット"), ("しゅみれーしょん", "シミュレーション"), ("ばとみんとん", "バドミントン"), ("ふぃぎあすけーと", "フィギュア"),
             ("ぶれーすれっと", "ブレスレット"), ("こみにゅけーしょん", "コミュニケーション"),
-            ("ぶれすれっと", null), ("きょうはいいてんき", null), ("ばっくをもつ", null), ("しみゅれーしょん", null), ("こーひーをのむ", null),
+            ("でばっく", "デバッグ"), ("でぃすくとっぷ", "デスクトップ"), ("すたんだーと", "スタンダード"), ("えくすぷれっそ", "エスプレッソ"), ("はいぶりっと", "ハイブリッド"),
+            ("ぶれすれっと", null), ("でばっぐ", null), ("ぷろぐらみんぐ", null), ("きょうはいいてんき", null), ("ばっくをもつ", null), ("しみゅれーしょん", null), ("こーひーをのむ", null),
         })
         {
             var actual = misspellings.Find(reading)?.Right;

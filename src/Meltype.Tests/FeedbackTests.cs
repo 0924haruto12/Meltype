@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Yukishiro
 
+using Meltype.Composition;
 using Meltype.Config;
 using Meltype.Detection;
 using Meltype.Input;
@@ -278,5 +279,56 @@ internal static class CodeProfileTests
         Assert.True(!old.IsAppEnabled("Code.exe"), "OFF のまま");
         Assert.Equal(AppProfile.Code, old.ProfileFor("pwsh.exe"), "足りないコードアプリを追加");
         Assert.Equal(AppProfile.General, old.ProfileFor("chrome.exe"));
+    }
+}
+
+internal static class LanguageLearningTests
+{
+    [Test]
+    public static void F10_TeachesEnglish_ThenUsedInContext()
+    {
+        var memory = new LanguageMemory(null);
+        CompositionTests.Detector.Memory = memory;
+        try
+        {
+            var k = new CompositionTests.Keyboard(languages: memory);
+            k.Type("api");
+            Assert.Equal("あぴ", k.Showing, "最初は日本語");
+            k.Press(VirtualKeys.F10);
+            k.Type("\n");
+            Assert.Equal("api", k.Host.Document);
+            Assert.Equal(true, memory.Get("api"), "F10 で英字にして確定したので覚える");
+
+            var next = new CompositionTests.Keyboard(languages: memory);
+            next.Type("apinoerror\n");
+            Assert.Equal("apiのerror", next.Host.Document, "次からは文の中でも英字");
+        }
+        finally
+        {
+            CompositionTests.Detector.Memory = null;
+        }
+    }
+
+    [Test]
+    public static void F6_TeachesJapanese()
+    {
+        var memory = new LanguageMemory(null);
+        CompositionTests.Detector.Memory = memory;
+        try
+        {
+            var k = new CompositionTests.Keyboard(languages: memory);
+            k.Type("google");
+            k.Press(VirtualKeys.F6);
+            k.Type("\n");
+            Assert.Equal("ごおgぇ", k.Host.Document);
+            Assert.Equal(false, memory.Get("google"), "F6 でかなにして確定したので覚える");
+            var next = new CompositionTests.Keyboard(languages: memory);
+            next.Type("google");
+            Assert.Equal("ごおgぇ", next.Showing);
+        }
+        finally
+        {
+            CompositionTests.Detector.Memory = null;
+        }
     }
 }

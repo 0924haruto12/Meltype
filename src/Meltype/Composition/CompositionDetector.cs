@@ -49,6 +49,9 @@ public sealed class CompositionDetector
     /// <summary>普通の英単語の判定に使う Windows のスペルチェッカー。null なら同梱の辞書だけ。</summary>
     public WindowsSpellChecker? SpellChecker { get; set; }
 
+    /// <summary>ユーザーが英字 / かなに直して覚えた語 (自動の判定より優先する)。</summary>
+    public LanguageMemory? Memory { get; set; }
+
     public ProperNouns ProperNouns => _proper;
 
     /// <summary>
@@ -69,7 +72,7 @@ public sealed class CompositionDetector
         // 途中の区間 (… flow) だけを英語にすると「sたcこvえrflow」のようになってしまう。
         // ただし先頭が辞書の英単語として区切れている (github に push) ならその区切りを使う。
         var whole = Raw(units, 0, units.Count) + pending;
-        if (level != DetectionLevel.Manual && !segments[0].IsEnglish && IsUnknownEnglishWord(whole))
+        if (level != DetectionLevel.Manual && !segments[0].IsEnglish && Memory?.Get(whole.ToLowerInvariant()) != false && IsUnknownEnglishWord(whole))
         {
             return [new CompositionSegment(true, "", whole)];
         }
@@ -202,6 +205,8 @@ public sealed class CompositionDetector
         // 手動でもこれだけは英語にする (Shift を押したのはユーザーの明示的な指定)。
         if (char.IsAsciiLetterUpper(span[0]) && (exact || prefix || atEnd)) return true;
         if (level == DetectionLevel.Manual) return false;
+        // ユーザーが英字 / かなに直して覚えた語
+        if (Memory?.Get(lower) is { } learned) return learned;
         // 1 文字は英文の中の a / i だけ。
         if (span.Length < 2 && !(lower is "a" or "i" && before >= 2)) return false;
 
@@ -272,7 +277,9 @@ public sealed class CompositionDetector
 
         // Shift を押して打った大文字で始まる語は英語 (手動でも)。
         if (char.IsAsciiLetterUpper(span[0]) && (word || prefix || atEnd)) return true;
-        if (level == DetectionLevel.Manual || !(word || prefix) || lower.Length < 2) return false;
+        if (level == DetectionLevel.Manual) return false;
+        if (Memory?.Get(lower) is { } learned) return learned;
+        if (!(word || prefix) || lower.Length < 2) return false;
 
         var japanese = _kana?.IsJapaneseWordOrPrefix(kana) == true;
         var context = (after == false ? Math.Min(before, 1) : before) + Score(after);

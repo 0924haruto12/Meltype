@@ -99,6 +99,9 @@ public sealed class CompositionOptions
     /// <summary>よくある書き間違い (ブレスレッド → ブレスレット) の辞書。「もしかして」に使う。null なら出さない。</summary>
     public MisspellingDictionary? Misspellings { get; init; }
 
+    /// <summary>ユーザーが英字 / かなに直した語の学習。</summary>
+    public LanguageMemory? Languages { get; init; }
+
     /// <summary>入力欄に入ったときなどに、入力モード (あ / A) をカーソルの近くに出すか。</summary>
     public Func<bool> ModeIndicator { get; init; } = () => false;
 }
@@ -697,6 +700,11 @@ public sealed class CompositionController
             ? ConvertWithContext(kana, context)
             : _converter.ConvertClauses(kana, kana.Length >= 3 && kana[0] == 'に' ? "これ" : null);
         parts ??= [new ConversionClause(kana, _converter.Convert(kana) ?? kana)];
+        // 読み全体が補助辞書・絵文字の辞書の語 (かんがえるかお → 🤔) なら、文節に分けずに 1 つの文節にして候補を出す。
+        if (parts.Count > 1 && _options.Candidates?.Contains(kana) == true)
+        {
+            parts = [new ConversionClause(kana, string.Concat(parts.Select(p => p.Text)))];
+        }
         var clauses = parts.Select(p => new Clause(p.Reading, false, JapaneseCandidates(p.Reading, NormalizeHalfWidth(p.Text, p.Reading)))).ToList();
         for (var i = 0; i < clauses.Count; i++)
         {
@@ -908,8 +916,35 @@ public sealed class CompositionController
         var english = converting ? _clauses.All(c => c.IsEnglish) : _text.IsAlphanumericAt(final: true);
         var chosen = converting && _clauses.Any(c => c.Changed);
         if (converting) Learn();
+        else LearnLanguage();
         CommitText(text + suffix, english, _text.Raw, chosen);
     }
+
+    /// <summary>
+    /// ユーザーが自分で英字 / かなに直して確定した語を覚える (api と打って F10 で英字にした → 次から api は英字)。
+    /// 自動の判定と違う方を選んだときだけ。1 語の英字だけを対象にする。
+    /// </summary>
+    private void LearnLanguage()
+    {
+        if (_options.Languages is not { } memory) return;
+        var raw = _text.Raw;
+        if (raw.Length < 2 || !raw.All(char.IsAsciiLetter)) return;
+        var automatic = _text.Segments(final: true);
+        switch (_text.Mode)
+        {
+            case DisplayMode.HalfWidthAlphanumeric or DisplayMode.FullWidthAlphanumeric when !automatic.All(s => s.IsEnglish):
+                memory.Remember(raw, english: true);
+                break;
+            case DisplayMode.Hiragana or DisplayMode.Katakana when automatic.Any(s => s.IsEnglish):
+                memory.Remember(raw, english: false);
+                break;
+            case DisplayMode.Auto when _text.LevelOverride is not null && automatic.All(s => s.IsEnglish):
+                // 判定の強さが手動で、Tab で提案どおり英字にした。
+                memory.Remember(raw, english: true);
+                break;
+        }
+    }
+
 
     /// <summary>
     /// 直前に確定した語。英語とも日本語とも読める語 (i, sushi) を文脈が分からないまま確定したとき、

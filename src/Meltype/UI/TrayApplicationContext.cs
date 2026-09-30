@@ -221,6 +221,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             _engine.ResetLearning();
             _composition.History.Clear();
+            _composition.Languages.Clear();
         }
     }
 

@@ -32,6 +32,8 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         // 補助辞書・文脈の手がかり・学習データは、指定がなければ既定の場所から読む。
         var userDirectory = Config.AppPaths.UserDictionaryDirectory;
         History = options.History ?? new ConversionHistory(Config.AppPaths.ConversionHistoryFile);
+        Languages = options.Languages ?? new LanguageMemory(Config.AppPaths.LanguageMemoryFile);
+        detector.Memory = Languages;
         UserDictionary = options.UserDictionary ?? new UserDictionary(Config.AppPaths.UserDictionaryFile);
         _detector = detector;
         var resolved = new CompositionOptions
@@ -49,6 +51,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             Level = options.Level,
             KanaInput = options.KanaInput,
             Misspellings = options.Misspellings ?? MisspellingDictionary.Load(userDirectory),
+            Languages = Languages,
         };
         Controller = new CompositionController(Gate, detector, _converter, this, resolved);
         _showIndicator = options.ModeIndicator;
@@ -65,6 +68,9 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     /// <summary>選び直した変換の学習データ (トレイの「学習データをリセット」で消す)。</summary>
     public ConversionHistory History { get; }
+
+    /// <summary>ユーザーが英字 / かなに直した語の学習 (トレイの「学習データをリセット」で消す)。</summary>
+    public LanguageMemory Languages { get; }
 
     /// <summary>ユーザー辞書 (トレイの「ユーザー辞書...」で編集する)。</summary>
     public UserDictionary UserDictionary { get; }

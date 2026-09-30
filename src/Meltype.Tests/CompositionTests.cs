@@ -147,7 +147,7 @@ internal static class CompositionTests
         public FakeConverter Converter { get; } = new();
 
         public Keyboard(bool live = false, bool direct = false, ConversionHistory? history = null, IKanjiConverter? converter = null,
-            Func<string, IReadOnlyList<string>>? moreCandidates = null, UserDictionary? userDictionary = null)
+            Func<string, IReadOnlyList<string>>? moreCandidates = null, UserDictionary? userDictionary = null, LanguageMemory? languages = null)
         {
             Direct = direct;
             Controller = new CompositionController(Gate, Detector, converter ?? Converter, Host, new CompositionOptions
@@ -164,6 +164,7 @@ internal static class CompositionTests
                 Level = () => Level,
                 KanaInput = () => Kana,
                 Misspellings = Misspellings,
+                Languages = languages,
             });
         }
 

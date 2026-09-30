@@ -46,3 +46,26 @@ Mary Jennifer Linda Elizabeth Susan Jessica Sarah Karen Nancy Lisa Betty Sandra 
 Amelia Harper Evelyn Abigail Ella Grace Chloe Victoria Natalie Hannah Lily Zoe Kate Jane Anne Anna Julia Laura Rachel Rebecca Amanda
 Bob Tom Tim Joe Jim Sam Dave Steve Tony Nick Ben Dan Ted Bill Jeff Greg Eric Frank Carl Oscar Victor Hugo Leo Max Felix
 Elon Jobs Gates Bezos Zuckerberg Musk Trump Obama Biden Lincoln Einstein Newton Darwin Shakespeare Beethoven Mozart Bach
+
+# --- 追加 (2026-09) ---
+# AI・開発ツール
+OpenAI ChatGPT Anthropic Claude Gemini Copilot Perplexity Midjourney HuggingFace Ollama LangChain LlamaIndex
+Cursor Windsurf Replit CodeSandbox StackBlitz Postman Insomnia Sentry Datadog Grafana Prometheus Kibana Splunk
+Jenkins CircleCI TravisCI Terraform Ansible Pulumi Vagrant Nginx Apache Tomcat Redis MongoDB PostgreSQL MySQL MariaDB SQLite Oracle Snowflake Databricks BigQuery Elasticsearch Kafka RabbitMQ
+React Vue Angular Svelte Nextjs Nuxt Remix Astro Gatsby Vite Webpack Rollup Parcel Babel TypeScript JavaScript CoffeeScript Deno Bun Nodejs
+Django Flask FastAPI Rails Laravel Symfony Spring Express NestJS Electron Tauri Flutter Kotlin Swift SwiftUI Xamarin Unity Unreal Godot Blender
+Python Ruby Rust Golang Haskell Scala Clojure Elixir Erlang Julia Fortran COBOL Perl Lua Dart Zig Crystal Nim OCaml
+PyTorch TensorFlow Keras NumPy Pandas SciPy Jupyter Anaconda Matplotlib OpenCV
+# 会社・サービス
+Salesforce Shopify Stripe PayPal Square Adyen Klarna Airbnb Uber Lyft DoorDash Instacart Etsy eBay Alibaba Tencent ByteDance Xiaomi Huawei Lenovo
+Samsung Intel AMD Nvidia Qualcomm Broadcom Cisco IBM Dell Asus Acer Logitech Razer Corsair Seagate Kingston
+Adobe Photoshop Illustrator Premiere Lightroom Acrobat InDesign Dropbox Evernote Slack Asana Monday ClickUp Airtable Zapier Calendly Typeform Mailchimp HubSpot Zendesk Intercom
+Tesla SpaceX Starlink Boeing Airbus Porsche Ferrari Lamborghini Volkswagen Audi BMW Mercedes Volvo Jaguar Hyundai Kia Peugeot Renault Chevrolet Cadillac
+Starbucks McDonalds KFC Subway Dominos Costco Walmart Target IKEA Uniqlo Nike Adidas Puma Reebok Gucci Prada Chanel Hermes Louis Vuitton Rolex Cartier Tiffany
+Coca Pepsi Nestle Danone Heineken Budweiser
+Microsoft Excel Word PowerPoint Outlook OneDrive OneNote SharePoint Bing Edge Chrome Firefox Safari Opera Brave Vivaldi Thunderbird
+Wikipedia Quora Medium Discord Mastodon Bluesky Threads Snapchat Pinterest Vimeo Dailymotion SoundCloud Bandcamp Deezer Tidal
+Minecraft Fortnite Roblox Valorant Overwatch Apex Steam Epic Xbox PlayStation Nintendo Switch Twitch
+# 地名 (英語で書くことが多いもの)
+London Paris Berlin Madrid Rome Moscow Beijing Shanghai Seoul Singapore Bangkok Sydney Melbourne Toronto Vancouver Chicago Boston Seattle Texas California Florida Hawaii Alaska
+America Europe Africa Australia Canada Mexico Brazil Germany France Italy Spain England Ireland Scotland Sweden Norway Finland Denmark Netherlands Belgium Switzerland Austria Poland Russia Ukraine India China Korea Taiwan Vietnam Thailand Philippines Indonesia Malaysia
