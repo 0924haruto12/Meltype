@@ -13,7 +13,7 @@ namespace Meltype.Composition;
 /// やり取り (UTF-8、1 行ずつ): 「C[TAB]前の文字列[TAB]読み」を送ると、文節ごとに「読み[US]候補1[US]候補2…」を [RS] でつないだ 1 行が返る。
 /// ヘルパーが無い・起動できない・応答しないときは null を返すので、呼び出し側で別の変換エンジンを使う。
 /// </summary>
-public sealed class MozcConverter : IKanjiConverter, IDisposable
+public sealed class MozcConverter : IKanjiConverter, ILearningConverter, IDisposable
 {
     private const char UnitSeparator = '\x1f';
     private const char RecordSeparator = '\x1e';
@@ -63,6 +63,54 @@ public sealed class MozcConverter : IKanjiConverter, IDisposable
         return segments.Count == 1 ? segments[0].Candidates : [string.Concat(segments.Select(s => s.Candidates.FirstOrDefault() ?? s.Reading))];
     }
 
+    // 学習データを保存する間隔 (覚えさせた回数)。Meltype を終了するときにも保存する。
+    private const int SaveEvery = 5;
+    private int _learnedSinceSave;
+
+    /// <summary>確定した文節を Mozc に覚えさせる (Mozc の候補に無い文字列の文節があれば覚えない)。</summary>
+    public void Learn(string? context, IReadOnlyList<ConversionClause> clauses)
+    {
+        if (clauses.Count == 0 || !IsAvailable) return;
+        var records = string.Join(RecordSeparator, clauses.Select(c => Clean(c.Reading).Replace(UnitSeparator, ' ') + UnitSeparator + Clean(c.Text).Replace(UnitSeparator, ' ')));
+        lock (_gate)
+        {
+            // 覚えさせると候補の順番が変わるので、候補の控えを捨てる。
+            _candidates.Clear();
+            var result = Send($"L\t{Clean(context ?? "")}\t{records}");
+            if (result == "OK" && ++_learnedSinceSave >= SaveEvery)
+            {
+                _learnedSinceSave = 0;
+                Send("S");
+            }
+        }
+    }
+
+    /// <summary>1 行送って 1 行受け取る (_gate の中で呼ぶ)。失敗したら null。</summary>
+    private string? Send(string request)
+    {
+        try
+        {
+            var process = Start();
+            process.StandardInput.Write(request + "\n");
+            process.StandardInput.Flush();
+            var line = ReadLine(process, TimeoutMs);
+            if (line is null)
+            {
+                Diagnostics.Log.Warn($"Mozc が応答しませんでした ({TimeoutMs}ms)。");
+                Fail();
+                return null;
+            }
+            _failures = 0;
+            return line;
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log.Warn($"Mozc を使えませんでした: {ex.Message}");
+            Fail();
+            return null;
+        }
+    }
+
     private List<(string Reading, IReadOnlyList<string> Candidates)>? Request(string context, string reading)
     {
         if (string.IsNullOrEmpty(reading) || !IsAvailable) return null;
@@ -72,18 +120,8 @@ public sealed class MozcConverter : IKanjiConverter, IDisposable
         {
             try
             {
-                var process = Start();
-                process.StandardInput.Write($"C\t{context}\t{reading}\n");
-                process.StandardInput.Flush();
-                var line = ReadLine(process, TimeoutMs);
-                if (line is null)
-                {
-                    Diagnostics.Log.Warn($"Mozc が応答しませんでした ({TimeoutMs}ms)。");
-                    Fail();
-                    return null;
-                }
-                _failures = 0;
-                if (line.Length == 0) return null;
+                var line = Send($"C\t{context}\t{reading}");
+                if (line is null || line.Length == 0) return null;
                 var segments = new List<(string, IReadOnlyList<string>)>();
                 foreach (var record in line.Split(RecordSeparator))
                 {

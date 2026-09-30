@@ -1100,6 +1100,7 @@ public sealed class CompositionController
         {
             _options.Languages?.Remember(clause.Raw!, english: true);
         }
+        LearnConversion();
         if (_options.History is not { } history) return;
         // 1 文字の読み (き → 記) を覚えると、関係ない変換 (き + ごうとう) まで巻き込むので 2 文字以上だけ。
         foreach (var clause in _clauses.Where(c => !c.IsEnglish && c.Changed && c.Reading.Length >= 2))
@@ -1109,6 +1110,34 @@ public sealed class CompositionController
             if (clause.Text == clause.Reading || clause.Text == CompositionText.ToKatakana(clause.Reading) || clause.Text == clause.Raw) continue;
             history.Remember(clause.Reading, clause.Text);
         }
+    }
+
+    /// <summary>
+    /// 変換エンジン (Mozc) にも、確定した文節を覚えさせる。英語の文節・打ったままの英字で区切った、日本語の文節のまとまりごとに。
+    /// 変換エンジンとのやり取りで入力を待たせないよう、裏で行う。
+    /// </summary>
+    private void LearnConversion()
+    {
+        if (_converter is not ILearningConverter learner) return;
+        var context = ConversionContext();
+        var run = new List<ConversionClause>();
+        void Flush()
+        {
+            if (run.Count == 0) return;
+            var clauses = run.ToList();
+            run.Clear();
+            ThreadPool.QueueUserWorkItem(_ => learner.Learn(context, clauses));
+        }
+        foreach (var clause in _clauses)
+        {
+            if (clause.IsEnglish || clause.Text == clause.Raw || clause.Reading.Any(char.IsAsciiLetterOrDigit))
+            {
+                Flush();
+                continue;
+            }
+            run.Add(new ConversionClause(clause.Reading, clause.Text));
+        }
+        Flush();
     }
 
     /// <summary>確定して入力する。英語だったか日本語だったか・確定した文字列を、次の入力の文脈として覚えておく。</summary>

@@ -719,6 +719,33 @@ internal static class CompositionTests
         Assert.Equal("ＡＢＣ", CompositionController.NormalizeHalfWidth("ＡＢＣ", "えーびーしー"), "読みに英数字が無ければ全角のまま");
     }
 
+    /// <summary>覚えさせた文節を記録する変換エンジン (Mozc の代わり)。</summary>
+    private sealed class LearningConverter : IKanjiConverter, ILearningConverter
+    {
+        private readonly FakeConverter _inner = new();
+        public List<string> Learned { get; } = [];
+        public string? Convert(string hiragana) => _inner.Convert(hiragana);
+        public IReadOnlyList<ConversionClause>? ConvertClauses(string hiragana, string? context = null) => _inner.ConvertClauses(hiragana, context);
+
+        public void Learn(string? context, IReadOnlyList<ConversionClause> clauses)
+        {
+            lock (Learned) Learned.Add(string.Join("|", clauses.Select(c => $"{c.Reading}={c.Text}")));
+        }
+    }
+
+    [Test]
+    public static void Commit_TeachesTheConverter()
+    {
+        // Mozc の学習: 確定した文節 (区切りと文字列) を変換エンジンに覚えさせる。
+        var converter = new LearningConverter();
+        var k = new Keyboard(converter: converter);
+        k.Type("tanniwotoru ");
+        k.Press(VirtualKeys.Return);
+        // 覚えさせるのは裏で行うので、少し待つ。
+        for (var i = 0; i < 100 && converter.Learned.Count == 0; i++) Thread.Sleep(10);
+        Assert.Equal("たんいを=単位を|とる=取る", converter.Learned.SingleOrDefault() ?? "(なし)");
+    }
+
     [Test]
     public static void UserDictionary_WinsOverEngine()
     {

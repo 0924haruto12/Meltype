@@ -33,10 +33,42 @@ jobs:
       - name: Test
         run: dotnet run --project src/Meltype.Core.Tests/Meltype.Core.Tests.csproj -c Release
 
+  # Mozc の変換ヘルパー (native/mozc) をビルドする。初回は 30〜40 分かかるので、配布用の zip を作るとき
+  # (タグ・手動実行) と、ヘルパーのソースを変えたときだけ。Bazel の結果はキャッシュして次から速くする。
+  mozc:
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch' || contains(join(github.event.commits.*.modified, ','), 'native/mozc/') || contains(join(github.event.commits.*.added, ','), 'native/mozc/')
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Bazelisk
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\tools | Out-Null
+          Invoke-WebRequest -Uri https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-windows-amd64.exe -OutFile C:\tools\bazelisk.exe
+      - uses: actions/cache@v4
+        with:
+          path: |
+            C:\bazel-cache
+            C:\mozc\src\third_party_cache
+          key: mozc-${{ hashFiles('native/mozc/MOZC_COMMIT') }}-${{ hashFiles('native/mozc/*.cc', 'native/mozc/BUILD.fragment') }}
+          restore-keys: |
+            mozc-${{ hashFiles('native/mozc/MOZC_COMMIT') }}-
+      - name: Build Mozc helper
+        shell: powershell
+        run: .\native\mozc\Build-MozcHelper.ps1 -MozcSource C:\mozc -Python python -Bazelisk C:\tools\bazelisk.exe -DiskCache C:\bazel-cache
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mozc-helper
+          path: native/mozc/bin/
+
   package:
-    # タグ (v0.1.0 など) を push したときだけ、テスト版の zip を作ってリリースに添付する。
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: test
+    # タグ (v0.1.0 など) を push したら、テスト版の zip を作ってリリースに添付する。
+    # Actions の画面から手動で実行 (Run workflow) したら、zip を実行結果 (Artifacts) に置く。
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: [test, mozc]
     runs-on: windows-latest
     permissions:
       contents: write
@@ -45,9 +77,18 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: mozc-helper
+          path: native/mozc/bin/
       - name: Package
         shell: powershell
         run: .\Build-Package.ps1
-      - uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meltype-package
+          path: dist/Meltype-test-*.zip
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/Meltype-test-*.zip
