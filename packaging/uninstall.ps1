@@ -3,15 +3,18 @@
 
 $ErrorActionPreference = 'Stop'
 
-# AutoIME テスト版のアンインストール (協力者向け)。設定と学習データ (%LOCALAPPDATA%\AutoIME) も消す。
+# Meltype テスト版のアンインストール (協力者向け)。設定と学習データ (%LOCALAPPDATA%\Meltype) も消す。
 
-Get-Process AutoIME -ErrorAction SilentlyContinue | Stop-Process -Force
+# 旧名 (AutoIME) のときのものも一緒に消す。
+Get-Process Meltype, AutoIME -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 300
 
-$shortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup\AutoIME.lnk'
-if (Test-Path -LiteralPath $shortcut) { Remove-Item -LiteralPath $shortcut -Force }
+foreach ($name in 'Meltype.lnk', 'AutoIME.lnk') {
+    $shortcut = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup\$name"
+    if (Test-Path -LiteralPath $shortcut) { Remove-Item -LiteralPath $shortcut -Force }
+}
 
-foreach ($folder in @((Join-Path $env:LOCALAPPDATA 'Programs\AutoIME'), (Join-Path $env:LOCALAPPDATA 'AutoIME'))) {
+foreach ($folder in 'Programs\Meltype', 'Meltype', 'Programs\AutoIME', 'AutoIME' | ForEach-Object { Join-Path $env:LOCALAPPDATA $_ }) {
     if (Test-Path -LiteralPath $folder) { Remove-Item -LiteralPath $folder -Recurse -Force }
 }
-Write-Host 'AutoIME をアンインストールしました (設定と学習データも削除しました)。'
+Write-Host 'Meltype をアンインストールしました (設定と学習データも削除しました)。'

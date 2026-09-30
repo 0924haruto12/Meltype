@@ -1,20 +1,23 @@
-# AutoIME
+# Meltype
+
+**雪解けのように、半角/全角の壁を溶かす日本語入力。**
 
 半角/全角 キーを押さなくても、日本語と英語を打ち分けられるようにする Windows 常駐ツールです。
+(開発中は AutoIME という仮の名前でした。以前の設定と学習データは、Meltype の初回起動時に自動で引き継ぎます)
 
 動作モードは 2 つあり、タスクトレイのメニューで切り替えます。
 
 | モード | 動き |
 | --- | --- |
-| **AutoIME キーボード** (既定) | AutoIME 自身の変換ボックスで入力する。ローマ字はかなに、英単語 (`google` `github` …) は自動で英字のまま。Space で漢字に変換、Enter で確定 |
+| **Meltype キーボード** (既定) | Meltype 自身の変換ボックスで入力する。ローマ字はかなに、英単語 (`google` `github` …) は自動で英字のまま。Space で漢字に変換、Enter で確定 |
 | **IME 自動切替** | 打ち始めの数文字から日本語と判定したときだけ Microsoft IME を ON にする。変換は Microsoft IME が行う |
 
-もとの設計は [docs/AutoIME_technical_design_v2.md](docs/AutoIME_technical_design_v2.md) を参照してください (AutoIME キーボードは設計書の後に追加した機能です)。
+もとの設計は [docs/AutoIME_technical_design_v2.md](docs/AutoIME_technical_design_v2.md) を参照してください (開発時の仮の名前 AutoIME のときに書いたものです。Meltype キーボードは設計書の後に追加した機能です)。
 
 ## インストール
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Install-AutoIME.ps1
+powershell -ExecutionPolicy Bypass -File .\Install-Meltype.ps1
 ```
 
 ビルドしてスタートアップに登録し、起動します。タスクトレイに「あ」のアイコンが出れば動いています。
@@ -23,8 +26,8 @@ powershell -ExecutionPolicy Bypass -File .\Install-AutoIME.ps1
 アンインストール:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\Uninstall-AutoIME.ps1            # 停止とスタートアップ解除
-powershell -ExecutionPolicy Bypass -File .\Uninstall-AutoIME.ps1 -RemoveData # 設定と学習データも削除
+powershell -ExecutionPolicy Bypass -File .\Uninstall-Meltype.ps1            # 停止とスタートアップ解除
+powershell -ExecutionPolicy Bypass -File .\Uninstall-Meltype.ps1 -RemoveData # 設定と学習データも削除
 ```
 
 必要なもの: Windows 10 / 11 (x64 / ARM64)、.NET 10 SDK、Microsoft IME (漢字変換に使います)。
@@ -35,19 +38,19 @@ powershell -ExecutionPolicy Bypass -File .\Uninstall-AutoIME.ps1 -RemoveData # �
 powershell -ExecutionPolicy Bypass -File .\Build-Package.ps1
 ```
 
-`dist\AutoIME-test-<日付>.zip` ができます。中身はビルド済みの `app` フォルダー、`Install.cmd` / `Uninstall.cmd` (ダブルクリックで実行)、協力者向けの `README.txt` です。
-.NET ランタイムを同梱しているので、協力者の PC に .NET は不要です。この環境は NuGet が使えないため、自己完結ビルドの代わりに、この PC にインストール済みの .NET ランタイムを `app\dotnet` にコピーし、`AutoIME.exe` がそこを使うようにしています (`AppHostDotNetSearch=AppRelative`)。
+`dist\Meltype-test-<日付>.zip` ができます。中身はビルド済みの `app` フォルダー、`Install.cmd` / `Uninstall.cmd` (ダブルクリックで実行)、協力者向けの `README.txt` です。
+.NET ランタイムを同梱しているので、協力者の PC に .NET は不要です。この環境は NuGet が使えないため、自己完結ビルドの代わりに、この PC にインストール済みの .NET ランタイムを `app\dotnet` にコピーし、`Meltype.exe` がそこを使うようにしています (`AppHostDotNetSearch=AppRelative`)。
 
-スマホからも受け取れる大きさ (30MB 未満、現在約 24MB) にするため、ランタイムから AutoIME が使わない部品を削っています。
+スマホからも受け取れる大きさ (30MB 未満、現在約 24MB) にするため、ランタイムから Meltype が使わない部品を削っています。
 
-1. AutoIME.dll が使う型から参照をたどり、要らないアセンブリを削る (`AutoIME.Tests -- --runtime-closure`)
-2. 自己診断 (`AutoIME.exe --selftest`) を走らせ、実際に読み込まれなかった大きなアセンブリ (XML・ネットワーク・暗号など) を削る
+1. Meltype.dll が使う型から参照をたどり、要らないアセンブリを削る (`Meltype.Tests -- --runtime-closure`)
+2. 自己診断 (`Meltype.exe --selftest`) を走らせ、実際に読み込まれなかった大きなアセンブリ (XML・ネットワーク・暗号など) を削る
 3. もう一度自己診断を走らせ、削りすぎていないことを確かめる (失敗したら zip を作らない)
 
 自己診断は、設定・判定・辞書・変換エンジン・Windows の候補 API・UI Automation・各画面・タスクトレイ・データの保存を、キーボードフックを掛けずに一通り動かします。UI Automation は WPF に頼らず COM で直接使っているので、WPF 一式は同梱していません。
-インストール先は `%LOCALAPPDATA%\Programs\AutoIME` で、管理者権限は不要です。配布用のファイルの元は [packaging/](packaging/) にあります。
+インストール先は `%LOCALAPPDATA%\Programs\Meltype` で、管理者権限は不要です。配布用のファイルの元は [packaging/](packaging/) にあります。
 
-## AutoIME キーボード
+## Meltype キーボード
 
 文字入力欄で英字を打つと、カーソルの下に変換ボックスが出ます。Enter を押すまで、入力欄には何も入りません。
 
@@ -97,7 +100,7 @@ powershell -ExecutionPolicy Bypass -File .\Build-Package.ps1
 
 ### 自動判定の強さ
 
-トレイの「自動判定の強さ」か、設定の「判定」で選びます。AutoIME キーボード (ローマ字入力・かな入力・英数状態の検知) と IME 自動切替のすべてに効きます。
+トレイの「自動判定の強さ」か、設定の「判定」で選びます。Meltype キーボード (ローマ字入力・かな入力・英数状態の検知) と IME 自動切替のすべてに効きます。
 
 | 強さ | 変換ボックス | IME 自動切替・英数状態の検知 |
 | --- | --- | --- |
@@ -113,18 +116,18 @@ powershell -ExecutionPolicy Bypass -File .\Build-Package.ps1
 
 ### 入力モードの表示
 
-AutoIME キーボードの使用中は Windows の IME を OFF にしているので、タスクバーの IME の表示は常に「A」になります。今のモードは次で知らせます。
+Meltype キーボードの使用中は Windows の IME を OFF にしているので、タスクバーの IME の表示は常に「A」になります。今のモードは次で知らせます。
 
 - 入力欄 (パスワード以外) に入ったときと 半角/全角 を押したとき、カーソルの近くに「あ」(日本語) か「A」(英数) を 1.2 秒だけ出す (`ModeIndicatorWindow`、フォーカスもクリックも奪わない。設定の「入力モードをカーソルの近くに表示」で OFF にできる)
 - タスクトレイのアイコン
 
 ### ほかの IME との併用
 
-AutoIME キーボードを使っている間は、Windows の IME (Microsoft IME・Google 日本語入力など) を OFF に保ちます (250ms ごとに確認)。Win+Space などで IME を切り替えると新しい IME が ON で始まることがあり、そのままだと AutoIME が通したキーを IME が変換してしまうためです。IME を ON にし続ける場合は 10 秒に 3 回までで奪い合いをやめます。キーボード/IME の切り替えはログに残ります。
+Meltype キーボードを使っている間は、Windows の IME (Microsoft IME・Google 日本語入力など) を OFF に保ちます (250ms ごとに確認)。Win+Space などで IME を切り替えると新しい IME が ON で始まることがあり、そのままだと Meltype が通したキーを IME が変換してしまうためです。IME を ON にし続ける場合は 10 秒に 3 回までで奪い合いをやめます。キーボード/IME の切り替えはログに残ります。
 
 ### 変換
 
-変換には Windows に入っている Microsoft IME の変換エンジン (IFELanguage) を使います。AutoIME 自身は大きな辞書を持ちません。
+変換には Windows に入っている Microsoft IME の変換エンジン (IFELanguage) を使います。Meltype 自身は大きな辞書を持ちません。
 
 - **ライブ変換**: 4 文字以上の日本語は、Space を押さなくても打ったそばから漢字で表示します。短い語は Space で変換してください (設定で OFF にできます)。
 - **候補の一覧**: Space や ↓ で候補を切り替え始めると、Windows 標準の変換候補 API から候補の一覧を取ります (はし → 橋・端・箸・葉氏 …)。並びは 文の中での変換結果 → Windows の候補一覧 → その文節だけでの変換結果 → 補助辞書 → ひらがな → カタカナ。英語の文節は 打ったまま → 固有名詞の正しい形 (iPhone) → 先頭大文字 → すべて大文字 → 全角。
@@ -139,7 +142,7 @@ AutoIME キーボードを使っている間は、Windows の IME (Microsoft IME
 
 - 読みはローマ字でも入力できます (`kigoutou` → きごうとう)。読みを打つと変換候補がプルダウンに出るので、選ぶか単語欄に直接打って「登録」
 - 変換する読みの中に登録した読みが含まれていれば、その部分は変換エンジンの区切りに関係なく登録した単語になります (きごうとう → 記号等 を登録すると、`kigoutoufukume` → 記号等｜含め)
-- 読みは 2 文字以上。保存先は `%LOCALAPPDATA%\AutoIME\userdict.txt`
+- 読みは 2 文字以上。保存先は `%LOCALAPPDATA%\Meltype\userdict.txt`
 
 ### 確定した後の自動修正
 
@@ -147,7 +150,7 @@ AutoIME キーボードを使っている間は、Windows の IME (Microsoft IME
 
 - `i` を Space で変換して確定 → 続けて `want` と打つ → 「I want」 (代名詞の i は I に、Space の分の空白も入れる)
 - 英文の続きで `sushi ` と確定 → 続けて `gasuki` と打つ → 「すしがすき」
-- 候補を自分で選び直したとき、確定の後にカーソルが動いたとき (AutoIME を通らないキーやクリック) は直しません
+- 候補を自分で選び直したとき、確定の後にカーソルが動いたとき (Meltype を通らないキーやクリック) は直しません
 - 設定の「確定後も文脈に合わせて直す」で OFF にできます
 
 ### 英数状態 (直接入力)
@@ -163,7 +166,7 @@ AutoIME キーボードを使っている間は、Windows の IME (Microsoft IME
 - 管理者権限のアプリ、全画面のアプリ、アプリ別設定で OFF にしたアプリ (既定でリモートデスクトップと VM は OFF)
 
 出ない理由はトレイの「ログ / 判定理由」に「フォーカス → 入力欄ではない: …」のように残ります。
-AutoIME キーボードの使用中は、二重に変換しないよう Microsoft IME を OFF にしておきます。
+Meltype キーボードの使用中は、二重に変換しないよう Microsoft IME を OFF にしておきます。
 
 ## IME 自動切替
 
@@ -184,9 +187,9 @@ Microsoft IME を OFF (半角英数) のまま打ち始めると、打ち始め�
 
 ## 動作の仕組み
 
-どちらのモードも、キーボードフック (`WH_KEYBOARD_LL`) を専用スレッドで受けます。AutoIME が送り直したキーには印 (`dwExtraInfo = "AIME"`) を付け、自分では判定しません。
+どちらのモードも、キーボードフック (`WH_KEYBOARD_LL`) を専用スレッドで受けます。Meltype が送り直したキーには印 (`dwExtraInfo = "MELT"`) を付け、自分では判定しません。
 
-AutoIME キーボード:
+Meltype キーボード:
 
 ```
 物理キー ─▶ KeyboardMonitor ─▶ CaptureGate (変換ボックスが開いている間は、キーとクリックをすべて順番どおりに保留)
@@ -219,7 +222,7 @@ IME 自動切替:
 
 ## データと辞書
 
-保存場所はすべて `%LOCALAPPDATA%\AutoIME\` です。ネットワークには何も送りません。
+保存場所はすべて `%LOCALAPPDATA%\Meltype\` です。ネットワークには何も送りません。
 
 | ファイル | 内容 |
 | --- | --- |
@@ -227,12 +230,12 @@ IME 自動切替:
 | `model.json` | IME 自動切替の学習データ。判定に使った先頭 3〜6 文字ごとの回数だけで、入力内容そのものは保存しない |
 | `conversions.json` | 変換で選び直した結果 (文節の読み → 選んだ文字列)。次から最初の候補になる |
 | `userdict.txt` | ユーザー辞書 (1 行に「読み[Tab]単語」)。トレイの「ユーザー辞書...」で編集する |
-| `autoime.log` | 設定で「ファイルにログを書く」を ON にしたときだけ |
+| `meltype.log` | 設定で「ファイルにログを書く」を ON にしたときだけ |
 
 学習データは、トレイの「学習データをリセット」で `model.json` と `conversions.json` の両方を消せます。
 
 組み込みの辞書は [dictionaries/](dictionaries/) にあり、ビルド時に埋め込まれます。
-`%LOCALAPPDATA%\AutoIME\dictionaries\` に同じ名前・同じ形式のファイルを置くと、組み込みの辞書に追加されます (反映には再起動が必要)。
+`%LOCALAPPDATA%\Meltype\dictionaries\` に同じ名前・同じ形式のファイルを置くと、組み込みの辞書に追加されます (反映には再起動が必要)。
 
 | ファイル | 形式 | 用途 |
 | --- | --- | --- |
@@ -245,22 +248,22 @@ IME 自動切替:
 ## 開発
 
 ```powershell
-dotnet build AutoIME.sln
-dotnet run --project src/AutoIME.Tests                                   # テスト (xUnit を使わない簡易ランナー)
-dotnet run --project src/AutoIME.Tests -- CompositionTests               # 名前に一致するテストだけ
-dotnet run --project src/AutoIME.Tests -- --explain konnichiwa hello      # 1 文字ずつの判定理由 (IME 自動切替)
-dotnet run --project src/AutoIME.Tests -- --convert きょうはいいてんき     # 変換エンジンの結果と文節の区切り
-dotnet run --project src/AutoIME.Tests -- --context この本は:あつい        # 文脈を渡したときの変換結果
+dotnet build Meltype.sln
+dotnet run --project src/Meltype.Tests                                   # テスト (xUnit を使わない簡易ランナー)
+dotnet run --project src/Meltype.Tests -- CompositionTests               # 名前に一致するテストだけ
+dotnet run --project src/Meltype.Tests -- --explain konnichiwa hello      # 1 文字ずつの判定理由 (IME 自動切替)
+dotnet run --project src/Meltype.Tests -- --convert きょうはいいてんき     # 変換エンジンの結果と文節の区切り
+dotnet run --project src/Meltype.Tests -- --context この本は:あつい        # 文脈を渡したときの変換結果
 ```
 
-- `src/AutoIME/` — 本体
-  - `Composition/` AutoIME キーボード (変換ボックス・英語の判定・変換・文脈・学習)
+- `src/Meltype/` — 本体
+  - `Composition/` Meltype キーボード (変換ボックス・英語の判定・変換・文脈・学習)
   - `Input/` キーボードフックと IME 自動切替の入力セッション
   - `Detection/` ローマ字・英語・辞書・Typo の判定器
   - `IME/` Microsoft IME の操作 (IMM32 / TSF)
   - `Learning/` IME 自動切替の学習
   - `Config/` `UI/` `Diagnostics/` 設定・トレイと画面・ログ
-- `src/AutoIME.Tests/` — 判定 (設計書 §30 のケース)、入力セッション (欠落・二重入力・順序)、変換ボックス、学習のテスト
+- `src/Meltype.Tests/` — 判定 (設計書 §30 のケース)、入力セッション (欠落・二重入力・順序)、変換ボックス、学習のテスト
 - `dictionaries/` — 組み込み辞書
 - `legacy/` — 旧実装 (自前ローマ字変換版と、アプリ内に読み込ませる TSF 版)。ビルド対象外
 
@@ -268,27 +271,27 @@ dotnet run --project src/AutoIME.Tests -- --context この本は:あつい      
 
 - 変換候補の一覧は Windows 標準の変換候補 API (TextConversionGenerator) から取るため、Microsoft IME の候補ウィンドウとは順番や数が違うことがあります。
 - 文脈に合わせた変換は、手がかり辞書 `contexts.txt` と学習にある範囲で効きます。
-- カーソルの前後の文字は UI Automation で読むため、読めないアプリでは AutoIME が最後に確定した文字列で代用します。Chrome などでは UI Automation を使うことで動作が少し重くなる可能性があります。
+- カーソルの前後の文字は UI Automation で読むため、読めないアプリでは Meltype が最後に確定した文字列で代用します。Chrome などでは UI Automation を使うことで動作が少し重くなる可能性があります。
 - 32bit Windows には対応していません。
 
 ## プライバシー
 
-AutoIME はキーボードの入力を監視して動くツールですが、打った内容をネットワークに送ることはありません (通信する処理がありません)。
-保存するのは `%LOCALAPPDATA%\AutoIME` の設定・学習データ・ユーザー辞書と、ファイルログを ON にしたときのログだけです。
+Meltype はキーボードの入力を監視して動くツールですが、打った内容をネットワークに送ることはありません (通信する処理がありません)。
+保存するのは `%LOCALAPPDATA%\Meltype` の設定・学習データ・ユーザー辞書と、ファイルログを ON にしたときのログだけです。
 
 ## ライセンス
 
-AutoIME は **GNU General Public License v3.0** ([LICENSE](LICENSE)) と **商用ライセンス** のデュアルライセンスです。
+Meltype は **GNU General Public License v3.0** ([LICENSE](LICENSE)) と **商用ライセンス** のデュアルライセンスです。
 
 - 個人・会社でそのまま使う、GPL v3 の条件 (改造版もソースを公開) で改造・再配布する → GPL v3 で無料
 - 自社製品に組み込んで、ソースを公開せずに配布したい → 商用ライセンス ([COMMERCIAL.md](COMMERCIAL.md))
 
 貢献の方法と貢献者ライセンス同意 (CLA) は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
 
-ソースファイルの先頭には `SPDX-License-Identifier: GPL-3.0-or-later` を付けています。配布用パッケージに同梱している .NET ランタイム (MIT ライセンス) と、実行時に使う Windows の機能は [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) を参照してください。アプリのバージョン・著作権・ライセンスは、トレイの「AutoIME について...」で確認できます。
+ソースファイルの先頭には `SPDX-License-Identifier: GPL-3.0-or-later` を付けています。配布用パッケージに同梱している .NET ランタイム (MIT ライセンス) と、実行時に使う Windows の機能は [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) を参照してください。アプリのバージョン・著作権・ライセンスは、トレイの「Meltype について...」で確認できます。
 
 ```
-AutoIME
+Meltype
 Copyright (C) 2026 雪代 / Yukishiro (@yksr_melt / @yksr-melt)
 
 This program is free software: you can redistribute it and/or modify it under the terms of the

@@ -1,7 +1,7 @@
-# AutoIME 変換候補の補助辞書
+# Meltype 変換候補の補助辞書
 # Microsoft IME の変換エンジンは最有力の 1 候補しか返さないため、同音異義語の候補をここで補う。
 # 形式: 読み 候補 候補 …   (空白区切り、# 以降はコメント)
-# %LOCALAPPDATA%\AutoIME\dictionaries\candidates.txt に同じ形式で書くと追加できる。
+# %LOCALAPPDATA%\Meltype\dictionaries\candidates.txt に同じ形式で書くと追加できる。
 
 # 記号・句読点
 とうてん 読点 当店 、

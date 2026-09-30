@@ -1,7 +1,7 @@
-# AutoIME 文脈の手がかり辞書
+# Meltype 文脈の手がかり辞書
 # 形式: 読み 候補 : 手がかり 手がかり …
 # 変換する文節の前後 (入力欄の確定済みの文字と、同じ変換ボックス内のほかの文節) に手がかりがあれば、その候補を最初にする。
-# %LOCALAPPDATA%\AutoIME\dictionaries\contexts.txt に同じ形式で書くと追加できる。
+# %LOCALAPPDATA%\Meltype\dictionaries\contexts.txt に同じ形式で書くと追加できる。
 
 あつい 暑い : 気温 夏 天気 今日 部屋 蒸し 猛暑 真夏 日差し 外 クーラー エアコン 汗
 あつい 熱い : お湯 お茶 風呂 コーヒー 熱 火 鍋 スープ 料理 体温 情熱 思い 心 胸

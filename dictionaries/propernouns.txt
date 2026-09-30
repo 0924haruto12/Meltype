@@ -1,8 +1,8 @@
-# AutoIME 英語の固有名詞 (正しい大文字小文字で書く)
+# Meltype 英語の固有名詞 (正しい大文字小文字で書く)
 # ローマ字としても読めてしまう固有名詞 (amazon → あまぞん、adobe → あどべ) を英語として扱うための辞書。
 # 変換中の候補には、ここに書いた大文字小文字の形 (GitHub, iPhone) も出る。
 # 日本語の語 (hana, sakura …) と同じ綴りのものや、日本語で書くことが多い日本の社名・作品名 (suzuki, rakuten, mario) は入れない。
-# %LOCALAPPDATA%\AutoIME\dictionaries\propernouns.txt に同じ形式で書くと追加できる。
+# %LOCALAPPDATA%\Meltype\dictionaries\propernouns.txt に同じ形式で書くと追加できる。
 
 # IT・サービス
 Amazon Google Apple Microsoft Windows macOS iOS iPadOS Android Linux Ubuntu Debian Fedora

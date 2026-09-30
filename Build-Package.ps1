@@ -3,29 +3,29 @@
 
 $ErrorActionPreference = 'Stop'
 
-# 協力者に渡すテスト版の zip を作る: dist\AutoIME-test-<日付>.zip
+# 協力者に渡すテスト版の zip を作る: dist\Meltype-test-<日付>.zip
 # 中身は ビルド済みの app フォルダー (.NET ランタイム同梱) + Install.cmd / Uninstall.cmd + README.txt。
 #
 # .NET の同梱: この環境は NuGet が使えないので自己完結ビルド (--self-contained) の代わりに、
-# この PC にインストール済みの .NET ランタイムを app\dotnet にコピーし、AutoIME.exe がそこを使うようにする
+# この PC にインストール済みの .NET ランタイムを app\dotnet にコピーし、Meltype.exe がそこを使うようにする
 # (AppHostDotNetSearch=AppRelative: .NET 9 以降の apphost の機能)。協力者の PC に .NET は不要。
 
 $root = $PSScriptRoot
 $dist = Join-Path $root 'dist'
-$stage = Join-Path $dist 'AutoIME'
+$stage = Join-Path $dist 'Meltype'
 $app = Join-Path $stage 'app'
 $stamp = Get-Date -Format 'yyyyMMdd-HHmm'
-$zip = Join-Path $dist "AutoIME-test-$stamp.zip"
+$zip = Join-Path $dist "Meltype-test-$stamp.zip"
 
 if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
-dotnet publish (Join-Path $root 'src\AutoIME\AutoIME.csproj') -c Release -o $app -p:DebugType=none `
+dotnet publish (Join-Path $root 'src\Meltype\Meltype.csproj') -c Release -o $app -p:DebugType=none `
     -p:AppHostDotNetSearch=AppRelative -p:AppHostRelativeDotNet=dotnet
 if ($LASTEXITCODE -ne 0) { throw "ビルドに失敗しました (exit code $LASTEXITCODE)。" }
 
-# AutoIME が使うランタイムの版 (runtimeconfig.json に書かれている) と同じものを、インストール済みの .NET から探してコピーする。
-$config = Get-Content -Raw (Join-Path $app 'AutoIME.runtimeconfig.json') | ConvertFrom-Json
+# Meltype が使うランタイムの版 (runtimeconfig.json に書かれている) と同じものを、インストール済みの .NET から探してコピーする。
+$config = Get-Content -Raw (Join-Path $app 'Meltype.runtimeconfig.json') | ConvertFrom-Json
 $frameworks = @($config.runtimeOptions.frameworks) + @($config.runtimeOptions.framework) | Where-Object { $_ }
 $dotnetRoot = Split-Path -Parent (Get-Command dotnet).Source
 $runtime = Join-Path $app 'dotnet'
@@ -44,11 +44,11 @@ Copy-Item -LiteralPath $fxr -Destination (Join-Path $runtime "host\fxr\$version"
 Copy-Item -LiteralPath (Join-Path $dotnetRoot 'LICENSE.txt') -Destination $runtime -ErrorAction SilentlyContinue
 Copy-Item -LiteralPath (Join-Path $dotnetRoot 'ThirdPartyNotices.txt') -Destination $runtime -ErrorAction SilentlyContinue
 
-# スマホからも受け取れる大きさ (30MB 未満) にするため、ランタイムから AutoIME が使わないものを 2 段階で削る。
-#   1. 参照をたどって削る: AutoIME.dll が実際に使う型からたどって必要なアセンブリだけ残す (AutoIME.Tests の --runtime-closure)。
+# スマホからも受け取れる大きさ (30MB 未満) にするため、ランタイムから Meltype が使わないものを 2 段階で削る。
+#   1. 参照をたどって削る: Meltype.dll が実際に使う型からたどって必要なアセンブリだけ残す (Meltype.Tests の --runtime-closure)。
 #      ネイティブの DLL は、デバッグ用 (mscordaccore, mscordbi, DiaSymReader, createdump) と WPF の描画用を削る。
 #   2. 実際に読み込まれたかで削る: 1 の状態で自己診断を走らせ、読み込まれなかった大きなアセンブリ (512KB 超) を削る
-#      (XML・ネットワーク・暗号などは WinForms から参照されているが、AutoIME の使い方では読み込まれない)。
+#      (XML・ネットワーク・暗号などは WinForms から参照されているが、Meltype の使い方では読み込まれない)。
 #   どちらの後も自己診断を走らせ、削りすぎていないことを確かめる。
 # フレームワークの .deps.json は、一覧にあるファイルが無いと起動できないので、残したファイルだけの一覧に書き直す
 # (.deps.json 自体を消すと、そのフレームワークが無いものとして扱われる)。
@@ -79,7 +79,7 @@ function Invoke-SelfTest([string]$label) {
     if (Test-Path -LiteralPath $report) { Remove-Item -LiteralPath $report }
     $env:DOTNET_DISABLE_GUI_ERRORS = '1'
     try {
-        $process = Start-Process -FilePath (Join-Path $app 'AutoIME.exe') -ArgumentList '--selftest', "`"$report`"" -PassThru
+        $process = Start-Process -FilePath (Join-Path $app 'Meltype.exe') -ArgumentList '--selftest', "`"$report`"" -PassThru
         if (-not $process.WaitForExit(120000)) { $process.Kill(); throw "自己診断 ($label) が終わりませんでした。" }
     } finally {
         Remove-Item Env:\DOTNET_DISABLE_GUI_ERRORS -ErrorAction SilentlyContinue
@@ -97,7 +97,7 @@ function Test-Managed([string]$path) {
 }
 
 # 1. 参照をたどって削る
-$keep = dotnet run --project (Join-Path $root 'src\AutoIME.Tests\AutoIME.Tests.csproj') -c Release -- --runtime-closure $app
+$keep = dotnet run --project (Join-Path $root 'src\Meltype.Tests\Meltype.Tests.csproj') -c Release -- --runtime-closure $app
 if ($LASTEXITCODE -ne 0) { throw "必要なアセンブリの洗い出しに失敗しました。" }
 $keep = @($keep | ForEach-Object { $_.Trim() } | Where-Object { $_ -like '*.dll' })
 $dropNative = @('Microsoft.DiaSymReader.Native.*', 'mscordaccore*', 'mscordbi.dll', 'createdump.exe', 'D3DCompiler_47_cor3.dll', 'PenImc_cor3.dll')

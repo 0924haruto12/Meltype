@@ -1,7 +1,7 @@
-# AutoIME 英語辞書
+# Meltype 英語辞書
 # ローマ字として成立しない綴り (th, l, v, 子音連続 …) は辞書が無くても英語と判定されるので、
 # ここでは「ローマ字としても読めてしまう英単語」「技術用語」「日本語由来の外来語」を重点的に入れている。
-# %LOCALAPPDATA%\AutoIME\dictionaries\english.txt に同じ形式で書くとユーザー辞書として追加される。
+# %LOCALAPPDATA%\Meltype\dictionaries\english.txt に同じ形式で書くとユーザー辞書として追加される。
 
 # --- 日本語由来で英語としても使われる語 (設計書 §13: ローマ字として読めるだけでは切り替えない) ---
 kana sushi radio karaoke karate tsunami anime manga ninja samurai tofu ramen kimono futon bonsai origami

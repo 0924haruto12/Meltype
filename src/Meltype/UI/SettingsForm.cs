@@ -1,0 +1,274 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Yukishiro
+
+using System.ComponentModel;
+using System.Reflection;
+using Meltype.Config;
+
+namespace Meltype.UI;
+
+/// <summary>
+/// 設定画面。Settings の各項目を種類に合わせた部品で並べる:
+///   ON/OFF → プルダウン、選択肢 (列挙型) → 日本語名のプルダウン、数値 → 数値入力、アプリ別設定 → 表 (ON/OFF はプルダウン)。
+/// 項目名・分類・説明は Settings の属性 (DisplayName / Category / Description) から取る。
+/// 下の「判定テスト」欄では、打った英字が IME 自動切替でどう判定されるかと理由を確認できる。
+/// </summary>
+internal sealed class SettingsForm : Form
+{
+    private const string On = "ON";
+    private const string Off = "OFF";
+
+    private readonly MeltypeEngine _engine;
+    private readonly List<Binding> _bindings = [];
+    private readonly Label _help = new() { Dock = DockStyle.Fill, ForeColor = SystemColors.GrayText, Padding = new Padding(8, 4, 8, 4) };
+    private readonly TextBox _testInput = new() { Dock = DockStyle.Top, ImeMode = ImeMode.Disable };
+    private readonly TextBox _testResult = new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical };
+    private readonly ToolTip _toolTip = new() { AutoPopDelay = 20000 };
+
+    /// <summary>1 項目分の部品と、設定値との受け渡し。</summary>
+    private sealed record Binding(PropertyInfo Property, Control Control, Action<Settings> Load, Action<Settings> Store);
+
+    public SettingsForm(MeltypeEngine engine)
+    {
+        _engine = engine;
+        Text = "Meltype 設定";
+        StartPosition = FormStartPosition.CenterScreen;
+        Size = new Size(660, 820);
+        MinimumSize = new Size(520, 520);
+        Font = new Font("Yu Gothic UI", 9.5F);
+
+        // 1 列の表に分類ごとの枠を縦に並べる (どの枠も画面の幅いっぱいにそろう)。
+        var body = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            AutoScroll = true,
+            Padding = new Padding(8, 8, SystemInformation.VerticalScrollBarWidth + 4, 8),
+        };
+        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        foreach (var group in BuildGroups())
+        {
+            group.Dock = DockStyle.Fill;
+            body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            body.Controls.Add(group);
+        }
+
+        var helpPanel = new Panel { Dock = DockStyle.Bottom, Height = 46, BorderStyle = BorderStyle.FixedSingle };
+        helpPanel.Controls.Add(_help);
+
+        var testLabel = new Label { Text = "判定テスト (IME 自動切替の判定。英字で入力):", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 6, 0, 2) };
+        _testInput.TextChanged += (_, _) => RunTest();
+        var testPanel = new Panel { Dock = DockStyle.Bottom, Height = 110, Padding = new Padding(8, 0, 8, 0) };
+        testPanel.Controls.Add(_testResult);
+        testPanel.Controls.Add(_testInput);
+        testPanel.Controls.Add(testLabel);
+
+        var ok = new Button { Text = "OK", Width = 90 };
+        var cancel = new Button { Text = "キャンセル", Width = 90, DialogResult = DialogResult.Cancel };
+        var defaults = new Button { Text = "既定値に戻す", Width = 110 };
+        ok.Click += (_, _) =>
+        {
+            _engine.ApplySettings(Collect());
+            Close();
+        };
+        cancel.Click += (_, _) => Close();
+        defaults.Click += (_, _) =>
+        {
+            LoadFrom(new Settings());
+            RunTest();
+        };
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 42, Padding = new Padding(6) };
+        buttons.Controls.AddRange([cancel, ok, defaults]);
+
+        Controls.Add(body);
+        Controls.Add(helpPanel);
+        Controls.Add(testPanel);
+        Controls.Add(buttons);
+        AcceptButton = ok;
+        CancelButton = cancel;
+
+        LoadFrom(engine.Settings);
+    }
+
+    /// <summary>分類 (Category) ごとの枠に、項目を 1 行ずつ並べる。</summary>
+    private IEnumerable<GroupBox> BuildGroups()
+    {
+        var properties = typeof(Settings).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => p.CanWrite && p.GetCustomAttribute<BrowsableAttribute>()?.Browsable != false)
+            .GroupBy(p => p.GetCustomAttribute<CategoryAttribute>()?.Category ?? "その他")
+            .OrderBy(g => g.Key, StringComparer.Ordinal);
+        foreach (var category in properties)
+        {
+            var table = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 2, Padding = new Padding(4) };
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 55));
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45));
+            foreach (var property in category)
+            {
+                if (CreateBinding(property) is not { } binding) continue;
+                var name = property.GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ?? property.Name;
+                var description = property.GetCustomAttribute<DescriptionAttribute>()?.Description ?? "";
+                var label = new Label { Text = name, AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 6) };
+                var fullRow = binding.Control is DataGridView;
+                if (fullRow)
+                {
+                    table.Controls.Add(label);
+                    table.SetColumnSpan(label, 2);
+                    table.Controls.Add(binding.Control);
+                    table.SetColumnSpan(binding.Control, 2);
+                }
+                else
+                {
+                    table.Controls.Add(label);
+                    table.Controls.Add(binding.Control);
+                }
+                ShowHelpFor(label, name, description);
+                ShowHelpFor(binding.Control, name, description);
+                _bindings.Add(binding);
+            }
+            var group = new GroupBox { Text = StripNumber(category.Key), AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(6) };
+            group.Controls.Add(table);
+            yield return group;
+        }
+    }
+
+    /// <summary>項目の種類に合わせた部品を作る。</summary>
+    private Binding? CreateBinding(PropertyInfo property)
+    {
+        var type = property.PropertyType;
+        if (type == typeof(bool))
+        {
+            var combo = DropDown([On, Off]);
+            return new Binding(property, combo,
+                s => combo.SelectedItem = (bool)property.GetValue(s)! ? On : Off,
+                s => property.SetValue(s, Equals(combo.SelectedItem, On)));
+        }
+        if (type.IsEnum)
+        {
+            var values = Enum.GetValues(type).Cast<object>().ToList();
+            var combo = DropDown(values.Select(v => EnumName(type, v)).ToArray());
+            return new Binding(property, combo,
+                s => combo.SelectedIndex = values.IndexOf(property.GetValue(s)!),
+                s => property.SetValue(s, values[Math.Max(0, combo.SelectedIndex)]));
+        }
+        if (type == typeof(int))
+        {
+            var number = new NumericUpDown { Minimum = 0, Maximum = 60000, Width = 120, Anchor = AnchorStyles.Left };
+            return new Binding(property, number,
+                s => number.Value = Math.Clamp((int)property.GetValue(s)!, (int)number.Minimum, (int)number.Maximum),
+                s => property.SetValue(s, (int)number.Value));
+        }
+        if (type == typeof(List<AppRule>))
+        {
+            var grid = AppRulesGrid();
+            return new Binding(property, grid,
+                s =>
+                {
+                    grid.Rows.Clear();
+                    foreach (var rule in (List<AppRule>)property.GetValue(s)!) grid.Rows.Add(rule.Process, rule.Enabled ? On : Off);
+                },
+                s => property.SetValue(s, grid.Rows.Cast<DataGridViewRow>()
+                    .Where(r => !r.IsNewRow)
+                    .Select(r => (Process: (r.Cells[0].Value as string ?? "").Trim(), r.Cells[1].Value))
+                    .Where(r => r.Process.Length > 0)
+                    .Select(r => new AppRule { Process = r.Process, Enabled = !Equals(r.Value, Off) })
+                    .ToList()));
+        }
+        return null;
+    }
+
+    private ComboBox DropDown(string[] items)
+    {
+        var combo = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 250, Anchor = AnchorStyles.Left };
+        combo.Items.AddRange(items);
+        combo.SelectedIndexChanged += (_, _) => RunTest();
+        return combo;
+    }
+
+    private static DataGridView AppRulesGrid()
+    {
+        var grid = new DataGridView
+        {
+            Height = 170,
+            Dock = DockStyle.Fill,
+            AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+            RowHeadersWidth = 24,
+            BackgroundColor = SystemColors.Window,
+            AllowUserToAddRows = true,
+            AllowUserToDeleteRows = true,
+        };
+        grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "プロセス名 (例: code.exe)", FillWeight = 70 });
+        var enabled = new DataGridViewComboBoxColumn { HeaderText = "自動切替", FillWeight = 30, FlatStyle = FlatStyle.Flat };
+        enabled.Items.AddRange(On, Off);
+        grid.Columns.Add(enabled);
+        grid.DefaultValuesNeeded += (_, e) => e.Row.Cells[1].Value = On;
+        return grid;
+    }
+
+    private static string EnumName(Type type, object value) =>
+        type.GetField(value.ToString()!)?.GetCustomAttribute<DescriptionAttribute>()?.Description ?? value.ToString()!;
+
+    /// <summary>"1. 全般" → "全般"</summary>
+    private static string StripNumber(string category)
+    {
+        var dot = category.IndexOf(". ", StringComparison.Ordinal);
+        return dot >= 0 && category[..dot].All(char.IsAsciiDigit) ? category[(dot + 2)..] : category;
+    }
+
+    private void ShowHelpFor(Control control, string name, string description)
+    {
+        if (description.Length > 0) _toolTip.SetToolTip(control, description);
+        void Show(object? sender, EventArgs e) => _help.Text = description.Length > 0 ? $"{name}: {description}" : name;
+        control.Enter += Show;
+        control.MouseEnter += Show;
+    }
+
+    private void LoadFrom(Settings settings)
+    {
+        foreach (var binding in _bindings) binding.Load(settings);
+    }
+
+    /// <summary>画面の内容を設定にする。画面に出していない項目 (SettingsVersion など) は今の値を引き継ぐ。</summary>
+    private Settings Collect()
+    {
+        var settings = _engine.Settings.Clone();
+        foreach (var binding in _bindings) binding.Store(settings);
+        return settings.Normalize();
+    }
+
+    private void RunTest()
+    {
+        if (_bindings.Count == 0) return;
+        var words = _testInput.Text.ToLowerInvariant().Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length == 0)
+        {
+            _testResult.Text = "";
+            return;
+        }
+        var settings = Collect();
+        var lines = new List<string>();
+        foreach (var word in words)
+        {
+            var letters = new string(word.Where(c => c is >= 'a' and <= 'z').ToArray());
+            if (letters.Length == 0) continue;
+            // 実際の動作と同じく 1 文字ずつ判定し、最初に結論が出た時点の結果を表示する。
+            for (var i = 1; i <= letters.Length; i++)
+            {
+                var result = _engine.Evaluate(letters[..i], settings);
+                if (result.Verdict != Detection.Verdict.Undecided || i == letters.Length)
+                {
+                    var verdict = result.Verdict == Detection.Verdict.Undecided ? "Unknown (Space で確定)" : result.Verdict.ToString();
+                    lines.Add($"{word}: {verdict} — \"{letters[..i]}\" の時点, JP={result.JapaneseScore} EN={result.EnglishScore}\r\n    " +
+                              string.Join("\r\n    ", result.Contributions.Select(c => c.ToString())));
+                    break;
+                }
+            }
+        }
+        _testResult.Text = string.Join("\r\n", lines);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _toolTip.Dispose();
+        base.Dispose(disposing);
+    }
+}

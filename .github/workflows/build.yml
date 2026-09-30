@@ -14,10 +14,10 @@ jobs:
         with:
           dotnet-version: 10.0.x
       - name: Build
-        run: dotnet build AutoIME.sln -c Release
+        run: dotnet build Meltype.sln -c Release
       # Microsoft IME (日本語) や英語のスペルチェッカーが無い環境では、それらを使うテストは飛ばされる。
       - name: Test
-        run: dotnet run --project src/AutoIME.Tests/AutoIME.Tests.csproj -c Release --no-build
+        run: dotnet run --project src/Meltype.Tests/Meltype.Tests.csproj -c Release --no-build
 
   package:
     # タグ (v0.1.0 など) を push したときだけ、テスト版の zip を作ってリリースに添付する。
@@ -36,4 +36,4 @@ jobs:
         run: .\Build-Package.ps1
       - uses: softprops/action-gh-release@v2
         with:
-          files: dist/AutoIME-test-*.zip
+          files: dist/Meltype-test-*.zip

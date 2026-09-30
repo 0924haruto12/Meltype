@@ -1,7 +1,7 @@
-# AutoIME 日本語辞書 (ローマ字・ヘボン式で記述)
+# Meltype 日本語辞書 (ローマ字・ヘボン式で記述)
 # 訓令式 (si/tu/ti/hu/zi/sya …) や ん の n/nn の揺れは読み込み時に自動展開されるので、1 語につき 1 表記でよい。
 # 空白・改行区切り。# 以降はコメント。
-# %LOCALAPPDATA%\AutoIME\dictionaries\japanese.txt に同じ形式で書くとユーザー辞書として追加される。
+# %LOCALAPPDATA%\Meltype\dictionaries\japanese.txt に同じ形式で書くとユーザー辞書として追加される。
 
 # あいさつ
 konnichiwa konnichiha konbanwa konbanha ohayou ohayougozaimasu arigatou arigatougozaimasu
