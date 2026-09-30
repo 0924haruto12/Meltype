@@ -137,3 +137,7 @@ fuguai shougai taiou shuusei kaizen kouritsu jidou shudou kinou gamen sousa nyuu
 gohan asagohan hirugohan bangohan pan niku sakana yasai kudamono tamago gyuunyuu ocha mizu osake biiru
 heya ie uchi eki michi mise ginkou byouin gakkou kouen kuukou hoteru denwa keitai kuruma densha basu jitensha
 tenki ame yuki kaze kumori hare kion natsu fuyu haru aki
+
+# カタカナ語 (助詞の後に続けて打つことが多いもの)
+tasuku sukejuuru purojekuto miitingu kaigi shiryou fairu foruda pasuwaado akaunto rogu settei
+gamen botan messeeji menyuu risuto deeta saabaa apuri sofuto baagu tesuto koodo

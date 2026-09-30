@@ -194,7 +194,7 @@ internal static class SessionTests
     public static void Feedback_ImeToggleAfterUnknownIsMissedJapanese()
     {
         var (_, env, typist) = Create();
-        typist.Type("zaruso");
+        typist.Type("zanzok");
         typist.Drain();
         typist.Press(VirtualKeys.OemAuto);
         typist.Type("\n");

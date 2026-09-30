@@ -251,7 +251,8 @@ public sealed class CompositionDetector
         if (growing && lower.Length >= 4 && !conservative && !smallKanaSpelling && _proper.HasPrefix(lower) && !_japanese.IsPrefix(lower)) return true;
 
         // 英単語で、ローマ字として読めない英字を含む (zoom + でかいぎ → m が読めない)。日本語の文の途中でも英語。
-        if (unreadable && (exact || spellWord) && lower.Length >= 3) return true;
+        // 2 文字でも、同梱の辞書の語で読めない英字がある (ok + notasuku の k) なら英語。
+        if (unreadable && (exact || spellWord) && (lower.Length >= 3 || inDictionary)) return true;
 
         // 英語とも日本語とも読める語 (sushi, repo, make) は前後の両方で決める。前が英語なら +1・日本語なら -1、
         // 後ろも同じように数え、合計が必要な点数に届けば英語 (どちらも分からない・食い違うときは日本語)。

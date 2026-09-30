@@ -32,5 +32,15 @@ public sealed class DictionaryDetector
         {
             output.Add(new Contribution("Dictionary", letters.Length >= 4 ? 4 : 3, 0, "日本語辞書の語の先頭と一致"));
         }
+        // 助詞 + 日本語の語 (no + tasuku = のタスク、ga + meeru)。英数状態で前の語 (OK) の続きを打っているとき。
+        else if (StartsWithParticle(letters) is { } particle && letters[particle.Length..] is { Length: >= 4 } rest && Words.HasPrefix(rest))
+        {
+            output.Add(new Contribution("Dictionary", 4, 0, $"助詞「{particle}」+ 日本語辞書の語"));
+        }
     }
+
+    private static readonly string[] Particles = ["no", "ga", "wo", "ni", "de", "to", "ha", "mo", "wa", "he"];
+
+    /// <summary>助詞 (の が を に で と は も わ へ) で始まっていれば、その助詞。</summary>
+    public static string? StartsWithParticle(string letters) => Particles.FirstOrDefault(letters.StartsWith);
 }

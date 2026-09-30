@@ -342,9 +342,10 @@ public sealed class CompositionController
                 Commit();
                 return;
             case VirtualKeys.Space:
-                // 英語と判定した語で終わっているなら、変換ではなく確定して空白を入れる (日本語の部分は漢字にして確定)。
+                // 英語と判定した語で終わっているなら、変換ではなく確定して空白を入れる
+                // (日本語の部分は、ライブ変換が ON なら漢字にして、OFF なら見えているかなのまま確定)。
                 if (_text.IsAlphanumericAt(final: true)) Commit(suffix: " ");
-                else if (EndsWithEnglish(final: true)) CommitText(_text.RenderSegments(final: true, Convert) + " ", english: true, _text.Raw);
+                else if (EndsWithEnglish(final: true)) CommitText(_text.RenderSegments(final: true, _options.LiveConversion() ? Convert : null) + " ", english: true, _text.Raw);
                 else if (_text.Mode == DisplayMode.Auto && _detector.IsEnglishAtWordEnd(_text.Raw, _options.Level())) CommitText(_text.Raw + " ", english: true, _text.Raw);
                 else
                 {

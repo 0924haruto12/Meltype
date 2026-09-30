@@ -610,11 +610,11 @@ internal static class CompositionTests
     public static void Symbols_StartComposition()
     {
         // 報告: かぎかっこが入力できない。
-        var cases = new Dictionary<string, string> { ["[kagi]"] = "「かぎ」", ["-"] = "ー", ["/"] = "／", ["z/"] = "・", ["#"] = "＃", ["("] = "（", ["@"] = "@", [",,,"] = "...", ["\\"] = "￥", [","] = "、",
+        var cases = new Dictionary<string, string> { ["[kagi]"] = "「かぎ」", ["-"] = "ー", ["/"] = "/", ["z/"] = "・", ["#"] = "＃", ["("] = "（", ["@"] = "@", [",,,"] = "...", ["\\"] = "￥", [","] = "、",
             // 報告: Shift で打つ記号が全角で打てない、/ が打てない。英語の中では半角のまま。
             ["$%&"] = "＄％＆", ["kyouha(tenki)"] = "きょうは（てんき）", ["hello@example"] = "hello@example",
             // 報告: ca / cu / co で か く こ
-            ["cacuco"] = "かくこ",
+            ["cacuco"] = "かくこ", ["oknotasuku"] = "okのたすく",
         };
         foreach (var (typed, expected) in cases)
         {
@@ -834,9 +834,13 @@ internal static class CompositionTests
     [Test]
     public static void Space_AfterEnglishWord_InsertsSpace()
     {
-        var k = new Keyboard();
+        var k = new Keyboard(live: true);
         k.Type("kyouhagoogle ");
         Assert.Equal("今日はgoogle ", k.Host.Output.Single(), "英単語で終わっていれば、変換ではなく確定して空白");
+        // 報告: ライブ変換を OFF にしても漢字になる。OFF なら見えているかなのまま確定する。
+        k = new Keyboard();
+        k.Type("kyouhagoogle ");
+        Assert.Equal("きょうはgoogle ", k.Host.Output.Single(), "ライブ変換 OFF なら かなのまま");
     }
 
     [Test]

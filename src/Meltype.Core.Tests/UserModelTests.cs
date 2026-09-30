@@ -14,11 +14,11 @@ internal static class UserModelTests
     {
         var model = new UserModel(null);
         var engine = CreateEngine(user: model);
-        Assert.True(Classify(engine, "zarusoba").Verdict != Verdict.Japanese, "学習前は判断できない");
+        Assert.True(Classify(engine, "zanzok").Verdict != Verdict.Japanese, "学習前は判断できない");
 
         // 判定不能で素通しした後、ユーザーが IME を ON にした (見逃し) を学習する。
-        model.Learn("zaruso", SessionOutcome.StayedRejected, decidedEnglish: false);
-        Assert.Equal(Verdict.Japanese, Classify(engine, "zarusoba").Verdict, "学習後は日本語と判定");
+        model.Learn("zanzo", SessionOutcome.StayedRejected, decidedEnglish: false);
+        Assert.Equal(Verdict.Japanese, Classify(engine, "zanzok").Verdict, "学習後は日本語と判定");
     }
 
     [Test]

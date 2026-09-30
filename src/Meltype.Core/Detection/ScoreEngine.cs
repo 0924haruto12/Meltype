@@ -95,9 +95,11 @@ public sealed class ScoreEngine
 
                 if (settings.TypoEnabled) _typo.Evaluate(letters, contributions);
 
-                if (letters.Length >= 6 && analysis.Partial.Length == 0 && !_english.IsPrefix(letters))
+                // 5 文字以上が最後までローマ字として読めて、英単語 (の先頭) にも当たらない (fukare) なら日本語寄り。
+                // 辞書にない英単語 (debate) は、英数状態の判定でスペルチェッカーが止める (MeltypeEngine.ClassifyDirect)。
+                if (letters.Length >= 5 && analysis.Partial.Length == 0 && !_english.IsPrefix(original))
                 {
-                    contributions.Add(new Contribution("Romaji", 1, 0, "6 文字以上がすべてローマ字として成立"));
+                    contributions.Add(new Contribution("Romaji", letters.Length >= 6 ? 4 : 3, 0, "5 文字以上がすべてローマ字として成立し、英単語にも当たらない"));
                 }
             }
         }
@@ -127,7 +129,11 @@ public sealed class ScoreEngine
 
         // 英語の語 (の先頭) と一致し、日本語の語の途中でもない → これ以上待っても日本語にはならない。
         // "as" (ashita) や "to" (tomodachi) のように日本語の語の先頭でもある間は待つ。
-        if (english >= 3 && japanese < threshold && !japaneseDictionaryPrefix && !(useKana && kanaPlausible) && letters.Length >= 2)
+        // 助詞で始まり、助詞の後ろがまだ 3 文字以下の語 (not, nota = の + た…) は、助詞 + 次の語の打ちかけかもしれないので待つ
+        // (4 文字になれば日本語の辞書で調べられる)。
+        var particleThenMore = romajiValid && !input.IsFinal && DictionaryDetector.StartsWithParticle(letters) is { } particle &&
+            letters.Length - particle.Length is > 0 and < 4;
+        if (english >= 3 && japanese < threshold && !japaneseDictionaryPrefix && !particleThenMore && !(useKana && kanaPlausible) && letters.Length >= 2)
         {
             return Result(Verdict.English, letters, contributions, "英語の語と一致");
         }

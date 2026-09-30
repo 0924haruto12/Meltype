@@ -433,8 +433,9 @@ public sealed class CompositionText
         '~' => '～',
         '\'' => '’',
         '"' => '”',
-        // @ はメールアドレス・メンションで使うので、日本語の中でも半角のまま。
+        // @ はメールアドレス・メンション、/ は URL・日付・パスで使うので、日本語の中でも半角のまま (Space で ＠ ／ ・)。
         '@' => '@',
+        '/' => '/',
         // JIS キーボードの ￥ キー
         '\\' => '￥',
         _ when c is >= '!' and <= '~' && !char.IsAsciiLetterOrDigit(c) => (char)(c + 0xFEE0),

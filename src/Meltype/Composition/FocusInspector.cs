@@ -143,9 +143,14 @@ public sealed class FocusInspector : IDisposable
             if (element.IsPassword) return new FocusInfo(true, true, element.Bounds, description);
 
             var editable = false;
-            if (type is UiAutomation.ControlTypeEdit or UiAutomation.ControlTypeDocument or UiAutomation.ControlTypeComboBox)
+            if (type is UiAutomation.ControlTypeEdit or UiAutomation.ControlTypeDocument)
             {
                 editable = !(element.HasValuePattern && element.IsReadOnly);
+            }
+            else if (type is UiAutomation.ControlTypeComboBox)
+            {
+                // 選ぶだけのドロップダウン (設定画面の はい/いいえ など) は文字を打つ欄ではない。打ち込める ComboBox だけ。
+                editable = element.HasValuePattern && !element.IsReadOnly;
             }
             else if (element.HasTextPattern && element.IsKeyboardFocusable)
             {

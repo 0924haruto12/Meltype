@@ -342,6 +342,12 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         settings.InputStyle = settings.InputStyle == InputStyle.Kana ? InputStyle.Kana : InputStyle.Romaji;
         var keys = letters.Select(c => (int)char.ToUpperInvariant(c)).ToArray();
         var result = _scoreEngine.Evaluate(new DetectionInput(letters, keys, final), settings);
+        // 同梱の辞書にない英単語 (debate, potato) はローマ字としても読めるので、スペルチェッカーの語なら日本語にしない。
+        if (result.Verdict == Verdict.Japanese && letters.Length >= 4 && Detection.WindowsSpellChecker.Shared.IsWord(letters.ToLowerInvariant()))
+        {
+            Log.Info($"英数状態: 「{letters}」は英単語 (スペルチェッカー) なので日本語にしない");
+            return final ? Verdict.English : Verdict.Undecided;
+        }
         if (result.Verdict == Verdict.Japanese) Log.Decision($"英数状態でローマ字を検知: {result.Describe()}");
         return result.Verdict;
     }

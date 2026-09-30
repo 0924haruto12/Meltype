@@ -35,6 +35,9 @@ internal static class DetectionTests
 
     [Test] public static void Design_Typo() => ExpectJapanese("konnitiwa", "konnichia", "arigatouu");
 
+    // 報告: 英数状態で OK の後に notasuku (のタスク) と打っても日本語に戻らない。fucarete (c 行) も。
+    [Test] public static void ParticleThenWord_AndCRow() => ExpectJapanese("notasuku", "gamenwo", "fucarete");
+
     [Test] public static void Design_English() => ExpectNotJapanese("hello", "github", "typescript", "javascript", "server", "terminal");
 
     [Test]
