@@ -55,6 +55,9 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             KanaInput = options.KanaInput,
             Misspellings = options.Misspellings ?? MisspellingDictionary.Load(userDirectory),
             Languages = Languages,
+            Translations = options.Translations ?? TranslationDictionary.Load(),
+            TranslationCandidates = options.TranslationCandidates,
+            TranslationHistory = options.TranslationHistory ?? new TranslationHistory(Config.AppPaths.TranslationHistoryFile),
         };
         _hybrid = new HybridConverter(options.Engine, _mozc, _converter, reading => _windowsCandidates.Get(reading));
         Controller = new CompositionController(Gate, detector, _hybrid, this, resolved);

@@ -29,13 +29,14 @@ internal static class TestRunner
             var engine = Enum.TryParse<Config.ConversionEngine>(Environment.GetEnvironmentVariable("MELTYPE_ENGINE"), out var chosen) ? chosen : Config.ConversionEngine.Hybrid;
             var converter = new Composition.HybridConverter(() => engine, mozc.IsInstalled ? mozc : null, ime, r => winrt.Get(r));
             Console.WriteLine($"変換エンジン: {(mozc.IsInstalled && engine != Config.ConversionEngine.System ? "Mozc + Microsoft IME" : "Microsoft IME")}");
+            var translations = Composition.TranslationDictionary.Load();
             foreach (var text in args.Skip(1))
             {
                 // "前の文字列|打つキー" の形なら、前の文字列をキャレットの前にある確定済みの文字として扱う。
                 var bar = text.IndexOf('|');
                 // MELTYPE_DIRECT=1 なら英数 (直接入力) の状態から打ち始める。
                 var direct = Environment.GetEnvironmentVariable("MELTYPE_DIRECT") == "1";
-                var keyboard = new CompositionTests.Keyboard(live: true, direct: direct, converter: converter, moreCandidates: converter.Candidates, userDictionary: new Composition.UserDictionary(null));
+                var keyboard = new CompositionTests.Keyboard(live: true, direct: direct, converter: converter, moreCandidates: converter.Candidates, userDictionary: new Composition.UserDictionary(null), translations: translations);
                 if (bar >= 0) keyboard.Host.PrecedingText = text[..bar];
                 foreach (var c in bar >= 0 ? text[(bar + 1)..] : text)
                 {
@@ -120,6 +121,7 @@ internal static class TestRunner
         if (args.FirstOrDefault() == "--convert")
         {
             using var converter = new Composition.MsImeKanjiConverter();
+            var translations = Composition.TranslationDictionary.Load();
             foreach (var text in args.Skip(1))
             {
                 Console.WriteLine($"{text} → {converter.Convert(text) ?? "(変換できない)"}");

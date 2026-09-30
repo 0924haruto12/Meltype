@@ -90,12 +90,18 @@ public sealed class CandidateDictionary
     /// 文節の読みに対する候補。文節は助詞などを含む (はしを) ので、辞書にある最長の先頭部分を置き換え、
     /// 残りはかなのまま付ける (箸を / 端を)。
     /// </summary>
+    // 語の後ろに付いていてよい助詞・「だ」など
+    private static readonly HashSet<string> Endings =
+        ["", "を", "が", "は", "に", "で", "と", "も", "へ", "の", "や", "な", "だ", "です", "から", "まで", "より", "って", "とか", "さ", "ね", "よ"];
+
     public IReadOnlyList<string> Lookup(string reading)
     {
         for (var length = reading.Length; length >= 1; length--)
         {
             // 1 文字の読み (い → 位 胃 …) は、その読みだけの文節のときだけ (いきを → 位きを にしない)。
             if (length == 1 && reading.Length > 1) break;
+            // 残りが助詞など (はし|を) のときだけ。語の途中 (ふく|ざつな → 服ざつな) では使わない。
+            if (!Endings.Contains(reading[length..])) continue;
             if (_entries.TryGetValue(reading[..length], out var words))
             {
                 var rest = reading[length..];

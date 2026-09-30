@@ -27,6 +27,14 @@ Meltype のソースコード (このリポジトリ) には、他者の著作�
 
 ## 辞書
 
+### 英訳の候補 (dictionaries/translations.txt)
+
+[JMdict](https://www.edrdg.org/wiki/index.php/JMdict-EDICT_Dictionary_Project) (Japanese-Multilingual Dictionary) の英語版から、よく使う語 (ichi1・news1・spec1・spec2・gai1 の印が付いた語) の書き方・品詞・英訳の一部を `tools/make-translations.mjs` で取り出して作りました。
+
+- 著作権: Electronic Dictionary Research and Development Group (EDRDG)
+- ライセンス: [Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/)。EDRDG のライセンスの説明: https://www.edrdg.org/edrdg/licence.html
+- この派生データ (dictionaries/translations.txt) も CC BY-SA 4.0 です。Meltype のプログラム本体は GPL-3.0-or-later です。
+
 ### 絵文字の辞書 (dictionaries/emoji-cldr.txt)
 
 Unicode CLDR の絵文字の日本語の名前・キーワード (common/annotations/ja.xml, common/annotationsDerived/ja.xml) から、読みを付けて作りました。Unicode License v3 (SPDX: Unicode-3.0) です。

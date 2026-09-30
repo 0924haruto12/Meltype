@@ -162,7 +162,8 @@ internal static class CompositionTests
         public FakeConverter Converter { get; } = new();
 
         public Keyboard(bool live = false, bool direct = false, ConversionHistory? history = null, IKanjiConverter? converter = null,
-            Func<string, IReadOnlyList<string>>? moreCandidates = null, UserDictionary? userDictionary = null, LanguageMemory? languages = null)
+            Func<string, IReadOnlyList<string>>? moreCandidates = null, UserDictionary? userDictionary = null, LanguageMemory? languages = null,
+            TranslationDictionary? translations = null, TranslationHistory? translationHistory = null)
         {
             Direct = direct;
             Controller = new CompositionController(Gate, Detector, converter ?? Converter, Host, new CompositionOptions
@@ -180,6 +181,8 @@ internal static class CompositionTests
                 KanaInput = () => Kana,
                 Misspellings = Misspellings,
                 Languages = languages,
+                Translations = translations,
+                TranslationHistory = translationHistory,
             });
         }
 
@@ -731,6 +734,38 @@ internal static class CompositionTests
         {
             lock (Learned) Learned.Add(string.Join("|", clauses.Select(c => $"{c.Reading}={c.Text}")));
         }
+    }
+
+    [Test]
+    public static void Translations_AreOfferedAfterJapanese()
+    {
+        // アイデア: 「ふくざつな」を変換したら complex / complicated も候補に。な が付くなら な形容詞 の訳を先に。
+        var dictionary = TranslationDictionary.Parse("川\tn\triver,stream\n複雑\tn\tcomplexity\n複雑\tna\tcomplex,complicated");
+        Assert.Equal("complex,complicated,complexity", string.Join(",", dictionary.Lookup("複雑な", "ふくざつな")));
+        Assert.Equal("complexity,complex,complicated", string.Join(",", dictionary.Lookup("複雑", "ふくざつ")));
+        Assert.Equal(0, dictionary.Lookup("川べり", "かわべり").Count, "語の後ろが助詞などでなければ出さない");
+
+        var history = new TranslationHistory(null);
+        IReadOnlyList<string> Convert()
+        {
+            var k = new Keyboard(translations: dictionary, translationHistory: history);
+            k.Type("kawa ");
+            return k.Host.View!.Candidates;
+        }
+        var k = new Keyboard(translations: dictionary, translationHistory: history);
+        k.Type("kawa ");
+        var view = k.Host.View!;
+        var index = view.Candidates.ToList().IndexOf("river");
+        Assert.True(index > 0 && view.Candidates[0] == "川", "英訳は日本語の候補の後ろ: " + string.Join(",", view.Candidates));
+        Assert.Equal("英訳", view.Notes?[index] ?? "(なし)");
+        for (var i = 0; i < index; i++) k.Press(VirtualKeys.Space);
+        k.Press(VirtualKeys.Return);
+        Assert.Equal("river", k.Host.Output.Single());
+
+        // 学習は弱め: 1 回選んでも 1 番目にはしない。2 回選んだら 2 番目。
+        Assert.Equal("川", Convert()[0], "1 回では 1 番目にしない");
+        history.Remember("かわ", "river");
+        Assert.Equal("川,river", string.Join(",", Convert().Take(2)), "2 回選んだら 2 番目");
     }
 
     [Test]

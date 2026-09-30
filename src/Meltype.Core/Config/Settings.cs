@@ -132,6 +132,10 @@ public sealed class Settings
      Description("かな漢字変換に使うエンジン。「両方」は Mozc (Google 日本語入力のオープンソース版) で変換し、Mozc が使えないときは Microsoft IME で変換します。候補には両方の候補が出ます。")]
     public ConversionEngine ConversionEngine { get; set; } = ConversionEngine.Hybrid;
 
+    [Category("1. 全般"), DisplayName("英訳の候補"),
+     Description("変換の候補の後ろに英訳も出します (複雑な → complex, complicated)。JMdict のよく使う語から。選んだ英訳は少しずつ前に出ます。")]
+    public bool TranslationCandidates { get; set; } = true;
+
     [Category("1. 全般"), DisplayName("入力モードをカーソルの近くに表示"),
      Description("入力欄をクリックしたときと 半角/全角 を押したときに、カーソルの近くに「あ」(日本語) か「A」(英数) を一瞬表示します。Meltype キーボードの使用中は Windows の IME を OFF にしているので、タスクバーの IME の表示は常に「A」になります。今のモードはこの表示かトレイの Meltype のアイコンで確認してください。")]
     public bool ShowModeIndicator { get; set; } = true;

@@ -18,7 +18,8 @@ public sealed record CompositionView(
     bool Converting,
     string Hint,
     IReadOnlyList<string>? Clauses = null,
-    int SelectedClause = -1);
+    int SelectedClause = -1,
+    IReadOnlyList<string?>? Notes = null);
 
 /// <summary>CompositionController が外界とやり取りする口。テストでは偽物に差し替える。</summary>
 public interface ICompositionHost
@@ -86,6 +87,15 @@ public sealed class CompositionOptions
     /// 候補を切り替え始めたときだけ呼ぶ。null なら補助辞書の候補だけ。
     /// </summary>
     public Func<string, IReadOnlyList<string>>? MoreCandidates { get; init; }
+
+    /// <summary>英訳の候補 (複雑な → complex)。null なら出さない。</summary>
+    public TranslationDictionary? Translations { get; init; }
+
+    /// <summary>英訳の候補を出すか (設定)。</summary>
+    public Func<bool> TranslationCandidates { get; init; } = () => true;
+
+    /// <summary>選んだ英訳の記録 (普通の変換の学習より弱く効かせる)。</summary>
+    public TranslationHistory? TranslationHistory { get; init; }
 
     /// <summary>英語とも日本語とも読める語を、次の語の文脈に合わせて確定し直すか。</summary>
     public Func<bool> AutoCorrect { get; init; } = () => true;
@@ -179,6 +189,9 @@ public sealed class CompositionController
 
         /// <summary>この文節の読みを打ったときの英字 (あぴ → api)。分からなければ null。</summary>
         public string? Raw { get; set; }
+
+        /// <summary>候補のうち英訳 (複雑な → complex) のもの。</summary>
+        public HashSet<string> Translations { get; } = new(StringComparer.Ordinal);
     }
 
     public CompositionController(CaptureGate gate, CompositionDetector detector, IKanjiConverter converter, ICompositionHost host, CompositionOptions? options = null)
@@ -690,6 +703,7 @@ public sealed class CompositionController
             {
                 clause.Raw = _text.RawForReading(s, offset, clause.Reading.Length);
                 offset += clause.Reading.Length;
+                AddTranslations(clause);
                 AddRawCandidates(clause);
             }
             clauses.AddRange(japanese);
@@ -698,6 +712,28 @@ public sealed class CompositionController
         _clauses = clauses;
         _selectedClause = 0;
         _converting = true;
+    }
+
+    /// <summary>
+    /// 英訳の候補 (複雑な → complex, complicated …) を、日本語の候補の後ろに足す。
+    /// 選んだことのある英訳は前に出す: 1 回なら英訳の中の先頭、2 回以上なら 2 番目 (変換エンジンの 1 番目の候補は動かさない)。
+    /// </summary>
+    private void AddTranslations(Clause clause)
+    {
+        if (clause.IsEnglish || _options.Translations is not { } dictionary || !_options.TranslationCandidates()) return;
+        var words = dictionary.Lookup(clause.Text, clause.Reading).Where(w => !clause.Candidates.Contains(w)).ToList();
+        if (words.Count == 0) return;
+        var learned = _options.TranslationHistory?.Get(clause.Reading) ?? [];
+        // 選んだ回数の多い順に前へ
+        words = learned.Select(l => l.Word).Where(words.Contains).Concat(words.Where(w => !learned.Any(l => l.Word == w))).ToList();
+        foreach (var word in words) clause.Translations.Add(word);
+        var often = learned.FirstOrDefault(l => l.Count >= 2 && words.Contains(l.Word)).Word;
+        if (often is not null)
+        {
+            clause.Candidates.Insert(Math.Min(1, clause.Candidates.Count), often);
+            words.Remove(often);
+        }
+        clause.Candidates.AddRange(words);
     }
 
     private static void AddRawCandidates(Clause clause)
@@ -1104,6 +1140,11 @@ public sealed class CompositionController
         {
             _options.Languages?.Remember(clause.Raw!, english: true);
         }
+        // 英訳を選んだら、英訳の記録に (普通の変換の学習より弱く効く)。
+        foreach (var clause in _clauses.Where(c => c.Translations.Contains(c.Text)))
+        {
+            _options.TranslationHistory?.Remember(clause.Reading, clause.Text);
+        }
         LearnConversion();
         if (_options.History is not { } history) return;
         // 1 文字の読み (き → 記) を覚えると、関係ない変換 (き + ごうとう) まで巻き込むので 2 文字以上だけ。
@@ -1112,6 +1153,8 @@ public sealed class CompositionController
             // かな・カタカナのまま確定したのは、その場限りのことが多いので覚えない。
             // 打ったままの英字を選んだのは、上で英語として覚えた。
             if (clause.Text == clause.Reading || clause.Text == CompositionText.ToKatakana(clause.Reading) || clause.Text == clause.Raw) continue;
+            // 英訳は上で英訳の記録に入れた (ここで覚えると次から 1 番目に出てしまう)。
+            if (clause.Translations.Contains(clause.Text)) continue;
             history.Remember(clause.Reading, clause.Text);
         }
     }
@@ -1134,7 +1177,7 @@ public sealed class CompositionController
         }
         foreach (var clause in _clauses)
         {
-            if (clause.IsEnglish || clause.Text == clause.Raw || clause.Reading.Any(char.IsAsciiLetterOrDigit))
+            if (clause.IsEnglish || clause.Text == clause.Raw || clause.Translations.Contains(clause.Text) || clause.Reading.Any(char.IsAsciiLetterOrDigit))
             {
                 Flush();
                 continue;
@@ -1208,7 +1251,8 @@ public sealed class CompositionController
                 true,
                 MisspellingHint() + "←→ 文節　Space/↓ 候補　Shift+←→ 区切り　Enter 確定　Esc 戻る",
                 _clauses.Select(c => c.Text).ToList(),
-                _selectedClause));
+                _selectedClause,
+                selected.Translations.Count == 0 ? null : selected.Candidates.Select(c => selected.Translations.Contains(c) ? "英訳" : null).ToList()));
         }
         else
         {

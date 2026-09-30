@@ -133,6 +133,9 @@ public sealed class MeltypeSession
             MoreCandidates = moreCandidates,
             Misspellings = MisspellingDictionary.Load(userDirectory),
             Languages = languages,
+            Translations = TranslationDictionary.Load(),
+            TranslationCandidates = () => settings.TranslationCandidates,
+            TranslationHistory = new TranslationHistory(AppPaths.TranslationHistoryFile),
         };
         return new MeltypeSession(detector, converter, options, () => settings);
     }
