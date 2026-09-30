@@ -30,6 +30,16 @@ public enum DetectionLevel
     [Description("手動 (提案のみ)")] Manual,
 }
 
+/// <summary>かな漢字変換のエンジン。</summary>
+public enum ConversionEngine
+{
+    /// <summary>Mozc で変換し、使えないときは OS の変換エンジン。候補は両方。</summary>
+    [Description("両方 (Mozc を優先)")] Hybrid,
+    [Description("Mozc")] Mozc,
+    /// <summary>OS の変換エンジン (Windows では Microsoft IME)。</summary>
+    [Description("Microsoft IME")] System,
+}
+
 public enum InputMode
 {
     /// <summary>Meltype 自身の変換ボックスで入力する (半角/全角 不要)。</summary>
@@ -117,6 +127,10 @@ public sealed class Settings
     [Category("1. 全般"), DisplayName("ライブ変換"),
      Description("Keyboard モードで、Space を押さなくても打ったそばから漢字に変換して表示します。")]
     public bool LiveConversion { get; set; } = true;
+
+    [Category("1. 全般"), DisplayName("変換エンジン"),
+     Description("かな漢字変換に使うエンジン。「両方」は Mozc (Google 日本語入力のオープンソース版) で変換し、Mozc が使えないときは Microsoft IME で変換します。候補には両方の候補が出ます。")]
+    public ConversionEngine ConversionEngine { get; set; } = ConversionEngine.Hybrid;
 
     [Category("1. 全般"), DisplayName("入力モードをカーソルの近くに表示"),
      Description("入力欄をクリックしたときと 半角/全角 を押したときに、カーソルの近くに「あ」(日本語) か「A」(英数) を一瞬表示します。Meltype キーボードの使用中は Windows の IME を OFF にしているので、タスクバーの IME の表示は常に「A」になります。今のモードはこの表示かトレイの Meltype のアイコンで確認してください。")]

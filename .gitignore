@@ -23,3 +23,6 @@ legacy/
 # Mac 版のビルド結果
 mac/.build/
 mac/build/
+
+# Mozc の変換ヘルパー (native/mozc/Build-MozcHelper.ps1 で作る)
+native/mozc/bin/

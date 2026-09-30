@@ -24,6 +24,17 @@ dotnet publish (Join-Path $root 'src\Meltype\Meltype.csproj') -c Release -o $app
     -p:AppHostDotNetSearch=AppRelative -p:AppHostRelativeDotNet=dotnet
 if ($LASTEXITCODE -ne 0) { throw "ビルドに失敗しました (exit code $LASTEXITCODE)。" }
 
+# Mozc の変換ヘルパー (native\mozc\Build-MozcHelper.ps1 で作ったもの) を同梱する。無ければ Microsoft IME だけで動く。
+$mozcBin = Join-Path $root 'native\mozc\bin'
+if (Test-Path -LiteralPath (Join-Path $mozcBin 'meltype_mozc_helper.exe')) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $app 'mozc') | Out-Null
+    Copy-Item -Path (Join-Path $mozcBin '*') -Destination (Join-Path $app 'mozc') -Force
+    Write-Host 'Mozc の変換ヘルパーを同梱しました。'
+}
+else {
+    Write-Warning 'Mozc の変換ヘルパーがありません (native\mozc\Build-MozcHelper.ps1)。Microsoft IME だけで変換します。'
+}
+
 # Meltype が使うランタイムの版 (runtimeconfig.json に書かれている) と同じものを、インストール済みの .NET から探してコピーする。
 $config = Get-Content -Raw (Join-Path $app 'Meltype.runtimeconfig.json') | ConvertFrom-Json
 $frameworks = @($config.runtimeOptions.frameworks) + @($config.runtimeOptions.framework) | Where-Object { $_ }

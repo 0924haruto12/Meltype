@@ -16,7 +16,7 @@ Get-Process AutoIME -ErrorAction SilentlyContinue | Stop-Process -Force
 $oldShortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup\AutoIME.lnk'
 if (Test-Path -LiteralPath $oldShortcut) { Remove-Item -LiteralPath $oldShortcut -Force }
 $oldProgram = Join-Path $env:LOCALAPPDATA 'Programs\AutoIME'
-Get-Process Meltype -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process Meltype, meltype_mozc_helper -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 300
 if (Test-Path -LiteralPath $oldProgram) { Remove-Item -LiteralPath $oldProgram -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $target | Out-Null

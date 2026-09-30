@@ -11,10 +11,17 @@ $output = Join-Path $PSScriptRoot 'app-build'
 Get-Process AutoIME -ErrorAction SilentlyContinue | Stop-Process -Force
 $oldShortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup\AutoIME.lnk'
 if (Test-Path -LiteralPath $oldShortcut) { Remove-Item -LiteralPath $oldShortcut -Force }
-Get-Process Meltype -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process Meltype, meltype_mozc_helper -ErrorAction SilentlyContinue | Stop-Process -Force
 
 dotnet build $project -c Release -o $output
 if ($LASTEXITCODE -ne 0) { throw "Meltype のビルドに失敗しました (exit code $LASTEXITCODE)。" }
+
+# Mozc の変換ヘルパー (native\mozc\Build-MozcHelper.ps1 で作ったもの) があれば一緒に置く。
+$mozcBin = Join-Path $PSScriptRoot 'native\mozc\bin'
+if (Test-Path -LiteralPath (Join-Path $mozcBin 'meltype_mozc_helper.exe')) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $output 'mozc') | Out-Null
+    Copy-Item -Path (Join-Path $mozcBin '*') -Destination (Join-Path $output 'mozc') -Force
+}
 
 $exe = Join-Path $output 'Meltype.exe'
 if (-not (Test-Path -LiteralPath $exe)) { throw "Meltype.exe が作成されませんでした: $exe" }

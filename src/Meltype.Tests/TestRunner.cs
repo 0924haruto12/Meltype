@@ -21,13 +21,19 @@ internal static class TestRunner
             // 本物の変換エンジンをつないだ変換ボックスに 1 文字ずつ打ち、表示の変化を見る (ライブ変換 ON)。
             // 本物のアプリと同じく Windows のスペルチェッカーも使う。
             CompositionTests.Detector.SpellChecker = Detection.WindowsSpellChecker.Shared;
-            using var converter = new Composition.MsImeKanjiConverter();
+            using var ime = new Composition.MsImeKanjiConverter();
             using var winrt = new Composition.WinRtCandidates();
+            // native\mozc\bin に Mozc の変換ヘルパーがあれば、アプリと同じく Mozc + Microsoft IME (両方) で変換する。
+            // MELTYPE_ENGINE=System なら Microsoft IME だけ。
+            using var mozc = new Composition.MozcConverter(Path.GetFullPath(Path.Combine("native", "mozc", "bin", "meltype_mozc_helper.exe")), Path.Combine(Path.GetTempPath(), "meltype-mozc-profile"));
+            var engine = Enum.TryParse<Config.ConversionEngine>(Environment.GetEnvironmentVariable("MELTYPE_ENGINE"), out var chosen) ? chosen : Config.ConversionEngine.Hybrid;
+            var converter = new Composition.HybridConverter(() => engine, mozc.IsInstalled ? mozc : null, ime, r => winrt.Get(r));
+            Console.WriteLine($"変換エンジン: {(mozc.IsInstalled && engine != Config.ConversionEngine.System ? "Mozc + Microsoft IME" : "Microsoft IME")}");
             foreach (var text in args.Skip(1))
             {
                 // "前の文字列|打つキー" の形なら、前の文字列をキャレットの前にある確定済みの文字として扱う。
                 var bar = text.IndexOf('|');
-                var keyboard = new CompositionTests.Keyboard(live: true, converter: converter, moreCandidates: r => winrt.Get(r), userDictionary: new Composition.UserDictionary(null));
+                var keyboard = new CompositionTests.Keyboard(live: true, converter: converter, moreCandidates: converter.Candidates, userDictionary: new Composition.UserDictionary(null));
                 if (bar >= 0) keyboard.Host.PrecedingText = text[..bar];
                 foreach (var c in bar >= 0 ? text[(bar + 1)..] : text)
                 {
@@ -42,6 +48,24 @@ internal static class TestRunner
         }
         if (args.FirstOrDefault() == "--winmd") { WinMdProbe.Run(args[1], args.Skip(2)); return 0; }
         if (args.FirstOrDefault() == "--candidates") { using var winrt = new Composition.WinRtCandidates(); foreach (var r in args.Skip(1)) Console.WriteLine($"{r}: {string.Join(", ", winrt.Get(r))}"); foreach (var e in Diagnostics.Log.Snapshot()) Console.WriteLine(e); return 0; }
+        if (args.FirstOrDefault() == "--mozc")
+        {
+            // dotnet run --project src/Meltype.Tests -- --mozc <meltype_mozc_helper.exe> はははきょうしょくじにいきました ...
+            // Mozc と Microsoft IME の変換結果を並べて比べる。
+            using var mozc = new Composition.MozcConverter(args[1], Path.Combine(Path.GetTempPath(), "meltype-mozc-profile"));
+            using var ime = new Composition.MsImeKanjiConverter();
+            foreach (var reading in args.Skip(2))
+            {
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                var clauses = mozc.ConvertClauses(reading);
+                var elapsed = watch.ElapsedMilliseconds;
+                Console.WriteLine(reading);
+                Console.WriteLine($"  Mozc ({elapsed}ms): {(clauses is null ? "(失敗)" : string.Join("|", clauses.Select(c => c.Text)))}");
+                Console.WriteLine($"  IME : {string.Join("|", ime.ConvertClauses(reading)?.Select(c => c.Text) ?? [])}");
+            }
+            foreach (var entry in Diagnostics.Log.Snapshot()) Console.WriteLine($"  {entry}");
+            return 0;
+        }
         if (args.FirstOrDefault() == "--reading") { using var c = new Composition.MsImeKanjiConverter(); foreach (var t in args.Skip(1)) Console.WriteLine($"{t} → {c.Reading(t) ?? "(なし)"}"); return 0; }
         if (args.FirstOrDefault() == "--gen-emoji") { EmojiGenerator.Run(args[1], args[2], args[3]); return 0; }
         if (args.FirstOrDefault() == "--eval") { Quality.Print(Quality.Run()); return 0; }

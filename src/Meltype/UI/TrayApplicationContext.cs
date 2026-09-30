@@ -43,6 +43,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             DirectDecided = _engine.OnDirectDecided,
             AutoCorrect = () => _engine.Settings.AutoCorrectAfterCommit && _engine.AppSettings.DetectionLevel != DetectionLevel.Manual,
             Level = () => _engine.AppSettings.DetectionLevel,
+            Engine = () => _engine.Settings.ConversionEngine,
             KanaInput = () => _engine.Settings.InputStyle == InputStyle.Kana,
             ModeIndicator = () => _engine.Settings is { Enabled: true, Mode: InputMode.Keyboard, ShowModeIndicator: true },
         });

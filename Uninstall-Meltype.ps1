@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Stop'
 
 $shortcut = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup\Meltype.lnk'
 if (Test-Path -LiteralPath $shortcut) { Remove-Item -LiteralPath $shortcut -Force }
-Get-Process Meltype -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process Meltype, meltype_mozc_helper -ErrorAction SilentlyContinue | Stop-Process -Force
 
 if ($RemoveData) {
     $data = Join-Path $env:LOCALAPPDATA 'Meltype'

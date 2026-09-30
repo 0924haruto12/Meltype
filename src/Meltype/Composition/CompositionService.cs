@@ -20,6 +20,9 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     private readonly MsImeKanjiConverter _converter = new();
     private readonly KeyInjector _injector = new();
     private readonly WinRtCandidates _windowsCandidates = new();
+    // Mozc (同梱の mozc/meltype_mozc_helper.exe) と Microsoft IME を組み合わせた変換エンジン。
+    private readonly MozcConverter _mozc = new(Path.Combine(AppContext.BaseDirectory, "mozc", "meltype_mozc_helper.exe"), Path.Combine(Config.AppPaths.DataDirectory, "mozc"));
+    private HybridConverter _hybrid = null!;
     private readonly IME.Imm32ImeController _imm32 = new();
     private readonly System.Windows.Forms.Timer _tick = new() { Interval = 100 };
     private int _pumpScheduled;
@@ -46,14 +49,16 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             ContextRules = options.ContextRules ?? ContextRules.Load(userDirectory),
             History = History,
             UserDictionary = UserDictionary,
-            MoreCandidates = options.MoreCandidates ?? (reading => _windowsCandidates.Get(reading)),
+            MoreCandidates = options.MoreCandidates ?? (reading => _hybrid.Candidates(reading)),
             AutoCorrect = options.AutoCorrect,
             Level = options.Level,
             KanaInput = options.KanaInput,
             Misspellings = options.Misspellings ?? MisspellingDictionary.Load(userDirectory),
             Languages = Languages,
         };
-        Controller = new CompositionController(Gate, detector, _converter, this, resolved);
+        _hybrid = new HybridConverter(options.Engine, _mozc, _converter, reading => _windowsCandidates.Get(reading));
+        Controller = new CompositionController(Gate, detector, _hybrid, this, resolved);
+        if (options.Engine() != Config.ConversionEngine.System && _mozc.IsInstalled) _mozc.WarmUp();
         _showIndicator = options.ModeIndicator;
         _directMode = options.DirectMode;
         Focus.TextInputEntered += () => ShowMode(!_directMode());
@@ -344,6 +349,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         Focus.Dispose();
         _converter.Dispose();
         _windowsCandidates.Dispose();
+        _mozc.Dispose();
         _window.Dispose();
         _indicator.Dispose();
     }

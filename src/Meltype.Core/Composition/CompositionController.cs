@@ -57,6 +57,9 @@ public sealed class CompositionOptions
     /// <summary>打ったそばから漢字に変換して見せるか。</summary>
     public Func<bool> LiveConversion { get; init; } = () => false;
 
+    /// <summary>かな漢字変換のエンジン (Windows の CompositionService が Mozc / Microsoft IME を選ぶのに使う)。</summary>
+    public Func<Config.ConversionEngine> Engine { get; init; } = () => Config.ConversionEngine.System;
+
     /// <summary>英数 (直接入力) 状態か。</summary>
     public Func<bool> DirectMode { get; init; } = () => false;
 
@@ -761,10 +764,12 @@ public sealed class CompositionController
             registered.Add(clause);
         }
         // 同梱の語句 (しょせん → 所詮) も、文脈の手がかり (試合 → 初戦) と学習で選び直せるようにする。
-        foreach (var clause in registered)
+        // 変換エンジンの文節も、語句の文節を含めた前後で文脈の手がかりを見直す (甲斐性ない + こうかい → 後悔)。
+        foreach (var clause in clauses)
         {
             var surrounding = (_precedingText ?? "") + string.Concat(clauses.Where(c => c != clause).Select(c => c.Text)) + (_followingText ?? "");
-            if ((_options.ContextRules?.Choose(clause.Reading, surrounding) ?? _options.History?.Get(clause.Reading)) is { } preferred) Prefer(clause, preferred);
+            var preferred = _options.ContextRules?.Choose(clause.Reading, surrounding) ?? (registered.Contains(clause) ? _options.History?.Get(clause.Reading) : null);
+            if (preferred is not null) Prefer(clause, preferred);
         }
         return clauses;
     }

@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 # Meltype テスト版のアンインストール (協力者向け)。設定と学習データ (%LOCALAPPDATA%\Meltype) も消す。
 
 # 旧名 (AutoIME) のときのものも一緒に消す。
-Get-Process Meltype, AutoIME -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process Meltype, meltype_mozc_helper, AutoIME -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Milliseconds 300
 
 foreach ($name in 'Meltype.lnk', 'AutoIME.lnk') {
