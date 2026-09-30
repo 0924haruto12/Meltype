@@ -7,7 +7,11 @@
     <Nullable>enable</Nullable>
     <AssemblyName>AutoIME</AssemblyName>
     <RootNamespace>AutoIME</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>0.1.0</Version>
+    <Product>AutoIME</Product>
+    <Authors>Yukishiro</Authors>
+    <Copyright>Copyright (C) 2026 雪代 / Yukishiro. GPL-3.0-or-later</Copyright>
+    <Description>半角/全角 キーを押さなくても日本語と英語を打ち分けられるようにする常駐ツール</Description>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <!-- WinRtCandidates で COM の関数表を直接呼ぶため -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>

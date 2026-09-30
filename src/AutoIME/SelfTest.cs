@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Yukishiro
+
 using System.Text;
 using AutoIME.Composition;
 using AutoIME.Detection;
@@ -29,6 +32,7 @@ internal static class SelfTest
         }
 
         ApplicationConfiguration.Initialize();
+        Check("バージョン", () => AppInfo.Version);
         Check("設定", () => new Config.Settings().Clone().Normalize().Mode.ToString());
         Check("設定の保存と読み込み", () =>
         {

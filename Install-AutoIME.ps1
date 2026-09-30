@@ -1,4 +1,7 @@
-﻿$ErrorActionPreference = 'Stop'
+﻿# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Yukishiro
+
+$ErrorActionPreference = 'Stop'
 
 # AutoIME はタスクトレイに常駐する独立プロセスとして動く。TSF/COM コンポーネントを他アプリに読み込ませることはない。
 $project = Join-Path $PSScriptRoot 'src\AutoIME\AutoIME.csproj'

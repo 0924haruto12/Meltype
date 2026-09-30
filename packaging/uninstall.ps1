@@ -1,4 +1,7 @@
-﻿$ErrorActionPreference = 'Stop'
+﻿# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Yukishiro
+
+$ErrorActionPreference = 'Stop'
 
 # AutoIME テスト版のアンインストール (協力者向け)。設定と学習データ (%LOCALAPPDATA%\AutoIME) も消す。
 

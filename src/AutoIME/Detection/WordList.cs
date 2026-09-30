@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Yukishiro
+
 namespace AutoIME.Detection;
 
 /// <summary>単語集合と、その全 prefix の集合。判定はフックのスレッドで走るので O(1) で引けるようにしておく。</summary>

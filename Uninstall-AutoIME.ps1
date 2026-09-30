@@ -1,4 +1,7 @@
-﻿param(
+﻿# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Yukishiro
+
+param(
     # 設定と学習データ (%LOCALAPPDATA%\AutoIME) も削除する
     [switch]$RemoveData
 )

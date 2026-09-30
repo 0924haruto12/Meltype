@@ -1,4 +1,7 @@
-﻿$ErrorActionPreference = 'Stop'
+﻿# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Yukishiro
+
+$ErrorActionPreference = 'Stop'
 
 # 協力者に渡すテスト版の zip を作る: dist\AutoIME-test-<日付>.zip
 # 中身は ビルド済みの app フォルダー (.NET ランタイム同梱) + Install.cmd / Uninstall.cmd + README.txt。
@@ -127,6 +130,7 @@ foreach ($file in 'Install.cmd', 'Uninstall.cmd', 'install.ps1', 'uninstall.ps1'
     Copy-Item -LiteralPath (Join-Path $root "packaging\$file") -Destination $stage
 }
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination (Join-Path $stage 'LICENSE.txt')
+Copy-Item -LiteralPath (Join-Path $root 'THIRD-PARTY-NOTICES.md') -Destination (Join-Path $stage 'THIRD-PARTY-NOTICES.txt')
 
 Remove-Item -LiteralPath (Join-Path $dist 'selftest.txt') -ErrorAction SilentlyContinue
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force

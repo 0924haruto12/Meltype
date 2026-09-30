@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Yukishiro
+
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
@@ -67,6 +70,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add("ログ / 判定理由...", null, (_, _) => ShowLog());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("データフォルダを開く", null, (_, _) => OpenDataFolder());
+        menu.Items.Add("AutoIME について...", null, (_, _) => MessageBox.Show(AppInfo.AboutText, "AutoIME について", MessageBoxButtons.OK, MessageBoxIcon.Information));
         menu.Items.Add("学習データをリセット", null, (_, _) => ResetLearning());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("終了", null, (_, _) => ExitThread());

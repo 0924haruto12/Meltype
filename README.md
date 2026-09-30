@@ -285,7 +285,7 @@ AutoIME は **GNU General Public License v3.0** ([LICENSE](LICENSE)) と **商�
 
 貢献の方法と貢献者ライセンス同意 (CLA) は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
 
-配布用パッケージに同梱している .NET ランタイムは MIT ライセンスです (`app\dotnet\LICENSE.txt`, `ThirdPartyNotices.txt`)。
+ソースファイルの先頭には `SPDX-License-Identifier: GPL-3.0-or-later` を付けています。配布用パッケージに同梱している .NET ランタイム (MIT ライセンス) と、実行時に使う Windows の機能は [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) を参照してください。アプリのバージョン・著作権・ライセンスは、トレイの「AutoIME について...」で確認できます。
 
 ```
 AutoIME

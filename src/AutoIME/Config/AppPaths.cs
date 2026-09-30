@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Yukishiro
+
 namespace AutoIME.Config;
 
 /// <summary>保存場所はすべて %LOCALAPPDATA%\AutoIME\ 配下 (設計書 §21)。ネットワークには何も送らない。</summary>
