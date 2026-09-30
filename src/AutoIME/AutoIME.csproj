@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>AutoIME</AssemblyName>
+    <RootNamespace>AutoIME</RootNamespace>
+    <Version>1.0.0</Version>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- WinRtCandidates で COM の関数表を直接呼ぶため -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AutoIME.Tests" />
+    <EmbeddedResource Include="..\..\dictionaries\*.txt" LogicalName="AutoIME.dictionaries.%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>
