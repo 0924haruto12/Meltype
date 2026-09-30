@@ -227,6 +227,17 @@ public sealed class CompositionController
         Pump();
     }
 
+    /// <summary>変換中の文節の候補を番号で選ぶ (Mac の候補ウィンドウをクリックしたときなど)。</summary>
+    public void SelectCandidate(int index)
+    {
+        if (!_converting || _clauses.Count == 0) return;
+        var clause = _clauses[_selectedClause];
+        if (index < 0 || index >= clause.Candidates.Count) return;
+        clause.Index = index;
+        clause.Changed = true;
+        UpdateView();
+    }
+
     /// <summary>無効化・フォーカス喪失などで、未確定の内容をそのまま確定する。</summary>
     public void CommitPending()
     {

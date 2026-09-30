@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meltype.Core", "src\Meltype
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meltype.Core.Tests", "src\Meltype.Core.Tests\Meltype.Core.Tests.csproj", "{33945929-5A8A-4997-9676-C5CB183585C0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Meltype.Mac.Native", "src\Meltype.Mac.Native\Meltype.Mac.Native.csproj", "{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -71,6 +73,18 @@ Global
 		{33945929-5A8A-4997-9676-C5CB183585C0}.Release|x64.Build.0 = Release|Any CPU
 		{33945929-5A8A-4997-9676-C5CB183585C0}.Release|x86.ActiveCfg = Release|Any CPU
 		{33945929-5A8A-4997-9676-C5CB183585C0}.Release|x86.Build.0 = Release|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Debug|x64.Build.0 = Debug|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Debug|x86.Build.0 = Debug|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Release|x64.ActiveCfg = Release|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Release|x64.Build.0 = Release|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Release|x86.ActiveCfg = Release|Any CPU
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -80,5 +94,6 @@ Global
 		{FEDB3216-9E1F-4BFA-8AA5-FAD087C94C80} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{1902D57B-8540-4A1C-B957-3C0CE4728E1F} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{33945929-5A8A-4997-9676-C5CB183585C0} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{1A57B4E4-58E4-403B-B98B-2CB4F3EAB99C} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

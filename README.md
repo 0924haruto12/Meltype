@@ -5,6 +5,8 @@
 半角/全角 キーを押さなくても、日本語と英語を打ち分けられるようにする Windows 常駐ツールです。
 (開発中は AutoIME という仮の名前でした。以前の設定と学習データは、Meltype の初回起動時に自動で引き継ぎます)
 
+Windows 版のほか、Mac 版の試作があります ([mac/README.md](mac/README.md))。
+
 動作モードは 2 つあり、タスクトレイのメニューで切り替えます。
 
 | モード | 動き |
@@ -312,6 +314,8 @@ dotnet run --project src/Meltype.Core.Tests -- --eval       # 品質テスト (�
   - `Input/` キーの表し方、IME 自動切替の入力セッション、コードの行の判定
   - `Learning/` `Config/` `Diagnostics/` IME 自動切替の学習・設定・ログ
 - `src/Meltype/` — Windows 版 (キーボードフック、変換ボックスの画面、Microsoft IME の変換エンジン・IMM32 / TSF、UI Automation、スペルチェッカー、トレイ)
+- `src/Meltype.Mac.Native/` — Mac 版の IME から呼ぶ C の関数 (Meltype.Core を NativeAOT で dylib にする)
+- `mac/` — Mac 版の IME (Swift, Input Method Kit。漢字変換は azooKey)。ビルドは `mac/build.sh`
 - `src/Meltype.Core.Tests/` — 共通部分のテスト (判定・入力セッション・変換ボックス・学習・品質テスト)。Mac・Linux でも動く
 - `src/Meltype.Tests/` — Windows 版のテストと調査用の道具 (共通部分のテストもまとめて流す)
 - `dictionaries/` — 組み込み辞書

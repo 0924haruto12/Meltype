@@ -8,6 +8,13 @@ Meltype のソースコード (このリポジトリ) には、他者の著作�
 | --- | --- | --- |
 | .NET ランタイム (Microsoft.NETCore.App, Microsoft.WindowsDesktop.App) | MIT License | `app\dotnet\` (ライセンス: `app\dotnet\LICENSE.txt`、同梱部品の通知: `app\dotnet\ThirdPartyNotices.txt`) |
 
+## Mac 版 (mac/) がビルド時に取り込むもの
+
+| 部品 | ライセンス | 使い方 |
+| --- | --- | --- |
+| [AzooKeyKanaKanjiConverter](https://github.com/azooKey/AzooKeyKanaKanjiConverter) (azooKey の変換エンジンと辞書) | MIT License | Swift Package として取り込み、Meltype.app に組み込む (漢字変換)。Meltype.app を配布するときは、azooKey のライセンス表示も同梱する |
+| .NET ランタイム (NativeAOT) | MIT License | libMeltypeNative.dylib に組み込まれる |
+
 ## 実行時に使う Windows の機能 (同梱しない)
 
 次は Windows に標準で入っているものを実行時に呼び出すだけで、Meltype には含まれません。

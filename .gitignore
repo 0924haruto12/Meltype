@@ -19,3 +19,7 @@ legacy/
 # このフォルダーで .NET を動かしたときに作られる環境のファイル (マシン ID などを含む)
 .appdata/
 .dotnet-home/
+
+# Mac 版のビルド結果
+mac/.build/
+mac/build/
