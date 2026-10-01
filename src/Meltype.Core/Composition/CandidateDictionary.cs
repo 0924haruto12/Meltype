@@ -22,6 +22,8 @@ public sealed class CandidateDictionary
         dictionary.AddTabText(Detection.DictionarySource.ReadEmbedded("emoji.txt"));
         // Unicode CLDR の日本語の名前・キーワードから作った絵文字 (手で書いた emoji.txt の後に並ぶ)
         dictionary.AddTabText(Detection.DictionarySource.ReadEmbedded("emoji-cldr.txt"));
+        // 英字で書く語 (リナックス → Linux)。JMdict から作ったもの
+        dictionary.AddText(Detection.DictionarySource.ReadEmbedded("loanwords.txt"));
         if (userDirectory is not null)
         {
             var emoji = Path.Combine(userDirectory, "emoji.txt");

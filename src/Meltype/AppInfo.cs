@@ -28,7 +28,7 @@ internal static class AppInfo
 
         同梱の .NET ランタイムは MIT ライセンスです (app\dotnet\LICENSE.txt)。
         変換エンジン Mozc は BSD-3-Clause ライセンスです (app\mozc\MOZC-LICENSE.txt、辞書は app\mozc\MOZC-CREDITS.html)。
-        英訳の候補と打ち間違いを直すための読みの一覧は JMdict (Electronic Dictionary Research and Development Group) を元にしています (CC BY-SA 4.0)。
+        英訳の候補・英字で書く語の候補・打ち間違いを直すための読みの一覧は JMdict (Electronic Dictionary Research and Development Group) を元にしています (CC BY-SA 4.0)。
         絵文字の読みは Unicode CLDR を元にしています (Unicode License v3)。
         詳しくは THIRD-PARTY-NOTICES.txt を参照してください。
         """;

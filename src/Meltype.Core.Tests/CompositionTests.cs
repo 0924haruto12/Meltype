@@ -463,6 +463,16 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Loanwords_OfferLatinSpelling()
+    {
+        // リナックス を変換しても Linux が出なかった
+        var dictionary = CandidateDictionary.Load(null);
+        Assert.True(dictionary.Lookup("りなっくす").Contains("Linux"), "リナックス → Linux");
+        Assert.True(dictionary.Lookup("りなっくすで").Contains("Linuxで"), "助詞が付いても");
+        Assert.True(dictionary.Lookup("じゃばすくりぷと").Contains("JavaScript"), "ジャバスクリプト → JavaScript");
+    }
+
+    [Test]
     public static void ShortProperNoun_AfterJapanese_IsJapanese()
     {
         // ある程度は (aruteidoha) の doha を固有名詞 (Doha) として英字にしていた
