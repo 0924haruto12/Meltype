@@ -1312,6 +1312,12 @@ public sealed class CompositionController
     {
         var spaceIntended = _spaceStartedConversion;
         _spaceStartedConversion = false;
+        // 誤変換の報告を調べられるように、打った英字・読み・文節の区切りもログに残す (ログはファイルに書く設定のときだけ保存される)。
+        if (!_text.IsEmpty)
+        {
+            var clauses = _clauses.Count > 0 ? "　文節 " + string.Join(" | ", _clauses.Select(c => $"{c.Reading}→{c.Text}")) : "";
+            Diagnostics.Log.Info($"確定の内訳: 打った英字「{_text.Raw}」　読み「{_text.AllKana(final: true)}」{clauses}");
+        }
         _text.Clear();
         _converting = false;
         _clauses = [];
