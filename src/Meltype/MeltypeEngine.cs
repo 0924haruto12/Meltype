@@ -315,7 +315,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             // 英数状態: ローマ字かどうかを判定するために、単語の打ち始めの英字だけを受け取る。
             // 英語と分かった単語の続きは、区切り (Space など) まで素通しする。
             if (!letter || !settings.DirectModeAutoDetect || settings.ForApp(_foreground.Current.ProcessName).DetectionLevel == DetectionLevel.Manual || _directEnglishWord) return false;
-            if (_composition?.Focus.CanCapture != true) Log.Info("英数状態: 入力欄を確認できないので判定しない");
+            if (_composition?.Focus.CanCaptureWaiting() != true) Log.Info("英数状態: 入力欄を確認できないので判定しない");
         }
         else if (!letter && !punctuation)
         {
@@ -324,7 +324,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         if (IsDown(VirtualKeys.Control) || IsDown(VirtualKeys.Menu) || IsDown(VirtualKeys.LWin) || IsDown(VirtualKeys.RWin)) return false;
         if (!_foreground.Check(settings).Allowed) return false;
         // 文字入力欄 (パスワード以外) にフォーカスがあるときだけ。ショートカットキーやゲームの操作を横取りしない。
-        if (_composition?.Focus.CanCapture != true) return false;
+        if (_composition?.Focus.CanCapture != true && _composition?.Focus.CanCaptureWaiting() != true) return false;
         // コードエディター・ターミナル: コードの中は英数のまま通す (補完もそのまま効く)。コメント・文字列の中は日本語を判定する。
         if (!_keyboardDirect && IsCodeApp(settings))
         {

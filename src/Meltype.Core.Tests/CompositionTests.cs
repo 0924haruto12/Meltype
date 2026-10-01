@@ -679,7 +679,7 @@ internal static class CompositionTests
     public static void Symbols_StartComposition()
     {
         // 報告: かぎかっこが入力できない。
-        var cases = new Dictionary<string, string> { ["[kagi]"] = "「かぎ」", ["-"] = "ー", ["/"] = "/", ["z/"] = "・", ["#"] = "＃", ["("] = "（", ["@"] = "@", [",,,"] = "...", ["\\"] = "￥", [","] = "、",
+        var cases = new Dictionary<string, string> { ["[kagi]"] = "「かぎ」", ["-"] = "ー", ["/"] = "/", ["z/"] = "・", ["#"] = "#", ["("] = "（", ["@"] = "@", [",,,"] = "...", ["\\"] = "￥", [","] = "、",
             // 報告: Shift で打つ記号が全角で打てない、/ が打てない。英語の中では半角のまま。
             ["$%&"] = "＄％＆", ["kyouha(tenki)"] = "きょうは（てんき）", ["hello@example"] = "hello@example",
             // 報告: ca / cu / co で か く こ
@@ -708,8 +708,13 @@ internal static class CompositionTests
     {
         // 報告: Space を続けて押して、記号も半角で出せるように。
         var k = new Keyboard();
+        k.Type("( ");
+        Assert.True(k.Host.View!.Candidates.Contains("("), "（ の候補に ( がある: " + string.Join(",", k.Host.View.Candidates));
+        // # は最初から半角 (Discord のチャンネル名・ハッシュタグ)。Space で全角の ＃ にできる。
+        k = new Keyboard();
         k.Type("# ");
-        Assert.True(k.Host.View!.Candidates.Contains("#"), "＃ の候補に # がある: " + string.Join(",", k.Host.View.Candidates));
+        Assert.Equal("#", k.Host.View!.Candidates[0]);
+        Assert.True(k.Host.View.Candidates.Contains("＃"), "# の候補に ＃ がある: " + string.Join(",", k.Host.View.Candidates));
     }
 
     [Test]

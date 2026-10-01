@@ -57,6 +57,20 @@ public sealed class FocusInspector : IDisposable
         }
     }
 
+    /// <summary>
+    /// 打ち始めのキーで変換ボックスを開いてよいか。フォーカスを調べている最中なら、調べ終わるのを少しだけ (最大 waitMs) 待つ。
+    /// それでも終わらなければ、直前に調べた結果を使う。
+    /// Discord で # を打つとチャンネルの候補が開き、キーを打つたびにフォーカスの通知が来る (入力欄は同じまま) ので、
+    /// 調べ終わるまで「入力欄ではない」にすると、# の後の英字がすべて変換ボックスを通らずに入ってしまっていた。
+    /// </summary>
+    public bool CanCaptureWaiting(int waitMs = 80)
+    {
+        var deadline = Environment.TickCount64 + waitMs;
+        while (Interlocked.Read(ref _resolvedSequence) != Interlocked.Read(ref _focusSequence) && Environment.TickCount64 < deadline) Thread.Sleep(5);
+        var info = _info;
+        return info.IsTextInput && !info.IsPassword;
+    }
+
     public FocusInfo Current => _info;
 
     /// <summary>キャレットの前後の文字列 (それぞれ最大 20 文字) を調べて callback(前, 後ろ) に渡す (このクラスのスレッドから呼ばれる)。</summary>
