@@ -14,7 +14,13 @@
     <AssemblyName>MeltypeNative</AssemblyName>
     <RootNamespace>Meltype.Mac</RootNamespace>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <!-- 設定・学習データの JSON は型を見て読み書きする (System.Text.Json の reflection)。NativeAOT では既定で無効なので有効にし、
+         Meltype.Core の型を削らずに残す (削ると、設定を読めない・学習を保存できない)。 -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
   </PropertyGroup>
+  <ItemGroup>
+    <TrimmerRootAssembly Include="Meltype.Core" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Meltype.Core\Meltype.Core.csproj" />
   </ItemGroup>
