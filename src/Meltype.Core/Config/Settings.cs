@@ -213,7 +213,7 @@ public sealed class Settings
     [Browsable(false)]
     public int SettingsVersion { get; set; } = CurrentVersion;
 
-    public const int CurrentVersion = 4;
+    public const int CurrentVersion = 5;
 
     [Category("4. セッション"), DisplayName("新しいセッションとみなす無入力時間 (ms)")]
     public int SessionIdleMs { get; set; } = 1500;
@@ -264,6 +264,8 @@ public sealed class Settings
         "idea64.exe", "pycharm64.exe", "webstorm64.exe", "rider64.exe", "clion64.exe", "goland64.exe",
         "phpstorm64.exe", "rubymine64.exe", "datagrip64.exe", "studio64.exe", "sublime_text.exe", "notepad++.exe",
         "WindowsTerminal.exe", "cmd.exe", "powershell.exe", "pwsh.exe", "wezterm-gui.exe", "alacritty.exe", "mintty.exe",
+        // アプリの中にスクリプトエディターがある 3DCG ソフト (Maya の Script Editor)
+        "maya.exe",
     ];
 
     public bool IsAppEnabled(string? processName) => FindRule(processName)?.Enabled ?? true;
@@ -342,6 +344,11 @@ public sealed class Settings
                 if (rule is null) AppRules.Add(new AppRule { Process = process, Enabled = true, Profile = AppProfile.Code });
                 else rule.Profile = AppProfile.Code;
             }
+        }
+        if (SettingsVersion < 5)
+        {
+            // v5: 既定の「コード」のアプリに Maya (Script Editor) を追加。ユーザーが自分で入れていれば、そのまま。
+            if (FindRule("maya.exe") is null) AppRules.Add(new AppRule { Process = "maya.exe", Enabled = true, Profile = AppProfile.Code });
         }
         SettingsVersion = CurrentVersion;
         return true;

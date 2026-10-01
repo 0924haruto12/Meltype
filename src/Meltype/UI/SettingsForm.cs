@@ -170,7 +170,13 @@ internal sealed class SettingsForm : Form
         if (type == typeof(List<AppRule>))
         {
             var grid = _rulesGrid = AppRulesGrid();
-            return new Binding(property, grid,
+            // プロセス名 (maya.exe など) を知らなくても足せるように、実行中のアプリから選べるようにする。
+            var add = new Button { Text = "実行中のアプリから追加…", AutoSize = true, Dock = DockStyle.Bottom };
+            add.Click += (_, _) => ShowRunningApps(grid, add);
+            var panel = new Panel { Height = grid.Height + add.PreferredSize.Height + 4, Dock = DockStyle.Fill };
+            panel.Controls.Add(grid);
+            panel.Controls.Add(add);
+            return new Binding(property, panel,
                 s =>
                 {
                     RefreshKindChoices(s.AppKinds.Select(k => k.Name));
@@ -293,6 +299,42 @@ internal sealed class SettingsForm : Form
         combo.Items.AddRange(items);
         combo.SelectedIndexChanged += (_, _) => RunTest();
         return combo;
+    }
+
+    /// <summary>窓を開いている実行中のアプリの一覧を出し、選んだものをアプリ別設定の表に足す (既に表にあれば、その行を選ぶ)。</summary>
+    private static void ShowRunningApps(DataGridView grid, Control anchor)
+    {
+        var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var process in System.Diagnostics.Process.GetProcesses())
+        {
+            try
+            {
+                if (process.MainWindowHandle != IntPtr.Zero && process.Id != Environment.ProcessId) names.Add(process.ProcessName + ".exe");
+            }
+            catch
+            {
+                // 終わったばかりのプロセスなど
+            }
+            finally
+            {
+                process.Dispose();
+            }
+        }
+        var menu = new ContextMenuStrip();
+        foreach (var name in names)
+        {
+            menu.Items.Add(name, null, (_, _) =>
+            {
+                var existing = grid.Rows.Cast<DataGridViewRow>().FirstOrDefault(r => !r.IsNewRow && string.Equals(r.Cells[0].Value as string, name, StringComparison.OrdinalIgnoreCase));
+                var row = existing ?? grid.Rows[grid.Rows.Add(name, On, EnumName(typeof(AppProfile), AppProfile.General))];
+                grid.ClearSelection();
+                row.Selected = true;
+                grid.FirstDisplayedScrollingRowIndex = row.Index;
+                grid.CurrentCell = row.Cells[2];
+            });
+        }
+        if (menu.Items.Count == 0) menu.Items.Add("(窓を開いているアプリがありません)").Enabled = false;
+        menu.Show(anchor, new Point(0, anchor.Height));
     }
 
     private static DataGridView AppRulesGrid()

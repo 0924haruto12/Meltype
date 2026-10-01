@@ -108,6 +108,16 @@ internal static class TestRunner
                     using var bitmap = new Bitmap(form.Width, form.Height);
                     form.DrawToBitmap(bitmap, new Rectangle(0, 0, form.Width, form.Height));
                     bitmap.Save(Path.Combine(args[1], form.GetType().Name + ".png"));
+                    // 設定画面は、アプリ別設定の表のあたりまでスクロールした画像も作る。
+                    if (form is UI.SettingsForm && FindControl(form, c => c is Button { Text: "実行中のアプリから追加…" }) is { } button &&
+                        FindControl(form, c => c is ScrollableControl { AutoScroll: true } s && s.Contains(button)) is ScrollableControl scroller)
+                    {
+                        scroller.ScrollControlIntoView(button.Parent!);
+                        Application.DoEvents();
+                        using var scrolled = new Bitmap(form.Width, form.Height);
+                        form.DrawToBitmap(scrolled, new Rectangle(0, 0, form.Width, form.Height));
+                        scrolled.Save(Path.Combine(args[1], "SettingsForm-apps.png"));
+                    }
                 }
             }
             return 0;
@@ -145,5 +155,16 @@ internal static class TestRunner
         if (args.FirstOrDefault() == "--explain") { TestHost.Explain(args.Skip(1)); return 0; }
 
         return TestHost.Run([typeof(TestSupport).Assembly, typeof(TestRunner).Assembly], args.FirstOrDefault());
+    }
+
+    /// <summary>画面の中から条件に合うコントロールを探す (--render-forms 用)。</summary>
+    private static Control? FindControl(Control root, Func<Control, bool> match)
+    {
+        foreach (Control child in root.Controls)
+        {
+            if (match(child)) return child;
+            if (FindControl(child, match) is { } found) return found;
+        }
+        return null;
     }
 }
