@@ -440,6 +440,13 @@ internal static class CompositionTests
             k.Type(word);
             Assert.True(k.Direct, word + "は英数のまま");
         }
+        // 2 文字の英単語 (up) でも、続きがローマ字なら日本語 (upa- → うぱー)。打ち終われば英語のまま。
+        k = new Keyboard(direct: true);
+        k.Type("upa-");
+        Assert.Equal("うぱー", k.Showing ?? "(なし)");
+        k = new Keyboard(direct: true);
+        k.Type("up ");
+        Assert.True(k.Direct, "up + Space は英数のまま");
         k = new Keyboard(direct: true);
         k.Type("e-me-ru");
         Assert.True(!k.Direct, "e-me-ru は日本語に戻る");

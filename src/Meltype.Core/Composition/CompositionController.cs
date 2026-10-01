@@ -599,6 +599,13 @@ public sealed class CompositionController
         var verdict = _detector.IsHyphenatedEnglishWord(_heldLetters.ToString()) ? Verdict.English
             : part.Length == 0 ? Verdict.Undecided
             : _options.ClassifyDirect!(part, final);
+        // 2 文字の英単語 (up、my) でも、ローマ字の打ちかけとして読める (う + p) なら、続きを見てから決める
+        // (upa- → うぱー、my → みゃ)。Space などで打ち終われば英語。
+        if (verdict == Verdict.English && !final && part.Length <= 2 && _heldLetters.Length <= 2 &&
+            _detector.Romaji.AnalyzeFragment(part.ToLowerInvariant()) is { IsValid: true, Partial.Length: > 0 })
+        {
+            verdict = Verdict.Undecided;
+        }
         Diagnostics.Log.Info($"英数状態の判定: 「{_heldLetters}」→ {verdict}{(final ? " (打ち終わり)" : "")}");
         if (verdict == Verdict.Japanese) SwitchHeldToJapanese();
         else if (verdict != Verdict.Undecided || final) ReleaseHeldAsEnglish();
