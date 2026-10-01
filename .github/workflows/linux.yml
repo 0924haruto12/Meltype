@@ -1,0 +1,59 @@
+name: linux
+
+# Linux 版 (linux/、IBus) をビルドして、テスター向けの zip を実行結果 (Artifacts) に置く。
+# Actions の画面から手動で実行するか、Linux 版・Mozc のヘルパー・共通部分を変えて push したとき。タグ (v*) ならリリースにも添付する。
+# Mozc のビルドは初回 30〜40 分かかるので、Bazel の結果をキャッシュして次から速くする。
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths:
+      - 'linux/**'
+      - 'native/mozc/**'
+      - 'src/Meltype.Core/**'
+      - 'src/Meltype.Mac.Native/**'
+      - 'dictionaries/**'
+      - '.github/workflows/linux.yml'
+
+jobs:
+  app:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      # Mozc の Linux のビルドと、NativeAOT のリンクに使うもの
+      - name: Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld pkg-config zlib1g-dev python3 \
+            libdbus-1-dev libglib2.0-dev libgtk-3-dev libibus-1.0-dev libxcb-xfixes0-dev qt6-base-dev
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/bazel-cache
+            ~/mozc/src/third_party_cache
+          key: mozc-linux-${{ hashFiles('native/mozc/MOZC_COMMIT') }}-${{ hashFiles('native/mozc/*.cc', 'native/mozc/BUILD.fragment') }}
+          restore-keys: |
+            mozc-linux-${{ hashFiles('native/mozc/MOZC_COMMIT') }}-
+      - name: Build Mozc helper
+        run: native/mozc/build-mozc-helper.sh "$HOME/mozc" "$HOME/bazel-cache"
+      - name: Build
+        run: linux/build.sh
+      - name: Package
+        run: |
+          version=$(date +%Y%m%d-%H%M)
+          (cd linux/build && zip -qr "Meltype-linux-test-$version.zip" Meltype-linux)
+          ls -la linux/build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meltype-linux
+          path: linux/build/Meltype-linux-test-*.zip
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: linux/build/Meltype-linux-test-*.zip

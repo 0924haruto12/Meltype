@@ -10,7 +10,8 @@ using Meltype.Detection;
 namespace Meltype.Mac;
 
 /// <summary>
-/// Mac 版の IME (Swift, Input Method Kit) から呼ぶ C の関数。NativeAOT で libMeltypeNative.dylib にする (mac/build.sh)。
+/// Mac 版の IME (Swift, Input Method Kit) と Linux 版の IME (Python, IBus) から呼ぶ C の関数。
+/// NativeAOT で libMeltypeNative.dylib (mac/build.sh) / libMeltypeNative.so (linux/build.sh) にする。
 ///
 /// 文字列はすべて UTF-8 の NUL 終端。こちらが返す文字列は meltype_free で解放する。
 /// Swift 側が登録する関数 (漢字変換・候補・英単語の判定) が返す文字列は malloc したもので、こちらで free する。
@@ -37,13 +38,42 @@ public static unsafe class Exports
         return 1;
     }
 
+    /// <summary>
+    /// 漢字変換を Mozc の変換ヘルパー (meltype_mozc_helper) で行う (Linux 版)。meltype_init の代わりに最初に 1 回呼ぶ。
+    /// helper はヘルパーの実行ファイルのパス、profile は Mozc の学習データの保存先 (NULL ならデータの保存場所の mozc)。
+    /// </summary>
+    [UnmanagedCallersOnly(EntryPoint = "meltype_init_mozc")]
+    public static int InitMozc(byte* helper, byte* profile)
+    {
+        try
+        {
+            var path = FromUtf8(helper);
+            if (string.IsNullOrEmpty(path)) return 0;
+            s_mozc?.Dispose();
+            s_mozc = new MozcConverter(path, FromUtf8(profile) ?? Path.Combine(Config.AppPaths.DataDirectory, "mozc"));
+            if (!s_mozc.IsInstalled) return 0;
+            s_mozc.WarmUp();
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log.Error($"Mozc を使えませんでした: {ex}");
+            return 0;
+        }
+    }
+
+    /// <summary>Mozc で変換するとき (Linux 版)。null なら登録された関数で変換する (Mac 版)。</summary>
+    private static MozcConverter? s_mozc;
+
     /// <summary>入力欄 (Input Method Kit のクライアント) ごとの入力の本体を作る。失敗したら NULL。</summary>
     [UnmanagedCallersOnly(EntryPoint = "meltype_create")]
     public static IntPtr Create()
     {
         try
         {
-            var session = MeltypeSession.CreateDefault(new CallbackConverter(), MoreCandidates, s_isWord == null ? null : new CallbackWordChecker());
+            var session = s_mozc is { } mozc
+                ? MeltypeSession.CreateDefault(mozc, mozc.Candidates, s_isWord == null ? null : new CallbackWordChecker())
+                : MeltypeSession.CreateDefault(new CallbackConverter(), MoreCandidates, s_isWord == null ? null : new CallbackWordChecker());
             return GCHandle.ToIntPtr(GCHandle.Alloc(session));
         }
         catch (Exception ex)
