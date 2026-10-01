@@ -395,6 +395,28 @@ internal static class LanguageLearningTests
     }
 
     [Test]
+    public static void ShiftSpace_ConvertsEnglishWordAsRomaji()
+    {
+        // 英字と判定された語も変換できるように: Shift+Space でローマ字として読んで変換する。
+        var memory = new LanguageMemory(null);
+        memory.Remember("go", english: true);
+        CompositionTests.Detector.Memory = memory;
+        try
+        {
+            var k = new CompositionTests.Keyboard(languages: memory);
+            k.Type("go");
+            k.TypeKeys((VirtualKeys.Space, true));
+            k.Type("\n");
+            Assert.Equal("ご", k.Host.Document, "Shift+Space で日本語の候補が先頭");
+            Assert.Equal(false, memory.Get("go"), "日本語で確定したので、次から日本語");
+        }
+        finally
+        {
+            CompositionTests.Detector.Memory = null;
+        }
+    }
+
+    [Test]
     public static void F6_TeachesJapanese()
     {
         var memory = new LanguageMemory(null);

@@ -477,6 +477,20 @@ internal static class CompositionTests
         Assert.True(dictionary.Lookup("りなっくす").Contains("Linux"), "リナックス → Linux");
         Assert.True(dictionary.Lookup("りなっくすで").Contains("Linuxで"), "助詞が付いても");
         Assert.True(dictionary.Lookup("じゃばすくりぷと").Contains("JavaScript"), "ジャバスクリプト → JavaScript");
+        // JMdict に無い社名 (brands.txt)
+        Assert.True(dictionary.Lookup("しゃおみ").Contains("Xiaomi"), "しゃおみ → Xiaomi");
+        Assert.True(dictionary.Lookup("でぃすこーど").Contains("Discord"), "ディスコード → Discord");
+    }
+
+    [Test]
+    public static void CandidateMeaning_FromTranslations()
+    {
+        // 候補で止まったら意味を出す (同音異義語の手がかり)
+        var translations = TranslationDictionary.Load();
+        Assert.Equal("bridge", translations.Meaning("橋"));
+        Assert.Equal("chopsticks", translations.Meaning("箸を"), "助詞が付いても");
+        Assert.Equal(null, translations.Meaning("はし"), "かなだけの候補には出さない");
+        Assert.Equal(null, translations.Meaning("bridge"));
     }
 
     [Test]

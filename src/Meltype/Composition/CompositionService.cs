@@ -59,6 +59,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             Languages = Languages,
             Translations = options.Translations ?? TranslationDictionary.Load(),
             TranslationCandidates = options.TranslationCandidates,
+            CandidateMeanings = options.CandidateMeanings,
             RomajiTypos = options.RomajiTypos ?? RomajiTypoCorrector.Load(detector.Romaji),
             CorrectTypos = options.CorrectTypos,
             TranslationHistory = options.TranslationHistory ?? new TranslationHistory(Config.AppPaths.TranslationHistoryFile),

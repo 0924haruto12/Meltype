@@ -45,6 +45,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Level = () => _engine.AppSettings.DetectionLevel,
             Engine = () => _engine.Settings.ConversionEngine,
             TranslationCandidates = () => _engine.Settings.TranslationCandidates,
+            CandidateMeanings = () => _engine.Settings.ShowCandidateMeanings,
             CorrectTypos = () => _engine.Settings.CorrectTypos,
             KanaInput = () => _engine.Settings.InputStyle == InputStyle.Kana,
             ModeIndicator = () => _engine.Settings is { Enabled: true, Mode: InputMode.Keyboard, ShowModeIndicator: true },

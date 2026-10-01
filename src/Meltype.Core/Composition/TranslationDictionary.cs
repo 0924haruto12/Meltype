@@ -74,6 +74,29 @@ public sealed class TranslationDictionary
         }
         return [];
     }
+
+    /// <summary>
+    /// 変換の候補の意味 (橋 → bridge、箸 → chopsticks)。候補の先頭から一番長く辞書に一致する語を引く (橋を → 橋、持って → 持つ は引けない)。
+    /// 残りに漢字・カタカナが入る (語の一部しか一致しない: 今日は → 今) なら null。かなだけの候補・英字の候補も null。
+    /// </summary>
+    public string? Meaning(string text)
+    {
+        if (!text.Any(c => IsKanji(c) || c is >= 'ァ' and <= 'ヶ')) return null;
+        for (var length = Math.Min(_maxLength, text.Length); length >= 1; length--)
+        {
+            if (!_entries.TryGetValue(text[..length], out var list)) continue;
+            if (text[length..].Any(c => IsKanji(c) || c is >= 'ァ' and <= 'ヶ')) return null;
+            var words = new List<string>();
+            foreach (var (_, entryWords) in list)
+            {
+                foreach (var word in entryWords) if (!words.Contains(word) && words.Count < 4) words.Add(word);
+            }
+            return words.Count == 0 ? null : string.Join(", ", words);
+        }
+        return null;
+    }
+
+    private static bool IsKanji(char c) => c is >= '㐀' and <= '䶿' or >= '一' and <= '鿿' or '々';
 }
 
 /// <summary>

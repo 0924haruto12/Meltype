@@ -54,6 +54,7 @@ internal sealed class CompositionWindow : Form
         BackColor = Background;
         DoubleBuffered = true;
         Size = new Size(200, 40);
+        _meaningTimer.Tick += (_, _) => ShowMeaning();
     }
 
     protected override bool ShowWithoutActivation => true;
@@ -85,10 +86,111 @@ internal sealed class CompositionWindow : Form
         SetBounds(location.X, location.Y, size.Width, size.Height);
         if (!Visible) Show();
         Invalidate();
+        UpdateMeaning(view);
     }
 
     /// <summary>候補の一覧に一度に出す数 (Microsoft IME と同じく 9 個)。</summary>
     private const int PageSize = 9;
+
+    /// <summary>候補で止まってから意味を出すまでの時間。</summary>
+    private const int MeaningDelayMs = 1500;
+    private readonly System.Windows.Forms.Timer _meaningTimer = new() { Interval = MeaningDelayMs };
+    private MeaningPopup? _meaningPopup;
+    private string? _meaningKey;
+
+    /// <summary>選んでいる候補が変わったら意味を消し、同じ候補のまましばらく止まったら意味を出す。</summary>
+    private void UpdateMeaning(CompositionView view)
+    {
+        var key = view is { Converting: true, Meaning: not null } && view.SelectedIndex >= 0 ? $"{view.SelectedIndex}\n{view.Candidates[view.SelectedIndex]}\n{view.Meaning}" : null;
+        if (key == _meaningKey)
+        {
+            if (_meaningPopup is { Visible: true }) PlaceMeaning(view);
+            return;
+        }
+        _meaningKey = key;
+        _meaningTimer.Stop();
+        _meaningPopup?.Hide();
+        if (key is not null) _meaningTimer.Start();
+    }
+
+    private void ShowMeaning()
+    {
+        _meaningTimer.Stop();
+        if (_view is not { Meaning: { } meaning } view || !Visible) return;
+        _meaningPopup ??= new MeaningPopup();
+        _meaningPopup.SetText(meaning, _candidateFont);
+        PlaceMeaning(view);
+        if (!_meaningPopup.Visible) _meaningPopup.Show();
+    }
+
+    /// <summary>意味の枠を、変換ボックスの右 (はみ出すなら左) の、選んでいる候補の行の高さに置く。</summary>
+    private void PlaceMeaning(CompositionView view)
+    {
+        if (_meaningPopup is null) return;
+        var row = Math.Max(0, view.SelectedIndex) % PageSize;
+        var y = Top + 8 + _textFont.Height + 8 + row * (_candidateFont.Height + 4) - 4;
+        var size = _meaningPopup.Size;
+        var screen = Screen.FromControl(this).WorkingArea;
+        var x = Right + 4;
+        if (x + size.Width > screen.Right) x = Math.Max(screen.Left, Left - size.Width - 4);
+        y = Math.Clamp(y, screen.Top, Math.Max(screen.Top, screen.Bottom - size.Height));
+        _meaningPopup.Location = new Point(x, y);
+    }
+
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+        if (Visible) return;
+        _meaningTimer.Stop();
+        _meaningKey = null;
+        _meaningPopup?.Hide();
+    }
+
+    /// <summary>候補の意味を出す小さな枠 (フォーカスを奪わない)。</summary>
+    private sealed class MeaningPopup : Form
+    {
+        private string _text = "";
+        private Font? _font;
+
+        public MeaningPopup()
+        {
+            FormBorderStyle = FormBorderStyle.None;
+            ShowInTaskbar = false;
+            TopMost = true;
+            StartPosition = FormStartPosition.Manual;
+            BackColor = Color.FromArgb(44, 47, 56);
+            DoubleBuffered = true;
+        }
+
+        protected override bool ShowWithoutActivation => true;
+
+        protected override CreateParams CreateParams
+        {
+            get
+            {
+                var cp = base.CreateParams;
+                cp.ExStyle |= WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST;
+                return cp;
+            }
+        }
+
+        public void SetText(string text, Font font)
+        {
+            _text = text;
+            _font = font;
+            var size = TextRenderer.MeasureText(text, font, new Size(360, 0), TextFormatFlags.NoPrefix | TextFormatFlags.WordBreak);
+            Size = new Size(size.Width + 16, size.Height + 10);
+            Invalidate();
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            using (var border = new Pen(Color.FromArgb(110, 76, 160, 255))) e.Graphics.DrawRectangle(border, 0, 0, Width - 1, Height - 1);
+            if (_font is null) return;
+            TextRenderer.DrawText(e.Graphics, _text, _font, new Rectangle(8, 5, Width - 16, Height - 10), Color.FromArgb(225, 225, 225),
+                TextFormatFlags.NoPrefix | TextFormatFlags.WordBreak);
+        }
+    }
 
     private Size Measure(CompositionView view)
     {
@@ -244,6 +346,8 @@ internal sealed class CompositionWindow : Form
             _candidateFont.Dispose();
             _hintFont.Dispose();
             _color.Dispose();
+            _meaningTimer.Dispose();
+            _meaningPopup?.Dispose();
         }
         base.Dispose(disposing);
     }

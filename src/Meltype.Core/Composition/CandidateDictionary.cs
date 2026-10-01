@@ -24,6 +24,8 @@ public sealed class CandidateDictionary
         dictionary.AddTabText(Detection.DictionarySource.ReadEmbedded("emoji-cldr.txt"));
         // 英字で書く語 (リナックス → Linux)。JMdict から作ったもの
         dictionary.AddText(Detection.DictionarySource.ReadEmbedded("loanwords.txt"));
+        // JMdict に無い社名・サービス名 (しゃおみ → Xiaomi)。手で書いたもの
+        dictionary.AddText(Detection.DictionarySource.ReadEmbedded("brands.txt"));
         if (userDirectory is not null)
         {
             var emoji = Path.Combine(userDirectory, "emoji.txt");

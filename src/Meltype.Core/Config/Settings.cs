@@ -154,6 +154,10 @@ public sealed class Settings
      Description("変換の候補の後ろに英訳も出します (複雑な → complex, complicated)。JMdict のよく使う語から。選んだ英訳は少しずつ前に出ます。")]
     public bool TranslationCandidates { get; set; } = true;
 
+    [Category("1. 全般"), DisplayName("候補の意味を表示"),
+     Description("変換中に同じ候補で少し (約 1.5 秒) 止まると、その候補の意味 (英訳、JMdict のよく使う語から) を候補の一覧の横に出します (橋 → bridge、箸 → chopsticks)。同音異義語を選ぶときの手がかりに。")]
+    public bool ShowCandidateMeanings { get; set; } = true;
+
     [Category("1. 全般"), DisplayName("打ち間違いを直す"),
      Description("Space・Enter で変換・確定するときに打ち間違いを直します。ローマ字: 読めない子音が残ったとき、隣のキーの押し間違い・入れ替わり・抜けを 1 文字だけ直します (onegaishimsu → お願いします、sumimasne → すみません。よく使う語の読みになるときだけ)。英語: Windows の自動修正の一覧にある打ち間違いを直します (teh → the、recieve → receive)。")]
     public bool CorrectTypos { get; set; } = true;

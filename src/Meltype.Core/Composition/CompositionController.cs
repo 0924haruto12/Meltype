@@ -19,7 +19,8 @@ public sealed record CompositionView(
     string Hint,
     IReadOnlyList<string>? Clauses = null,
     int SelectedClause = -1,
-    IReadOnlyList<string?>? Notes = null);
+    IReadOnlyList<string?>? Notes = null,
+    string? Meaning = null);
 
 /// <summary>CompositionController が外界とやり取りする口。テストでは偽物に差し替える。</summary>
 public interface ICompositionHost
@@ -94,6 +95,9 @@ public sealed class CompositionOptions
     /// <summary>英訳の候補を出すか (設定)。</summary>
     public Func<bool> TranslationCandidates { get; init; } = () => true;
 
+    /// <summary>変換中に選んでいる候補の意味 (英訳) を変換ボックスに渡すか (設定)。</summary>
+    public Func<bool> CandidateMeanings { get; init; } = () => true;
+
     /// <summary>選んだ英訳の記録 (普通の変換の学習より弱く効かせる)。</summary>
     public TranslationHistory? TranslationHistory { get; init; }
 
@@ -138,6 +142,7 @@ public sealed class CompositionOptions
 /// Meltype キーボードの本体。変換ボックス (未確定文字列) を持ち、
 ///   文字キー → ボックスに追加 (日本語ならかな、英単語なら英字で自動表示)
 ///   Space   → 文節に区切って漢字変換 (英単語で終わっているときは確定して空白)
+///   Shift+Space → 英単語と判定した語も、ローマ字として読んで変換 (go → 語)
 ///   ←→      → 文節を選ぶ (変換前に押しても文節の選択に入る) / Space・↓↑ でその文節の候補 / Shift+←→ で区切りを変える
 ///   Enter   → 確定してテキストボックスへ入力
 ///   BackSpace / Esc → 1 音削除 / 変換取り消し・入力取り消し
@@ -408,6 +413,12 @@ public sealed class CompositionController
             case VirtualKeys.Return:
                 _text.FixTypos();
                 Commit();
+                return;
+            case VirtualKeys.Space when _swallowedShift.Count > 0 || _host.IsShiftDown():
+                // Shift+Space: 英語と判定した語でも、ローマ字として読んで変換する (go → 語、camera → かめら)。
+                _text.FixTypos();
+                _spaceStartedConversion = true;
+                StartConversion(preferJapanese: true);
                 return;
             case VirtualKeys.Space:
                 _text.FixTypos();
@@ -759,8 +770,11 @@ public sealed class CompositionController
         _text.Mode = mode;
     }
 
-    /// <summary>英語区間はそのまま、日本語区間は文脈を付けて変換エンジンで文節に区切って変換する。</summary>
-    private void StartConversion()
+    /// <summary>
+    /// 英語区間はそのまま、日本語区間は文脈を付けて変換エンジンで文節に区切って変換する。
+    /// 英語区間も、ローマ字として読めれば日本語の候補 (go → 語 ご ゴ) を後ろに足す。preferJapanese (Shift+Space) なら前に出す。
+    /// </summary>
+    private void StartConversion(bool preferJapanese = false)
     {
         var clauses = new List<Clause>();
         var segments = _text.ConversionSegments();
@@ -769,7 +783,11 @@ public sealed class CompositionController
             var segment = segments[s];
             if (segment.IsEnglish)
             {
-                clauses.Add(new Clause(segment.Raw, true, EnglishCandidates(segment.Raw)));
+                var english = EnglishCandidates(segment.Raw);
+                var romaji = RomajiCandidates(segment.Raw);
+                clauses.Add(new Clause(segment.Raw, true, preferJapanese && romaji.Count > 0
+                    ? Distinct([.. romaji, .. english])
+                    : Distinct([.. english, .. romaji])));
                 continue;
             }
             if (segment.Kana.Length == 0) continue;
@@ -1037,6 +1055,16 @@ public sealed class CompositionController
         return Distinct(raw, _detector.ProperNouns.Canonical(lower), capitalized, raw.ToUpperInvariant(), CompositionText.ToFullWidth(raw));
     }
 
+    /// <summary>英語と判定した語を、ローマ字として読んだときの候補 (go → 語 ご ゴ)。読み切れなければ空。</summary>
+    private List<string> RomajiCandidates(string raw)
+    {
+        if (_detector.Romaji.AnalyzeFragment(raw.ToLowerInvariant()) is not { IsValid: true, Partial: "" } analysis || analysis.Kana.Length == 0) return [];
+        return JapaneseCandidates(analysis.Kana, null);
+    }
+
+    /// <summary>日本語の候補 (かな・漢字) か。英語の文節で選ばれたら、その語を日本語として覚える。</summary>
+    private static bool IsJapaneseText(string text) => text.Any(c => c is >= '぀' and <= 'ヿ' or >= '㐀' and <= '䶿' or >= '一' and <= '鿿');
+
     private static List<string> Distinct(params string?[] candidates)
     {
         var list = new List<string>();
@@ -1281,6 +1309,11 @@ public sealed class CompositionController
         {
             _options.Languages?.Remember(clause.Raw!, english: true);
         }
+        // 英語と判定した語で日本語の候補 (go → 語) を選んだら、その語は次から日本語にする (F6 と同じ)。
+        foreach (var clause in _clauses.Where(c => c.IsEnglish && IsJapaneseText(c.Text) && c.Reading.All(char.IsAsciiLetter)))
+        {
+            _options.Languages?.Remember(clause.Reading, english: false);
+        }
         // 英訳を選んだら、英訳の記録に (普通の変換の学習より弱く効く)。
         foreach (var clause in _clauses.Where(c => c.Translations.Contains(c.Text)))
         {
@@ -1401,11 +1434,12 @@ public sealed class CompositionController
                 MisspellingHint() + "←→ 文節　Space/↓ 候補　Shift+←→ 区切り　Enter 確定　Esc 戻る",
                 _clauses.Select(c => c.Text).ToList(),
                 _selectedClause,
-                selected.Translations.Count == 0 ? null : selected.Candidates.Select(c => selected.Translations.Contains(c) ? "英訳" : null).ToList()));
+                selected.Translations.Count == 0 ? null : selected.Candidates.Select(c => selected.Translations.Contains(c) ? "英訳" : null).ToList(),
+                _options.CandidateMeanings() ? _options.Translations?.Meaning(selected.Text) : null));
         }
         else
         {
-            var hint = _text.IsAlphanumeric ? "Enter 確定　Space 確定+空白　半角/全角 日本語に" : "Space 変換　←→ 文節　Enter 確定　F7 カタカナ　F10 英字";
+            var hint = _text.IsAlphanumeric ? "Enter 確定　Space 確定+空白　Shift+Space 日本語で変換　半角/全角 日本語に" : "Space 変換　←→ 文節　Enter 確定　F7 カタカナ　F10 英字";
             if (_text.Suggestion() is { } suggestion) hint = $"Tab → {suggestion} (英字に)　" + hint;
             hint = MisspellingHint() + hint;
             _host.Show(new CompositionView(CurrentDisplay(final: false), [], -1, false, hint));
