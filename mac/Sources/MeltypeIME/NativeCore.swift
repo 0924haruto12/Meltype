@@ -83,12 +83,14 @@ final class NativeCore {
 
     private init() {
         let path = (Bundle.main.privateFrameworksPath ?? "") + "/libMeltypeNative.dylib"
-        library = dlopen(path, RTLD_NOW)
-        if library == nil, let error = dlerror() {
+        // 初期化が終わるまで self のプロパティは使えないので、ローカルの handle から関数を探す。
+        let handle = dlopen(path, RTLD_NOW)
+        library = handle
+        if handle == nil, let error = dlerror() {
             NSLog("Meltype: %@ を読み込めませんでした: %@", path, String(cString: error))
         }
         func symbol<T>(_ name: String, as type: T.Type) -> T? {
-            guard let library, let pointer = dlsym(library, name) else { return nil }
+            guard let handle, let pointer = dlsym(handle, name) else { return nil }
             return unsafeBitCast(pointer, to: type)
         }
         initFunction = symbol("meltype_init", as: InitFunction.self)
