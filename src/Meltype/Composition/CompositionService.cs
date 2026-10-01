@@ -306,6 +306,9 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     public bool IsShiftDown() => (Native.GetAsyncKeyState(VirtualKeys.Shift) & 0x8000) != 0;
 
+    /// <summary>入力位置の高さとして信じる上限 (ピクセル)。これより高いのは入力欄や行全体の四角形。</summary>
+    private const int MaxLineHeight = 48;
+
     public void Show(CompositionView view)
     {
         if (_window.Visible)
@@ -314,19 +317,23 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             return;
         }
         var caret = FindCaret();
+        Diagnostics.Log.Info($"変換ボックスを出す入力位置: {(caret is { } r ? $"{r.X},{r.Y} 高さ {r.Height}" : "分からない")}");
         // 文字の大きさ: 自動なら、入力欄の文字の高さ (キャレットの高さ) に合わせる。小さな入力欄で大きく出すぎないように。
         _window.SetScale(_size() switch
         {
             Config.CompositionSize.Small => 0.8F,
             Config.CompositionSize.Large => 1.25F,
-            Config.CompositionSize.Auto when caret is { Height: >= 8 } c => (float)c.Height / _window.BaseTextHeight,
+            // 入力欄が空のとき、アプリによっては入力位置ではなく入力欄全体の四角形が返る (高すぎる)。そのときは「中」。
+            Config.CompositionSize.Auto when caret is { Height: >= 8 and <= MaxLineHeight } c => Math.Clamp((float)c.Height / _window.BaseTextHeight, 0.7F, 1.4F),
             _ => 1F,
         });
         // 入力位置に重ねる: 変換ボックスの文字の行を、入力位置の行の高さの真ん中にそろえる。
         if (_placement() == Config.CompositionPlacement.Overlay && caret is { } at)
         {
             var offset = _window.TextOffset;
-            _window.ShowView(view, new Point(at.Left - offset.X, at.Top + at.Height / 2 - offset.Y), overlay: true);
+            // 高すぎる四角形 (入力欄全体) なら、上端の 1 行目に合わせる。
+            var lineHeight = at.Height <= MaxLineHeight ? at.Height : (offset.Y - 8) * 2;
+            _window.ShowView(view, new Point(at.Left - offset.X, at.Top + lineHeight / 2 - offset.Y), overlay: true);
             return;
         }
         _window.ShowView(view, FindAnchor(caret));
