@@ -27,7 +27,7 @@ final class MeltypeConverter {
             sharedContainerURL: directory,
             textReplacer: .withDefaultEmojiDictionary(),
             specialCandidateProviders: KanaKanjiConverter.defaultSpecialCandidateProviders,
-            metadata: .init(versionString: "Meltype 0.1.0")
+            metadata: .init(versionString: "Meltype 0.1.2")
         )
     }
 
