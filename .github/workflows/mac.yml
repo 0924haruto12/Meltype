@@ -42,9 +42,10 @@ jobs:
         run: |
           mkdir -p dist/Meltype-mac
           cp -R mac/build/Meltype.app dist/Meltype-mac/
-          cp mac/install.sh mac/TESTER-README.txt dist/Meltype-mac/
+          cp mac/install.sh "mac/Install Meltype.command" dist/Meltype-mac/
+          cp mac/TESTER-README.txt "dist/Meltype-mac/はじめにお読みください.txt"
           cp LICENSE THIRD-PARTY-NOTICES.md dist/Meltype-mac/
-          chmod +x dist/Meltype-mac/install.sh
+          chmod +x dist/Meltype-mac/install.sh "dist/Meltype-mac/Install Meltype.command"
           version=$(date +%Y%m%d-%H%M)
           (cd dist && ditto -c -k --keepParent Meltype-mac "Meltype-mac-test-$version.zip")
           ls -la dist
