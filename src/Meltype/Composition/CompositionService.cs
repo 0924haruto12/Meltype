@@ -339,6 +339,14 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             Config.CompositionSize.Auto => 0.8F,
             _ => 1F,
         });
+        // Windows の検索・スタートメニューは、ふつうのアプリより上の特別な層に出るので、変換ボックスが隠れてしまう。
+        // 検索の画面の右に出す。
+        if (ShellSearchBounds() is { } search)
+        {
+            Diagnostics.Log.Info($"Windows の検索の画面: {search} (変換ボックスはその右に出す)");
+            _window.ShowView(view, new Point(search.Right + 8, (caret?.Bottom ?? search.Bottom) - 4));
+            return;
+        }
         // 入力位置に重ねる: 変換ボックスの文字の行を、入力位置の行の高さの真ん中にそろえる。
         if (_placement() == Config.CompositionPlacement.Overlay && caret is { } at)
         {
@@ -354,6 +362,29 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     public void Hide()
     {
         if (_window.Visible) _window.Hide();
+    }
+
+    // Windows の検索・スタートメニューの画面のプロセス (Windows 10 / 11)
+    private static readonly HashSet<string> ShellSearchProcesses = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "SearchHost", "SearchApp", "SearchUI", "StartMenuExperienceHost",
+    };
+
+    /// <summary>前面が Windows の検索・スタートメニューなら、その画面の四角形。それ以外は null。</summary>
+    private static Rectangle? ShellSearchBounds()
+    {
+        var foreground = Native.GetForegroundWindow();
+        Native.GetWindowThreadProcessId(foreground, out var processId);
+        try
+        {
+            using var process = System.Diagnostics.Process.GetProcessById((int)processId);
+            if (!ShellSearchProcesses.Contains(process.ProcessName) || !Native.GetWindowRect(foreground, out var rect)) return null;
+            return Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     /// <summary>
