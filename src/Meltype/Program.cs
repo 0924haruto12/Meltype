@@ -14,6 +14,8 @@ internal static class Program
     {
         // Meltype.exe --selftest [結果ファイル]: キーボードフックを掛けずに、主な機能が動くかだけを確かめる。
         if (args.FirstOrDefault() == "--selftest") return SelfTest.Run(args.ElementAtOrDefault(1));
+        // Meltype.exe --exit: 動いている Meltype を終了させる (インストール・アンインストール用。管理者として動いていても止められる)。
+        if (args.FirstOrDefault() == "--exit") return ExitSignal.Send() ? 0 : 1;
 
         // フックを二重に掛けると同じ打鍵を二重に保留・再入力してしまうので、多重起動させない。
         using var mutex = new Mutex(initiallyOwned: true, @"Local\Meltype.SingleInstance", out var createdNew);
@@ -46,6 +48,7 @@ internal static class Program
 
         using (engine)
         {
+            using var exitSignal = new ExitSignal();
             Application.Run(new TrayApplicationContext(engine));
         }
         return 0;

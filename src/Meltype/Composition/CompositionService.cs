@@ -16,6 +16,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     private readonly CompositionWindow _window = new();
     private readonly ModeIndicatorWindow _indicator = new();
     private readonly Func<bool> _showIndicator;
+    private readonly Func<Config.CompositionPlacement> _placement;
     private readonly Func<bool> _directMode;
     private readonly MsImeKanjiConverter _converter = new();
     private readonly KeyInjector _injector = new();
@@ -65,6 +66,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         Controller = new CompositionController(Gate, detector, _hybrid, this, resolved);
         if (options.Engine() != Config.ConversionEngine.System && _mozc.IsInstalled) _mozc.WarmUp();
         _showIndicator = options.ModeIndicator;
+        _placement = options.Placement;
         _directMode = options.DirectMode;
         var onFocus = options.ModeIndicatorOnFocus;
         Focus.TextInputEntered += () => { if (onFocus()) ShowMode(!_directMode()); };
@@ -304,7 +306,19 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     public void Show(CompositionView view)
     {
-        _window.ShowView(view, _window.Visible ? null : FindAnchor());
+        if (_window.Visible)
+        {
+            _window.ShowView(view, null);
+            return;
+        }
+        // 入力位置に重ねる: 変換ボックスの文字の行を、入力位置の行の高さの真ん中にそろえる。
+        if (_placement() == Config.CompositionPlacement.Overlay && FindCaret() is { } caret)
+        {
+            var offset = _window.TextOffset;
+            _window.ShowView(view, new Point(caret.Left - offset.X, caret.Top + caret.Height / 2 - offset.Y), overlay: true);
+            return;
+        }
+        _window.ShowView(view, FindAnchor());
     }
 
     public void Hide()
@@ -312,20 +326,29 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         if (_window.Visible) _window.Hide();
     }
 
-    /// <summary>変換ボックスを出す位置。キャレット → 入力欄の左下 → マウスカーソルの順に試す。</summary>
-    private Point FindAnchor()
+    /// <summary>
+    /// キャレット (入力位置) の画面上の四角形。Windows のキャレット (メモ帳など) → UI Automation (Chrome・Discord など) の順に試す。
+    /// </summary>
+    private Rectangle? FindCaret()
     {
         var foreground = Native.GetForegroundWindow();
         var thread = Native.GetWindowThreadProcessId(foreground, out _);
         var info = new Native.GUITHREADINFO { cbSize = Marshal.SizeOf<Native.GUITHREADINFO>() };
         if (Native.GetGUIThreadInfo(thread, ref info) && info.hwndCaret != IntPtr.Zero)
         {
-            var point = new Native.POINT { X = info.rcCaret.Left, Y = info.rcCaret.Bottom };
-            if (Native.ClientToScreen(info.hwndCaret, ref point) && (point.X != 0 || point.Y != 0))
+            var top = new Native.POINT { X = info.rcCaret.Left, Y = info.rcCaret.Top };
+            if (Native.ClientToScreen(info.hwndCaret, ref top) && (top.X != 0 || top.Y != 0))
             {
-                return new Point(point.X, point.Y + 4);
+                return new Rectangle(top.X, top.Y, 1, Math.Max(1, info.rcCaret.Bottom - info.rcCaret.Top));
             }
         }
+        return Focus.CaretBounds() is { Width: > 0, Height: > 0 and < 200 } bounds && (bounds.X != 0 || bounds.Y != 0) ? bounds : null;
+    }
+
+    /// <summary>変換ボックスを入力位置の下に出すときの位置。キャレット → 入力欄の左下 → マウスカーソルの順に試す。</summary>
+    private Point FindAnchor()
+    {
+        if (FindCaret() is { } caret) return new Point(caret.Left, caret.Bottom + 4);
         if (Focus.Current.Bounds is { } bounds && bounds.Height is > 0 and < 120)
         {
             return new Point(bounds.Left, bounds.Bottom + 2);

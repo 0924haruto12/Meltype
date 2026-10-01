@@ -30,6 +30,14 @@ public enum DetectionLevel
     [Description("手動 (提案のみ)")] Manual,
 }
 
+/// <summary>変換ボックスを出す位置。</summary>
+public enum CompositionPlacement
+{
+    /// <summary>打っている行に重ねる (入力欄の中に打っているように見える)。</summary>
+    [Description("入力位置に重ねる")] Overlay,
+    [Description("カーソルの下")] BelowCaret,
+}
+
 /// <summary>かな漢字変換のエンジン。</summary>
 public enum ConversionEngine
 {
@@ -147,6 +155,10 @@ public sealed class Settings
     [Category("1. 全般"), DisplayName("入力欄に入ったときも入力モードを表示"),
      Description("「入力モードをカーソルの近くに表示」が ON のとき、入力欄をクリックしたとき (フォーカスが入ったとき) にも「あ」「A」を出します。OFF にすると、半角/全角 を押したときだけ出します。")]
     public bool ShowModeIndicatorOnFocus { get; set; } = true;
+
+    [Category("1. 全般"), DisplayName("変換ボックスの位置"),
+     Description("入力位置に重ねる: 打っている文字が入力欄の中の入力位置にそのまま出ているように見えます。カーソルの下: 入力位置の下に別の枠で出します (今までの出し方)。入力位置が分からないアプリでは、どちらも入力欄の下に出します。")]
+    public CompositionPlacement CompositionPlacement { get; set; } = CompositionPlacement.Overlay;
 
     [Category("1. 全般"), DisplayName("入力方式"), Description("ローマ字入力 / かな入力 (JIS) / 両方を判定。Meltype キーボードでは、かな入力を選ぶと JIS かな配列で入力し (Shift+E = ぃ, Shift+Z = っ, Shift+ね = 、)、打ったキーの英字が英単語なら英字で見せます。「両方を判定」は IME 自動切替のみ (Meltype キーボードではローマ字入力)。")]
     public InputStyle InputStyle { get; set; } = InputStyle.Romaji;

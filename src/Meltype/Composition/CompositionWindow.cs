@@ -44,7 +44,11 @@ internal sealed class CompositionWindow : Form
     }
 
     /// <summary>表示内容を更新する。anchor は表示位置 (キャレットの左下)。null なら今の位置のまま。</summary>
-    public void ShowView(CompositionView view, Point? anchor)
+    /// <summary>変換ボックスの中で、打った文字の行の左端と、行の高さの真ん中の位置 (入力位置に重ねるときに使う)。</summary>
+    public Point TextOffset => new(10, 8 + _textFont.Height / 2);
+
+    /// <param name="overlay">anchor が入力位置に重ねる位置か。画面の下からはみ出すときは、候補の一覧が入るだけ上にずらす。</param>
+    public void ShowView(CompositionView view, Point? anchor, bool overlay = false)
     {
         _view = view;
         var size = Measure(view);
@@ -52,7 +56,7 @@ internal sealed class CompositionWindow : Form
         // 画面からはみ出さないようにする。
         var screen = Screen.FromPoint(location).WorkingArea;
         if (location.X + size.Width > screen.Right) location.X = Math.Max(screen.Left, screen.Right - size.Width);
-        if (location.Y + size.Height > screen.Bottom) location.Y = Math.Max(screen.Top, location.Y - size.Height - 28);
+        if (location.Y + size.Height > screen.Bottom) location.Y = overlay ? Math.Max(screen.Top, screen.Bottom - size.Height) : Math.Max(screen.Top, location.Y - size.Height - 28);
         SetBounds(location.X, location.Y, size.Width, size.Height);
         if (!Visible) Show();
         Invalidate();

@@ -88,6 +88,43 @@ internal sealed class UiAutomation
             after.GetText(count * 2, out var afterText);
             return (beforeText, afterText);
         }
+
+        /// <summary>
+        /// キャレット (入力位置) の画面上の四角形 (幅 1)。テキストパターンで取れなければ null。
+        /// 何も選んでいない (幅 0 の) 範囲は四角形を返さないアプリが多いので、前の 1 文字の右端か、次の 1 文字の左端を使う。
+        /// </summary>
+        public Rectangle? CaretBounds()
+        {
+            if (_element.GetCurrentPattern(TextPatternId, out var patternObject) < 0 || patternObject is not IUIAutomationTextPattern pattern) return null;
+            if (pattern.GetSelection(out var ranges) < 0 || ranges is null) return null;
+            if (ranges.get_Length(out var length) < 0 || length == 0 || ranges.GetElement(0, out var selection) < 0 || selection is null) return null;
+
+            if (FirstRectangle(selection) is { } own) return new Rectangle(own.Left, own.Top, 1, own.Height);
+            selection.Clone(out var before);
+            before.MoveEndpointByRange(EndpointEnd, before, EndpointStart);
+            before.MoveEndpointByUnit(EndpointStart, TextUnitCharacter, -1, out var movedBack);
+            if (movedBack != 0 && LastRectangle(before) is { } previous) return new Rectangle(previous.Right, previous.Top, 1, previous.Height);
+            selection.Clone(out var after);
+            after.MoveEndpointByRange(EndpointStart, after, EndpointEnd);
+            after.MoveEndpointByUnit(EndpointEnd, TextUnitCharacter, 1, out var movedForward);
+            if (movedForward != 0 && FirstRectangle(after) is { } next) return new Rectangle(next.Left, next.Top, 1, next.Height);
+            return null;
+        }
+
+        private static Rectangle? FirstRectangle(IUIAutomationTextRange range) => Rectangles(range).FirstOrDefault() is { Height: > 0 } r ? r : null;
+
+        private static Rectangle? LastRectangle(IUIAutomationTextRange range) => Rectangles(range).LastOrDefault() is { Height: > 0 } r ? r : null;
+
+        private static List<Rectangle> Rectangles(IUIAutomationTextRange range)
+        {
+            var list = new List<Rectangle>();
+            if (range.GetBoundingRectangles(out var values) < 0 || values is null) return list;
+            for (var i = 0; i + 3 < values.Length; i += 4)
+            {
+                if (values[i + 3] > 0) list.Add(new Rectangle((int)values[i], (int)values[i + 1], Math.Max(1, (int)values[i + 2]), (int)values[i + 3]));
+            }
+            return list;
+        }
     }
 
     // ---- COM の定義 (UIAutomationClient.h の順番どおり。使わないメソッドは並びを保つための仮の宣言) ----
@@ -147,7 +184,7 @@ internal sealed class UiAutomation
         [PreserveSig] int FindAttribute();
         [PreserveSig] int FindText();
         [PreserveSig] int GetAttributeValue();
-        [PreserveSig] int GetBoundingRectangles();
+        [PreserveSig] int GetBoundingRectangles([MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_R8)] out double[]? rectangles);
         [PreserveSig] int GetEnclosingElement();
         [PreserveSig] int GetText(int maxLength, [MarshalAs(UnmanagedType.BStr)] out string? text);
         [PreserveSig] int Move();

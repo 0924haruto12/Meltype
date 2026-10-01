@@ -124,6 +124,9 @@ public sealed class CompositionOptions
     /// <summary>入力欄に入ったときなどに、入力モード (あ / A) をカーソルの近くに出すか。</summary>
     public Func<bool> ModeIndicator { get; init; } = () => false;
 
+    /// <summary>変換ボックスを出す位置 (入力位置に重ねる / カーソルの下)。</summary>
+    public Func<Config.CompositionPlacement> Placement { get; init; } = () => Config.CompositionPlacement.Overlay;
+
     /// <summary>入力欄に入った (フォーカスが入った) ときにも入力モードを出すか。false なら 半角/全角 を押したときだけ。</summary>
     public Func<bool> ModeIndicatorOnFocus { get; init; } = () => true;
 }

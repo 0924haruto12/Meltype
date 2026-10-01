@@ -49,6 +49,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             KanaInput = () => _engine.Settings.InputStyle == InputStyle.Kana,
             ModeIndicator = () => _engine.Settings is { Enabled: true, Mode: InputMode.Keyboard, ShowModeIndicator: true },
             ModeIndicatorOnFocus = () => _engine.Settings.ShowModeIndicatorOnFocus,
+            Placement = () => _engine.Settings.CompositionPlacement,
         });
         _engine.AttachComposition(_composition);
 

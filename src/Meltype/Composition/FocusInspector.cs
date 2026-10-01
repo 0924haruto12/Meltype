@@ -73,6 +73,28 @@ public sealed class FocusInspector : IDisposable
 
     public FocusInfo Current => _info;
 
+    /// <summary>
+    /// キャレット (入力位置) の画面上の四角形を UI Automation で調べる (Chrome・Discord など、Windows のキャレットを使わないアプリ用)。
+    /// このクラスのスレッドで調べ、最大 waitMs 待つ。取れなければ null。
+    /// </summary>
+    public Rectangle? CaretBounds(int waitMs = 60)
+    {
+        Rectangle? result = null;
+        var done = new ManualResetEventSlim();
+        Enqueue(() =>
+        {
+            try
+            {
+                if (Automation()?.Focused() is { IsPassword: false } element) result = element.CaretBounds();
+            }
+            finally
+            {
+                done.Set();
+            }
+        });
+        return done.Wait(waitMs) ? result : null;
+    }
+
     /// <summary>キャレットの前後の文字列 (それぞれ最大 20 文字) を調べて callback(前, 後ろ) に渡す (このクラスのスレッドから呼ばれる)。</summary>
     public void RequestSurroundingText(Action<string?, string?> callback) => Enqueue(() =>
     {
