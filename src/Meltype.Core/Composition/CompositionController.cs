@@ -328,14 +328,18 @@ public sealed class CompositionController
                 return;
             }
             // 母音の後の - は長音 (ro-maji → ろーまじ、de-ta → でーた)。英単語の途中にはまず出てこないので、ローマ字として
-            // 読めれば日本語に戻す。英語の接頭辞 (e-mail、re-do、co-op) は今までどおり英語として出す。
-            if (vk == VirtualKeys.OemMinus && _swallowedShift.Count == 0 && _heldLetters.Length > 0 &&
-                !HyphenPrefixes.Contains(_heldLetters.ToString()) &&
-                _detector.Romaji.AnalyzeFragment(_heldLetters.ToString()) is { IsValid: true, Partial: "" })
+            // 読めれば日本語に戻す。英語の接頭辞 (e-mail、co-op) かもしれないときは - も保留して、- の後ろで決める
+            // (e-mail → 英語、e-me-ru → えーめーる)。
+            var part = LastHyphenPart();
+            if (vk == VirtualKeys.OemMinus && _swallowedShift.Count == 0 && part.Length > 0 &&
+                _detector.Romaji.AnalyzeFragment(part) is { IsValid: true, Partial: "" })
             {
+                var prefix = !_heldLetters.ToString().Contains('-') && CompositionDetector.IsHyphenPrefix(part);
                 _held.Add(e);
                 _heldDown.Add(vk);
                 _heldLetters.Append('-');
+                _heldLastKeyTime = e.TimeMs;
+                if (prefix) return;
                 Diagnostics.Log.Decision($"英数状態でローマ字を検知: 「{_heldLetters}」(母音の後の長音)");
                 SwitchHeldToJapanese();
                 return;
@@ -571,7 +575,6 @@ public sealed class CompositionController
     // ---- 英数状態のローマ字判定 ----
 
     // - を付けて使う英語の接頭辞 (e-mail、re-do、co-op、x-ray)
-    private static readonly HashSet<string> HyphenPrefixes = ["a", "e", "i", "o", "u", "re", "co", "ex", "non", "anti", "semi", "multi", "pre", "sub", "post", "mid", "self", "well"];
 
     private void Hold(KeyEvent e)
     {
@@ -582,9 +585,20 @@ public sealed class CompositionController
         DecideHeld(final: false);
     }
 
+    /// <summary>保留している英字の、最後の - より後ろ (e-ma → ma)。- が無ければ全体。</summary>
+    private string LastHyphenPart()
+    {
+        var letters = _heldLetters.ToString();
+        return letters[(letters.LastIndexOf('-') + 1)..];
+    }
+
     private void DecideHeld(bool final)
     {
-        var verdict = _options.ClassifyDirect!(_heldLetters.ToString(), final);
+        // 英語の接頭辞の後の - (e-、co-) の後ろだけで判定する。e-mail・co-op のような - の入った英単語なら英語。
+        var part = LastHyphenPart();
+        var verdict = _detector.IsHyphenatedEnglishWord(_heldLetters.ToString()) ? Verdict.English
+            : part.Length == 0 ? Verdict.Undecided
+            : _options.ClassifyDirect!(part, final);
         Diagnostics.Log.Info($"英数状態の判定: 「{_heldLetters}」→ {verdict}{(final ? " (打ち終わり)" : "")}");
         if (verdict == Verdict.Japanese) SwitchHeldToJapanese();
         else if (verdict != Verdict.Undecided || final) ReleaseHeldAsEnglish();

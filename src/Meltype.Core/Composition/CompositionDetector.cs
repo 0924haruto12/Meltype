@@ -96,6 +96,7 @@ public sealed class CompositionDetector
             // (かな入力では 、。 も かなのキーなので対象外)
             if (!kanaInput && IsAsciiSymbol(units[i]) && PrecededByEnglish(i) == true && segments.All(s => s.IsEnglish)) found = i + 1;
             if (!kanaInput && found < 0 && level != DetectionLevel.Manual) found = CapitalizedWordEnd(units, i, pending, final);
+            if (!kanaInput && found < 0 && level != DetectionLevel.Manual) found = HyphenatedWordEnd(units, i, pending);
             for (var j = n; j > i && found < 0; j--)
             {
                 // 区間の後ろ: 末尾まで打っているならキャレットの後ろの文字、途中なら続きの日本語。
@@ -266,9 +267,10 @@ public sealed class CompositionDetector
 
         // 英語の固有名詞 (amazon, adobe, netflix) は、ローマ字として読めても英語。日本語の語と同じ綴りなら除く。
         // 短い名前 (ben, tom) の偶然の一致 (にほんごの|ben|きょう) を避けるため 4 文字以上。文の途中の区間なら
-        // 5 文字以上 (きょうは|amazon|で) か、ローマ字として読めないもの。慎重なら、ローマ字として読めないものだけ。
+        // 5 文字以上 (きょうは|amazon|で) か、ローマ字として読めないもの。末尾の 4 文字の語は、日本語のすぐ後ろでなければ
+        // (ある程度は の teido|ha を tei|doha = Doha にしない)。慎重なら、ローマ字として読めないものだけ。
         if (lower.Length >= 4 && _proper.Contains(lower) && !_japanese.Words.ContainsWord(lower) &&
-            (conservative ? !_romaji.Analyze(lower).IsValid : atEnd || lower.Length >= 5 || !_romaji.Analyze(lower).IsValid))
+            (conservative ? !_romaji.Analyze(lower).IsValid : (atEnd && before >= 0) || lower.Length >= 5 || !_romaji.Analyze(lower).IsValid))
         {
             return true;
         }
@@ -376,6 +378,47 @@ public sealed class CompositionDetector
             var analysis = _romaji.AnalyzeFragment(rest.Replace("-", ""));
             if (!analysis.IsValid || (final && analysis.Partial.Length > 0 && analysis.Partial != "n")) continue;
             if (head.Length >= 2 && char.IsAsciiLetterUpper(head[^1]) || head.Length >= 3 && IsKnownCapitalizedWord(head)) return k;
+        }
+        return -1;
+    }
+
+    // - を付けて使う英語の接頭辞 (e-mail、re-do、co-op、x-ray)。接頭辞 + - + 3 文字以上の英単語なら英語。
+    // 1 文字の母音 (o-bun = オーブン) は日本語の長音とまぎらわしいので e と x だけ。
+    private static readonly HashSet<string> HyphenPrefixes = ["e", "x", "re", "co", "ex", "non", "anti", "semi", "multi", "pre", "sub", "post", "mid", "self", "well"];
+
+    // 接頭辞の規則では拾えない、- の入ったよく使う英単語 (後ろが 2 文字以下など)
+    private static readonly HashSet<string> HyphenatedWords = ["co-op", "re-do", "x-ray", "t-shirt", "wi-fi", "hi-fi", "e-book", "e-sports", "k-pop", "j-pop", "j-rock", "a-z", "u-turn", "check-in", "log-in", "sign-in", "add-on", "plug-in", "built-in", "follow-up", "set-up", "pop-up", "drop-down"];
+
+    /// <summary>- を付けて使う英語の接頭辞か (e、re、co …)。英数状態で、- の後を見てから英語か決めるのに使う。</summary>
+    public static bool IsHyphenPrefix(string lower) => HyphenPrefixes.Contains(lower);
+
+    /// <summary>- の入った英単語か (e-mail、co-op、re-do、x-ray)。</summary>
+    public bool IsHyphenatedEnglishWord(string lower)
+    {
+        if (HyphenatedWords.Contains(lower)) return true;
+        var dash = lower.IndexOf('-');
+        if (dash <= 0 || lower.IndexOf('-', dash + 1) >= 0) return false;
+        var rest = lower[(dash + 1)..];
+        return HyphenPrefixes.Contains(lower[..dash]) && rest.Length >= 3 && rest.All(char.IsAsciiLetterLower) && IsKnownEnglishWord(rest);
+    }
+
+    /// <summary>
+    /// start から始まる - の入った英単語 (e-mail、co-op) の終わり。無ければ -1。
+    /// 後ろに日本語が続いてもよい (e-mail|de) ので、- の後ろは長い方から英単語になる所を探す。
+    /// </summary>
+    private int HyphenatedWordEnd(IReadOnlyList<CompositionUnit> units, int start, string pending)
+    {
+        var n = units.Count;
+        // 語の途中からは探さない
+        if (start > 0 && units[start - 1].Raw.All(char.IsAsciiLetter) && units[start - 1].Raw.Length > 0) return -1;
+        var dash = start;
+        while (dash < n && units[dash].Raw.Length > 0 && units[dash].Raw.All(char.IsAsciiLetter)) dash++;
+        if (dash == start || dash >= n || units[dash].Raw != "-") return -1;
+        for (var end = n; end > dash + 1; end--)
+        {
+            var word = (Raw(units, start, end) + (end == n ? pending : "")).ToLowerInvariant();
+            if (!word[(word.IndexOf('-') + 1)..].All(char.IsAsciiLetterLower)) continue;
+            if (IsHyphenatedEnglishWord(word)) return end;
         }
         return -1;
     }

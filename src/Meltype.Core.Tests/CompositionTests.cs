@@ -433,10 +433,45 @@ internal static class CompositionTests
         Assert.Equal("ろーまじ", k.Showing);
         Assert.Equal(0, k.Host.Events.Count(e => e.StartsWith("down:")), "英字をアプリに送ってはいない");
 
-        // 英語の接頭辞 (e-mail) は英語のまま
+        // 英語の接頭辞 (e-) の後は - の後ろで決める: e-mail・co-op は英語、e-me-ru は日本語
+        foreach (var word in new[] { "e-mail ", "co-op ", "re-do " })
+        {
+            k = new Keyboard(direct: true);
+            k.Type(word);
+            Assert.True(k.Direct, word + "は英数のまま");
+        }
         k = new Keyboard(direct: true);
-        k.Type("e-mail");
-        Assert.True(k.Direct, "e-mail は英数のまま");
+        k.Type("e-me-ru");
+        Assert.True(!k.Direct, "e-me-ru は日本語に戻る");
+        Assert.Equal("えーめーる", k.Showing);
+    }
+
+    [Test]
+    public static void HyphenatedEnglishWords_StayEnglish()
+    {
+        // えーmail、こーおp になっていた
+        foreach (var (typed, expected) in new[]
+        {
+            ("e-mail", "e-mail"), ("co-op", "co-op"), ("e-maildeokuru", "e-mailでおくる"), ("x-ray", "x-ray"),
+            ("e-to", "えーと"), ("su-pa-", "すーぱー"), ("o-bun", "おーぶん"),
+        })
+        {
+            var k = new Keyboard();
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, typed);
+        }
+    }
+
+    [Test]
+    public static void ShortProperNoun_AfterJapanese_IsJapanese()
+    {
+        // ある程度は (aruteidoha) の doha を固有名詞 (Doha) として英字にしていた
+        var k = new Keyboard();
+        k.Type("aruteidoha\n");
+        Assert.Equal("あるていどは", k.Host.Document);
+        k = new Keyboard();
+        k.Type("doha\n");
+        Assert.Equal("doha", k.Host.Document, "単独なら固有名詞のまま");
     }
 
     [Test]
