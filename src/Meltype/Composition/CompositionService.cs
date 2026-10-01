@@ -66,7 +66,8 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         if (options.Engine() != Config.ConversionEngine.System && _mozc.IsInstalled) _mozc.WarmUp();
         _showIndicator = options.ModeIndicator;
         _directMode = options.DirectMode;
-        Focus.TextInputEntered += () => ShowMode(!_directMode());
+        var onFocus = options.ModeIndicatorOnFocus;
+        Focus.TextInputEntered += () => { if (onFocus()) ShowMode(!_directMode()); };
         Controller.Committed += text => Diagnostics.Log.Decision($"確定: 「{(text.Length > 20 ? text[..20] + "…" : text)}」");
         _tick.Tick += (_, _) => Safely(() => Controller.Tick(Environment.TickCount64));
         _tick.Start();

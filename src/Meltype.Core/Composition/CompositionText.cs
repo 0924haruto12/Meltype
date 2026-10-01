@@ -68,6 +68,12 @@ public sealed class CompositionText
 
     public void Append(char c)
     {
+        // 数字の後の , は、次も数字なら桁区切り (1,000) のまま、それ以外なら読点 (x64、arm64)。
+        if (!char.IsAsciiDigit(c) && _pending.Length == 0 && _units.Count >= 2 && _units[^1] is { Raw: ",", Kana: "," } &&
+            _units[^2].Raw is [var digit] && char.IsAsciiDigit(digit))
+        {
+            _units[^1] = _units[^1] with { Kana = "、" };
+        }
         if (char.IsAsciiLetter(c))
         {
             // 大文字に続けて打った大文字 (TS, IME の S, M) は略語の 1 文字。後ろのローマ字 (yu) とつなげて かな (しゅ) にしない。

@@ -480,6 +480,30 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void SingleCapital_ThenParticle_IsSplit()
+    {
+        // Anisiyouka が英字のままになっていた (A にしようか)。名前 (Tanaka) は区切らない。
+        foreach (var (typed, expected) in new[] { ("Anisiyouka", "Aにしようか"), ("Xgawakaru", "Xがわかる"), ("Tanaka", "Tanaka") })
+        {
+            var k = new Keyboard();
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, typed);
+        }
+    }
+
+    [Test]
+    public static void CommaAfterDigit_IsTouten_UnlessDigitFollows()
+    {
+        // x64,arm64 の , は読点 (x64、arm64)。1,000 の , は桁区切りのまま。
+        foreach (var (typed, expected) in new[] { ("x64,arm64", "x64、arm64"), ("1,000en", "1,000えん") })
+        {
+            var k = new Keyboard();
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, typed);
+        }
+    }
+
+    [Test]
     public static void ShortProperNoun_AfterJapanese_IsJapanese()
     {
         // ある程度は (aruteidoha) の doha を固有名詞 (Doha) として英字にしていた

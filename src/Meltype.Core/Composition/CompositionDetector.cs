@@ -378,6 +378,9 @@ public sealed class CompositionDetector
             var analysis = _romaji.AnalyzeFragment(rest.Replace("-", ""));
             if (!analysis.IsValid || (final && analysis.Partial.Length > 0 && analysis.Partial != "n")) continue;
             if (head.Length >= 2 && char.IsAsciiLetterUpper(head[^1]) || head.Length >= 3 && IsKnownCapitalizedWord(head)) return k;
+            // 大文字 1 文字 + 助詞で始まるローマ字 (A|nisiyouka → Aにしようか、B|noan → Bの案)。
+            // 名前 (Tanaka、Hanako) を区切らないよう、後ろが助詞で始まるときだけ。
+            if (head.Length == 1 && char.IsAsciiLetterUpper(head[0]) && Detection.DictionaryDetector.StartsWithParticle(rest.Replace("-", "")) is not null) return k;
         }
         return -1;
     }
