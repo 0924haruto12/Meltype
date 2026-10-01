@@ -785,7 +785,12 @@ internal static class CompositionTests
         k.Type("2025");
         Assert.Equal("2025", k.Showing, "数字だけなら半角のまま");
         k.Type(" ");
-        Assert.Equal("2025 ", k.Host.Output.Single(), "数字だけなら Space は空白");
+        // 報告: 1 だけで変換しても ① などが出ない。日本語の中・文の頭では Space で変換して候補を出す (1 番目は半角の数字のまま)。
+        Assert.True(k.Host.View is { Converting: true } view && view.Clauses![0] == "2025", "数字だけでも Space で変換する");
+        k = new Keyboard();
+        k.Host.PrecedingText = "I have ";
+        k.Type("2 ");
+        Assert.Equal("2 ", k.Host.Output.Single(), "英文の中の数字は Space で確定して空白");
 
         k = new Keyboard();
         k.Type("3ji");
