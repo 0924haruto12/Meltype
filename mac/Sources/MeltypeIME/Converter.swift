@@ -38,7 +38,8 @@ final class MeltypeConverter {
         let results = converter.requestCandidates(composing, options: options)
         converter.stopComposition()
         let count = hiragana.count
-        return results.mainResults.filter { $0.correspondingCount == count }
+        // 入力 (ひらがな) をすべて使った候補だけ (.direct で入れたので、入力の文字数 = ひらがなの文字数)
+        return results.mainResults.filter { $0.composingCount == .inputCount(count) || $0.composingCount == .surfaceCount(count) }
     }
 
     /// 文節に区切った変換結果 (読みをつなげると元のひらがなになる)。変換できなければ空。
