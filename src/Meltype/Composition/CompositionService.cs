@@ -317,23 +317,35 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             return;
         }
         var caret = FindCaret();
-        Diagnostics.Log.Info($"変換ボックスを出す入力位置: {(caret is { } r ? $"{r.X},{r.Y} 高さ {r.Height}" : "分からない")}");
-        // 文字の大きさ: 自動なら、入力欄の文字の高さ (キャレットの高さ) に合わせる。小さな入力欄で大きく出すぎないように。
+        // 入力欄が空のとき、アプリによっては入力位置ではなく入力欄の枠 (40px の欄など) や、複数行の欄全体の四角形が返る。
+        // 枠と同じ高さなら、文字の高さは枠のおよそ半分 (1 行の欄の文字は上下の真ん中にある)。高すぎる四角形は、文字の高さが分からない。
+        var element = Focus.Current.Bounds;
+        var wholeField = caret is { Height: > 22 } c0 && element is { } e && Math.Abs(e.Height - c0.Height) <= 6;
+        int? textHeight = caret switch
+        {
+            null => null,
+            { Height: > MaxLineHeight } => null,
+            { } c when wholeField => (int)(c.Height * 0.45),
+            { } c => c.Height,
+        };
+        Diagnostics.Log.Info($"変換ボックスを出す入力位置: {(caret is { } r ? $"{r.X},{r.Y} 高さ {r.Height}{(wholeField ? " (入力欄の枠)" : "")}" : "分からない")}");
+        // 文字の大きさ: 自動なら、入力欄の文字の高さに合わせる。小さな入力欄で大きく出すぎないように。
         _window.SetScale(_size() switch
         {
             Config.CompositionSize.Small => 0.8F,
             Config.CompositionSize.Large => 1.25F,
-            // 入力欄が空のとき、アプリによっては入力位置ではなく入力欄全体の四角形が返る (高すぎる)。そのときは「中」。
-            Config.CompositionSize.Auto when caret is { Height: >= 8 and <= MaxLineHeight } c => Math.Clamp((float)c.Height / _window.BaseTextHeight, 0.7F, 1.4F),
+            Config.CompositionSize.Auto when textHeight is { } h && h >= 8 => Math.Clamp((float)h / _window.BaseTextHeight, 0.7F, 1.4F),
+            // 文字の高さが分からないときは、ふつうの画面の文字 (16px 前後) に近い大きさ
+            Config.CompositionSize.Auto => 0.8F,
             _ => 1F,
         });
         // 入力位置に重ねる: 変換ボックスの文字の行を、入力位置の行の高さの真ん中にそろえる。
         if (_placement() == Config.CompositionPlacement.Overlay && caret is { } at)
         {
             var offset = _window.TextOffset;
-            // 高すぎる四角形 (入力欄全体) なら、上端の 1 行目に合わせる。
-            var lineHeight = at.Height <= MaxLineHeight ? at.Height : (offset.Y - 8) * 2;
-            _window.ShowView(view, new Point(at.Left - offset.X, at.Top + lineHeight / 2 - offset.Y), overlay: true);
+            // 1 行の入力欄の枠なら、その上下の真ん中。複数行の欄全体 (高すぎる) なら、上端の 1 行目。
+            var middle = at.Height <= MaxLineHeight ? at.Height / 2 : offset.Y - 8;
+            _window.ShowView(view, new Point(at.Left - offset.X, at.Top + middle - offset.Y), overlay: true);
             return;
         }
         _window.ShowView(view, FindAnchor(caret));
