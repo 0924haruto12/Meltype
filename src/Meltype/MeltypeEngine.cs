@@ -59,6 +59,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         _settings = settings.Clone().Normalize();
         _configPath = configPath;
         Log.SetFileOutput(_settings.FileLog ? AppPaths.LogFile : null);
+        Log.RecordText = _settings.LogTypedText;
 
         _userModel = new UserModel(modelPath);
         _scoreEngine = ScoreEngine.CreateDefault(_userModel, () => _settings, userDictionaryDirectory);
@@ -416,6 +417,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         if (next.Mode == InputMode.Keyboard && (previous.Mode != InputMode.Keyboard || !previous.Enabled)) CloseSystemImeAsync();
         if (!next.Enabled) FlushAbandoned(_session.Abort());
         Log.SetFileOutput(next.FileLog ? AppPaths.LogFile : null);
+        Log.RecordText = next.LogTypedText;
         if (_configPath is not null)
         {
             try { next.Save(_configPath); }
@@ -541,6 +543,8 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
 
     private void OnForegroundChanged(IntPtr window)
     {
+        // 変換中に別のウィンドウに切り替わったら、変換中の内容は捨てる (切り替わった先のアプリに入らないように)。
+        _composition?.Abandon("別のウィンドウに切り替わった");
         _foreground.Refresh(window);
         InvalidateLine();
         _lastLineKind = null;

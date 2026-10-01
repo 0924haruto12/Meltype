@@ -40,8 +40,15 @@ jobs:
           key: mozc-linux-${{ hashFiles('native/mozc/MOZC_COMMIT') }}-${{ hashFiles('native/mozc/*.cc', 'native/mozc/BUILD.fragment') }}
           restore-keys: |
             mozc-linux-${{ hashFiles('native/mozc/MOZC_COMMIT') }}-
+      # Bazelisk は版を固定し、ダウンロードしたものが公開されているものと同じか (SHA-256) を確かめる。
+      - name: Bazelisk
+        run: |
+          mkdir -p "$HOME/tools"
+          curl -fsSL -o "$HOME/tools/bazelisk" https://github.com/bazelbuild/bazelisk/releases/download/v1.29.0/bazelisk-linux-amd64
+          echo "5a408715e932c0250d28bd84555f12edbf70117de42f9181691c736eacc4a992  $HOME/tools/bazelisk" | sha256sum -c -
+          chmod +x "$HOME/tools/bazelisk"
       - name: Build Mozc helper
-        run: native/mozc/build-mozc-helper.sh "$HOME/mozc" "$HOME/bazel-cache"
+        run: BAZEL="$HOME/tools/bazelisk" native/mozc/build-mozc-helper.sh "$HOME/mozc" "$HOME/bazel-cache"
       - name: Build
         run: linux/build.sh
       - name: Package

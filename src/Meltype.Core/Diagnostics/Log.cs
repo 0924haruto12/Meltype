@@ -31,6 +31,15 @@ public static class Log
 
     public static long Version => Interlocked.Read(ref _version);
 
+    /// <summary>
+    /// 入力した文字 (確定した文字列・打った英字・読み・直した語) をログに残すか (設定「ログに入力した文字を残す」、既定は残さない)。
+    /// 残さないときは文字数だけを残す。判定の理由に出る、判定した語の先頭の数文字はこれに関係なく残る。
+    /// </summary>
+    public static bool RecordText { get; set; }
+
+    /// <summary>入力した文字をログに出すときに使う。RecordText が false なら「(n 文字)」にする。</summary>
+    public static string Text(string text) => RecordText ? $"「{text}」" : $"({text.Length} 文字)";
+
     public static void Info(string message) => Write(LogLevel.Info, message);
     public static void Decision(string message) => Write(LogLevel.Decision, message);
     public static void Warn(string message) => Write(LogLevel.Warn, message);

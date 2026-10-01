@@ -72,7 +72,8 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         _directMode = options.DirectMode;
         var onFocus = options.ModeIndicatorOnFocus;
         Focus.TextInputEntered += () => { if (onFocus()) ShowMode(!_directMode()); };
-        Controller.Committed += text => Diagnostics.Log.Decision($"確定: 「{(text.Length > 20 ? text[..20] + "…" : text)}」");
+        Focus.CaptureLost += Abandon;
+        Controller.Committed += text => Diagnostics.Log.Decision($"確定: {Diagnostics.Log.Text(text.Length > 20 ? text[..20] + "…" : text)}");
         _tick.Tick += (_, _) => Safely(() => Controller.Tick(Environment.TickCount64));
         _tick.Start();
     }
@@ -153,6 +154,21 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         if (_invoker.IsHandleCreated && !_invoker.IsDisposed) _invoker.BeginInvoke(Controller.ForgetLastCommit);
     }
 
+    /// <summary>
+    /// 入力先が変わった (別のウィンドウ・パスワード欄・入力欄でない所) とき (どのスレッドからでも呼べる)。
+    /// 変換中の内容は確定せずに捨て、そのあと届いていたキー・クリックは変換ボックスを通さずにそのままアプリに通す。
+    /// </summary>
+    public void Abandon(string reason)
+    {
+        if (!_invoker.IsHandleCreated || _invoker.IsDisposed) return;
+        _invoker.BeginInvoke(() => Safely(() =>
+        {
+            if (!Controller.Abandon(reason)) return;
+            ReplayAll(Gate.Abort());
+            Hide();
+        }));
+    }
+
     public void ResetContext()
     {
         if (_invoker.IsHandleCreated && !_invoker.IsDisposed) _invoker.BeginInvoke(Controller.ResetContext);
@@ -187,8 +203,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             inputs.Add(UnicodeInput(c, up: true));
         }
         var array = inputs.ToArray();
-        var sent = Native.SendInput((uint)array.Length, array, Marshal.SizeOf<Native.INPUT>());
-        if (sent != array.Length) Diagnostics.Log.Error($"確定文字列の入力に失敗しました ({sent}/{array.Length})。");
+        Native.SendAll(array, "確定文字列の入力");
     }
 
     /// <summary>
@@ -284,7 +299,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
                 },
             },
         };
-        Native.SendInput(1, [input], Marshal.SizeOf<Native.INPUT>());
+        Native.SendAll([input], "クリックの再生");
     }
 
     public char? CharFromKey(KeyEvent e, bool shift) => KeyText.CharFromKey(e.Vk, e.Scan, shift);

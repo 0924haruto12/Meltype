@@ -77,6 +77,25 @@ internal static class Native
     [DllImport("user32.dll", SetLastError = true)] public static extern bool PostThreadMessage(uint threadId, uint msg, IntPtr wParam, IntPtr lParam);
 
     [DllImport("user32.dll", SetLastError = true)] public static extern uint SendInput(uint count, INPUT[] inputs, int size);
+
+    /// <summary>
+    /// 入力をすべて送る。SendInput が一部しか受け付けなかったら (ほかの入力と重なったときなど)、残りを少し待って送り直す (3 回まで)。
+    /// キーを押したまま離しが届かない・文字が欠けるのを防ぐ。すべて送れたら true。
+    /// </summary>
+    public static bool SendAll(INPUT[] inputs, string what)
+    {
+        var size = System.Runtime.InteropServices.Marshal.SizeOf<INPUT>();
+        var offset = 0;
+        for (var attempt = 0; attempt < 3 && offset < inputs.Length; attempt++)
+        {
+            if (attempt > 0) Thread.Sleep(15);
+            var rest = offset == 0 ? inputs : inputs[offset..];
+            offset += (int)SendInput((uint)rest.Length, rest, size);
+        }
+        if (offset == inputs.Length) return true;
+        Diagnostics.Log.Error($"{what}に失敗しました ({offset}/{inputs.Length}, Win32 エラー {System.Runtime.InteropServices.Marshal.GetLastWin32Error()})。管理者として動いているアプリには入力できません。");
+        return false;
+    }
     [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int key);
 
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();

@@ -32,6 +32,9 @@ public sealed class FocusInspector : IDisposable
     /// </summary>
     public event Action? TextInputEntered;
 
+    /// <summary>フォーカスが入力欄でない所・パスワード欄に移ったと分かったとき (このクラスのスレッドから呼ばれる)。引数は理由。</summary>
+    public event Action<string>? CaptureLost;
+
     public FocusInspector()
     {
         _thread = new Thread(Run) { IsBackground = true, Name = "Meltype focus inspector" };
@@ -67,6 +70,8 @@ public sealed class FocusInspector : IDisposable
     {
         var deadline = Environment.TickCount64 + waitMs;
         while (Interlocked.Read(ref _resolvedSequence) != Interlocked.Read(ref _focusSequence) && Environment.TickCount64 < deadline) Thread.Sleep(5);
+        // 調べ終わらなかったときに直前の結果を使うのは、前面のウィンドウが同じときだけ (別のアプリのパスワード欄などに移った直後は使わない)。
+        if (Interlocked.Read(ref _resolvedSequence) != Interlocked.Read(ref _focusSequence) && Native.GetForegroundWindow() != _inspectedForeground) return false;
         var info = _info;
         return info.IsTextInput && !info.IsPassword;
     }
@@ -129,6 +134,13 @@ public sealed class FocusInspector : IDisposable
         // 調べている間にまたフォーカスが変わっていたら、この結果は採用しない (次の要求で調べ直す)。
         if (sequence == Interlocked.Read(ref _focusSequence)) Interlocked.Exchange(ref _resolvedSequence, sequence);
 
+        // 変換中に入力先がパスワード欄・入力欄でない所に変わったら、変換中の内容を捨てさせる (移った先に入らないように)。
+        // UI Automation で調べられなかっただけ (確認できない・フォーカスなし) のときは捨てない。
+        if (sequence == Interlocked.Read(ref _focusSequence) && (info.IsPassword || !info.IsTextInput && !info.Description.StartsWith("確認できない") && info.Description != "フォーカスなし"))
+        {
+            CaptureLost?.Invoke(info.IsPassword ? "パスワード欄にフォーカスが移った" : "入力欄でない所にフォーカスが移った");
+        }
+
         if (info.IsTextInput && !info.IsPassword)
         {
             var key = (info.Description, info.Bounds);
@@ -168,10 +180,14 @@ public sealed class FocusInspector : IDisposable
         return _automation;
     }
 
+    /// <summary>最後に調べたときの前面のウィンドウ。</summary>
+    private IntPtr _inspectedForeground;
+
     private FocusInfo Inspect()
     {
         try
         {
+            _inspectedForeground = Native.GetForegroundWindow();
             // Meltype 自身の画面 (設定のドロップダウンなど) には UI Automation で問い合わせない。
             // 自分の UI スレッドに問い合わせが割り込むと、開いているドロップダウンが閉じてしまう。
             if (Input.ForegroundTracker.IsOwnWindow(Native.GetForegroundWindow())) return new FocusInfo(false, false, null, "Meltype の画面");

@@ -65,8 +65,13 @@ jobs:
         if: steps.check.outputs.build == 'true'
         shell: powershell
         run: |
+          # 版を固定し、ダウンロードしたものが公開されているものと同じか (SHA-256) を確かめる。
+          $version = 'v1.29.0'
+          $expected = '092a8738d5b41aae7a85c42cc961b1034e3389aba43ffc20c0fabda7b43e095b'
           New-Item -ItemType Directory -Force -Path C:\tools | Out-Null
-          Invoke-WebRequest -Uri https://github.com/bazelbuild/bazelisk/releases/latest/download/bazelisk-windows-amd64.exe -OutFile C:\tools\bazelisk.exe
+          Invoke-WebRequest -Uri "https://github.com/bazelbuild/bazelisk/releases/download/$version/bazelisk-windows-amd64.exe" -OutFile C:\tools\bazelisk.exe
+          $actual = (Get-FileHash C:\tools\bazelisk.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $expected) { throw "Bazelisk のハッシュが違います: $actual" }
       - if: steps.check.outputs.build == 'true'
         uses: actions/cache@v4
         with:

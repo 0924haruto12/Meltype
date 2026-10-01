@@ -116,6 +116,7 @@ public sealed class MeltypeSession
         var settings = Settings.Load(AppPaths.ConfigFile);
         // 設定で「ファイルにログを書く」を ON にしていれば、Mac でも meltype.log に書く (動かないときの調査用)。
         Diagnostics.Log.SetFileOutput(settings.FileLog ? AppPaths.LogFile : null);
+        Diagnostics.Log.RecordText = settings.LogTypedText;
         var userDirectory = AppPaths.UserDictionaryDirectory;
         var detector = CompositionDetector.CreateDefault(userDirectory);
         detector.SpellChecker = wordChecker;

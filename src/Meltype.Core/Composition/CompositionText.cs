@@ -467,7 +467,7 @@ public sealed class CompositionText
                 !ContainsEnglishWord(letters, first) &&
                 corrector.Fix(letters, final: true) is { } fix)
             {
-                Diagnostics.Log.Decision($"ローマ字の打ち間違いを直しました: 「{fix.Wrong}」→「{fix.Right}」({fix.Kana})");
+                Diagnostics.Log.Decision($"ローマ字の打ち間違いを直しました: {Diagnostics.Log.Text(fix.Wrong)}→{Diagnostics.Log.Text(fix.Right)}");
                 var analysis = _detector.Romaji.AnalyzeFragment(fix.Right);
                 var units = analysis.Tokens.Select(t => new CompositionUnit(t.Kana, t.Romaji)).ToList();
                 _units.RemoveRange(start, end - start);

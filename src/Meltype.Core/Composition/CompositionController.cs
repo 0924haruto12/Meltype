@@ -282,6 +282,20 @@ public sealed class CompositionController
         UpdateView();
     }
 
+    /// <summary>
+    /// 入力先が変わった (別のウィンドウ・パスワード欄・入力欄でない所にフォーカスが移った) とき。未確定の内容を確定せずに捨てる。
+    /// 確定すると、移った先 (別のアプリやパスワード欄) に入ってしまうため。捨てたら true。
+    /// </summary>
+    public bool Abandon(string reason)
+    {
+        if (!IsComposing) return false;
+        Diagnostics.Log.Warn($"{reason}ので、変換中の入力を取り消しました (移った先に入らないように)。");
+        Reset();
+        _correctable.Clear();
+        UpdateView();
+        return true;
+    }
+
     /// <summary>例外からの復旧用。未確定の内容と追跡中の状態をすべて捨てる (次の入力で同じ例外を繰り返さないように)。</summary>
     public void Reset()
     {
@@ -717,7 +731,7 @@ public sealed class CompositionController
 
     private void FixMisspelling((int Start, int End, Misspelling Misspelling) typo)
     {
-        Diagnostics.Log.Decision($"もしかして: 「{typo.Misspelling.Wrong}」→「{typo.Misspelling.Right}」に直しました。");
+        Diagnostics.Log.Decision($"もしかして: {Diagnostics.Log.Text(typo.Misspelling.Wrong)}→{Diagnostics.Log.Text(typo.Misspelling.Right)}に直しました。");
         _text.ReplaceReading(typo.Start, typo.End, typo.Misspelling.Right);
     }
 
@@ -1173,7 +1187,7 @@ public sealed class CompositionController
         var start = text.Length;
         while (start > 0 && char.IsAsciiLetter(text[start - 1])) start--;
         if (start == text.Length || _detector.EnglishAutoCorrection(text[start..]) is not { } right) return text;
-        Diagnostics.Log.Decision($"英語の打ち間違いを直しました: 「{text[start..]}」→「{right}」");
+        Diagnostics.Log.Decision($"英語の打ち間違いを直しました: {Diagnostics.Log.Text(text[start..])}→{Diagnostics.Log.Text(right)}");
         return text[..start] + right;
     }
 
@@ -1248,7 +1262,7 @@ public sealed class CompositionController
         var original = string.Concat(targets.Select(t => t.Text));
         if (replacement is null || replacement == original) return;
 
-        Diagnostics.Log.Decision($"前後の文脈に合わせて確定し直しました: 「{original}」→「{replacement}」");
+        Diagnostics.Log.Decision($"前後の文脈に合わせて確定し直しました: {Diagnostics.Log.Text(original)}→{Diagnostics.Log.Text(replacement)}");
         _host.DeleteBackward(original.Length);
         _host.CommitText(replacement);
         _lastCommitText = replacement;
@@ -1319,7 +1333,7 @@ public sealed class CompositionController
         if (!_text.IsEmpty)
         {
             var clauses = _clauses.Count > 0 ? "　文節 " + string.Join(" | ", _clauses.Select(c => $"{c.Reading}→{c.Text}")) : "";
-            Diagnostics.Log.Info($"確定の内訳: 打った英字「{_text.Raw}」　読み「{_text.AllKana(final: true)}」{clauses}");
+            if (Diagnostics.Log.RecordText) Diagnostics.Log.Info($"確定の内訳: 打った英字「{_text.Raw}」　読み「{_text.AllKana(final: true)}」{clauses}");
         }
         _text.Clear();
         _converting = false;

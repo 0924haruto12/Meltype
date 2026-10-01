@@ -4,7 +4,7 @@
 #
 # Mozc の変換ヘルパー (meltype_mozc_helper) を Linux 用にビルドする (Windows 版は Build-MozcHelper.ps1)。
 #   native/mozc/build-mozc-helper.sh [Mozc を置く場所 (既定: ~/mozc)] [Bazel のディスクキャッシュ]
-# 必要なもの: git、Bazelisk (bazel)、clang、Mozc の Linux のビルドに要るライブラリ (README.md)。
+# 必要なもの: git、Bazelisk (bazel、環境変数 BAZEL で場所を指定できる)、clang、Mozc の Linux のビルドに要るライブラリ (README.md)。
 # できたものは native/mozc/bin/linux/ に置く。
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -33,7 +33,7 @@ fi
 cd "$src"
 options=(build //converter:meltype_mozc_helper --config oss_linux --config release_build)
 [[ -n "$cache" ]] && options+=("--disk_cache=$cache")
-bazel "${options[@]}"
+"${BAZEL:-bazel}" "${options[@]}"
 
 mkdir -p "$out"
 cp -f bazel-bin/converter/meltype_mozc_helper "$out/"

@@ -42,13 +42,7 @@ internal sealed class KeyInjector : IKeyInjector
                 },
             };
         }
-        var sent = Native.SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<Native.INPUT>());
-        if (sent != inputs.Length)
-        {
-            Diagnostics.Log.Error($"再入力に失敗しました ({sent}/{inputs.Length}, Win32 エラー {Marshal.GetLastWin32Error()})。");
-            return false;
-        }
-        return true;
+        return Native.SendAll(inputs, "再入力");
     }
 
     public static void SendKey(int vk)
