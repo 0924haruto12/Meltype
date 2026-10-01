@@ -221,6 +221,7 @@ public sealed class CompositionController
         _text.TypoCorrector = _options.RomajiTypos;
         // よく使う日本語の読み (kyouha = 今日は) は、一度英字にして確定しただけでは英語として覚えない。
         if (_options.Languages is { } languages && _options.RomajiTypos is { } typos) languages.IsCommonJapanese ??= typos.IsCommonJapanese;
+        if (_options.RomajiTypos is { } lexicon) detector.IsCommonJapanese ??= lexicon.IsCommonJapanese;
         _text.CorrectTypos = () => _options.CorrectTypos();
     }
 

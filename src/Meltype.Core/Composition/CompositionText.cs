@@ -89,12 +89,20 @@ public sealed class CompositionText
             // (test の t を消して u を打つ → s + u = す)。入力途中の子音に戻して読み直す。略語の大文字 (TS の S) は戻さない。
             var pulled = new StringBuilder();
             while (_units.Count > 0 && _units[^1] is { Raw.Length: 1 } last && last.Kana == last.Raw && char.IsAsciiLetter(last.Raw[0]) &&
-                   !(char.IsAsciiLetterUpper(last.Raw[0]) && _units.Count >= 2 && _units[^2].Raw is { Length: > 0 } before && char.IsAsciiLetterUpper(before[^1])))
+                   !(char.IsAsciiLetterUpper(last.Raw[0]) && _units.Count >= 2 && _units[^2].Raw is { Length: > 0 } before && char.IsAsciiLetterUpper(before[^1])) &&
+                   // 英単語の最後の l / x (hotel の l) は、次の文字と合わせて小書き文字 (lya = ゃ) にしない。
+                   !(last.Raw is "l" or "x" or "L" or "X" && EndsWithEnglishWord(LettersBefore(_units.Count))))
             {
                 pulled.Insert(0, last.Raw);
                 _units.RemoveAt(_units.Count - 1);
             }
             _pending.Insert(0, pulled.ToString());
+            // 英単語 (hotel) の最後の l / x の次に打った文字は、l / x と合わせて小書き文字 (hotel + ya → ほてゃ) にしない。
+            if (_pending.Length == 1 && _pending[0] is 'l' or 'x' or 'L' or 'X' && EndsWithEnglishWord(LettersBefore(_units.Count) + _pending))
+            {
+                _units.Add(new CompositionUnit(_pending.ToString(), _pending.ToString()));
+                _pending.Clear();
+            }
             _pending.Append(c);
             Normalize(final: false);
             return;
@@ -155,6 +163,24 @@ public sealed class CompositionText
             _pending.Append(last.Raw[1]);
             return;
         }
+    }
+
+    /// <summary>units の count 個目より前で、英字だけの単位が続く部分 (前の英字)。</summary>
+    private string LettersBefore(int count)
+    {
+        var letters = new StringBuilder();
+        for (var i = count - 1; i >= 0 && _units[i].Raw.Length > 0 && _units[i].Raw.All(char.IsAsciiLetter); i--) letters.Insert(0, _units[i].Raw);
+        return letters.ToString();
+    }
+
+    /// <summary>英字の並びの最後が、4 文字以上の知っている英単語で終わっているか (… hotel)。</summary>
+    private bool EndsWithEnglishWord(string letters)
+    {
+        for (var start = 0; start <= letters.Length - 4; start++)
+        {
+            if (_detector.IsKnownEnglishWord(letters[start..])) return true;
+        }
+        return false;
     }
 
     /// <summary>1 音 (または 1 文字) 消す。入力途中の子音があればそれを 1 文字消す。</summary>

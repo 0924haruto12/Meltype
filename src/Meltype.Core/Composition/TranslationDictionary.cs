@@ -64,7 +64,9 @@ public sealed class TranslationDictionary
                     foreach (var (entryKind, entryWords) in list)
                     {
                         if (entryKind != kind) continue;
-                        foreach (var word in entryWords) if (!words.Contains(word) && words.Count < 5) words.Add(word);
+                        // 助詞は付けたまま (カメラを → cameraを、川に → riverに)。な形容詞の な・副詞の に は語の一部なので外す (複雑な → complex)。
+                        var suffix = ending == "な" || (ending == "に" && kind is "adv" or "na") ? "" : ending;
+                        foreach (var word in entryWords) if (!words.Contains(word + suffix) && words.Count < 5) words.Add(word + suffix);
                     }
                 }
                 return words;

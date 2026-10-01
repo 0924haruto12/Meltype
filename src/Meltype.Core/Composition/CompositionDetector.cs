@@ -52,6 +52,9 @@ public sealed class CompositionDetector
     /// <summary>ユーザーが英字 / かなに直して覚えた語 (自動の判定より優先する)。</summary>
     public LanguageMemory? Memory { get; set; }
 
+    /// <summary>英字の並びが、ローマ字としてよく使う日本語になるか (kyouha = 今日は、tomato = とまと)。無ければ使わない。</summary>
+    public Func<string, bool>? IsCommonJapanese { get; set; }
+
     public ProperNouns ProperNouns => _proper;
 
     /// <summary>
@@ -104,7 +107,7 @@ public sealed class CompositionDetector
                 var english = kanaInput
                     ? IsEnglishSpanKana(Raw(units, i, j), Kana(units, i, j), atEnd: j == n, BeforeScore(i), after, level, final)
                     : IsEnglishSpan(Raw(units, i, j) + (j == n ? pending : ""), atEnd: j == n, BeforeScore(i), after, startOfInput: i == 0, level, final,
-                        unreadable: HasUnreadable(units, i, j));
+                        unreadable: HasUnreadable(units, i, j), next: j < n ? units[j].Raw + (j + 1 == n ? pending : "") : null);
                 if (english)
                 {
                     found = j;
@@ -233,7 +236,7 @@ public sealed class CompositionDetector
 
     /// <param name="final">打ち終わった (Space・Enter)。末尾の区間でも、英単語の打ちかけ (amaz) は英語の根拠にしない。</param>
     /// <param name="unreadable">区間にローマ字として読めなかった英字がある (zoom + de の m、bug + wo の g)。</param>
-    private bool IsEnglishSpan(string span, bool atEnd, int before, bool? after, bool startOfInput, DetectionLevel level, bool final = false, bool unreadable = false)
+    private bool IsEnglishSpan(string span, bool atEnd, int before, bool? after, bool startOfInput, DetectionLevel level, bool final = false, bool unreadable = false, string? next = null)
     {
         // まだ続きを打つかもしれない末尾の区間 (打ちかけの英単語を英語と見てよい)。
         var growing = atEnd && !final;
@@ -256,6 +259,19 @@ public sealed class CompositionDetector
         if (level == DetectionLevel.Manual) return false;
         // ユーザーが英字 / かなに直して覚えた語
         if (Memory?.Get(lower) is { } learned) return learned;
+        // 5 文字以上の英単語で、ローマ字としても読めるもの:
+        // - c 行の綴り (camera、coffee、class) は英語。日本語を打つときは k を使う (カメラ は kamera)。
+        // - ローマ字として読むと ぢ・づ になる綴り (radio = らぢお、studio、audio) で、ふつうの日本語の語にならないなら英語。
+        //   (sake・tokyo・suzuki のような日本由来の語は、ふつうのかなになるので、ここでは英語にしない)
+        //   日本語の語にもなるもの (tomato = とまと、piano = ぴあの、anime) は、今までどおり前後の文脈で決める。
+        // 日本語の辞書の語 (suzuki) と、慎重なときは使わない。続きと合わせて日本語の語になる (sense + i = せんせい) ときも使わない。
+        if (lower.Length >= 5 && !conservative && (inDictionary || IsSpellWord(lower)) && !_japanese.IsPrefix(lower) &&
+            !_proper.Contains(lower) && _romaji.AnalyzeFragment(lower) is { IsValid: true } &&
+            !(next is { Length: > 0 } && IsCommonJapanese is { } common && !common(lower) && common(lower + next.ToLowerInvariant())))
+        {
+            if (lower.Contains('c') && !lower.Contains("ch")) return true;
+            if (_romaji.AnalyzeFragment(lower).Kana.IndexOfAny(['ぢ', 'づ']) >= 0 && IsCommonJapanese?.Invoke(lower) != true) return true;
+        }
         // c 行の綴りで読める語 (care = かれ、can = かん) が日本語の途中にあるなら、日本語を打っている (fucarete → ふかれて、shoucanshi → しょうかんし)。
         // 入力全体がその語だけのときは英語。
         if (!(startOfInput && atEnd))
