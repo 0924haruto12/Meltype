@@ -742,6 +742,18 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void WiWe_OfferOldKana()
+    {
+        var k = new Keyboard();
+        k.Type("wisuki- ");
+        var candidates = k.Host.View!.Candidates;
+        Assert.True(candidates.Contains("ゐすきー") && candidates.Contains("ヰスキー"), string.Join(",", candidates));
+        k = new Keyboard();
+        k.Type("uisuki- ");
+        Assert.True(!k.Host.View!.Candidates.Any(c => c.Contains('ゐ') || c.Contains('ヰ')), "ui で打ったら出さない");
+    }
+
+    [Test]
     public static void Translations_AreOfferedAfterJapanese()
     {
         // アイデア: 「ふくざつな」を変換したら complex / complicated も候補に。な が付くなら な形容詞 の訳を先に。

@@ -713,6 +713,7 @@ public sealed class CompositionController
             {
                 clause.Raw = _text.RawForReading(s, offset, clause.Reading.Length);
                 offset += clause.Reading.Length;
+                AddOldKana(clause);
                 AddTranslations(clause);
                 AddRawCandidates(clause);
             }
@@ -759,6 +760,26 @@ public sealed class CompositionController
         {
             if (!clause.Candidates.Contains(candidate)) clause.Candidates.Add(candidate);
         }
+    }
+
+    /// <summary>
+    /// wi / we で打った うぃ / うぇ は、ゐ / ゑ (ヰ / ヱ) にした候補も出す (うぃすきー → ゐすきー、ヰスキー)。
+    /// 候補の中の うぃ ウィ うぇ ウェ を置き換えた形を、打ったままの英字の候補より前に足す。
+    /// </summary>
+    private static void AddOldKana(Clause clause)
+    {
+        if (clause.IsEnglish || clause.Raw is not { } raw) return;
+        var lower = raw.ToLowerInvariant();
+        if (!lower.Contains("wi") && !lower.Contains("we")) return;
+        if (!clause.Reading.Contains("うぃ") && !clause.Reading.Contains("うぇ")) return;
+        static string Old(string text) => text.Replace("うぃ", "ゐ").Replace("うぇ", "ゑ").Replace("ウィ", "ヰ").Replace("ウェ", "ヱ");
+        var added = new List<string>();
+        foreach (var candidate in clause.Candidates.Concat([clause.Reading, CompositionText.ToKatakana(clause.Reading)]))
+        {
+            var old = Old(candidate);
+            if (old != candidate && !clause.Candidates.Contains(old) && !added.Contains(old)) added.Add(old);
+        }
+        clause.Candidates.AddRange(added);
     }
 
     /// <summary>
