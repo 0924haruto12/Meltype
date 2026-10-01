@@ -314,6 +314,8 @@ public sealed class CompositionDetector
         {
             if (!exact && !prefix) return false;
             if (!exact && smallKanaSpelling) return false;
+            // 日本語のすぐ後ろの 2 文字の語で、変換ボックスでは読める綴り (こ + we = こうぇ、wi = うぃ) は日本語。
+            if (smallKanaSpelling && lower.Length <= 2 && before < 0) return false;
             // ローマ字として読めない英単語。途中の区間は 3 文字以上だけ (短い語の偶然の一致を避ける)。
             return (atEnd && (exact || !conservative)) || span.Length >= 3;
         }

@@ -862,6 +862,7 @@ public sealed class CompositionController
         {
             parts = [new ConversionClause(kana, string.Concat(parts.Select(p => p.Text)))];
         }
+        parts = JoinSmallKana(parts);
         var clauses = parts.Select(p => new Clause(p.Reading, false, JapaneseCandidates(p.Reading, NormalizeHalfWidth(p.Text, p.Reading)))).ToList();
         for (var i = 0; i < clauses.Count; i++)
         {
@@ -876,6 +877,34 @@ public sealed class CompositionController
         }
         return clauses;
     }
+
+    /// <summary>
+    /// 小書きのかな (ぃ ぇ ゃ …) で始まる文節は前の文節とつなげる。小書きのかなから始まる語は無いので、
+    /// 変換エンジンの知らない語を区切り間違えたもの (こうぃ → 光|ぃ)。つなげた読みは、その文節だけで変換し直す
+    /// (こうぃ → コウィ。wi で打っていれば こゐ も候補に出る)。
+    /// </summary>
+    private IReadOnlyList<ConversionClause> JoinSmallKana(IReadOnlyList<ConversionClause> parts)
+    {
+        if (!parts.Skip(1).Any(p => p.Reading.Length > 0 && SmallKana.Contains(p.Reading[0]))) return parts;
+        var joined = new List<ConversionClause>();
+        foreach (var part in parts)
+        {
+            if (joined.Count > 0 && part.Reading.Length > 0 && SmallKana.Contains(part.Reading[0]))
+            {
+                var reading = joined[^1].Reading + part.Reading;
+                // 変換しても漢字の後ろに小書きのかなが残る (光ぃ) なら、カタカナ (コウィ) にする。
+                var text = Convert(reading);
+                if (Enumerable.Range(1, Math.Max(0, text.Length - 1)).Any(i => SmallKana.Contains(text[i]) && !IsKana(text[i - 1]))) text = CompositionText.ToKatakana(reading);
+                joined[^1] = new ConversionClause(reading, text);
+            }
+            else joined.Add(part);
+        }
+        return joined;
+    }
+
+    private const string SmallKana = "ぁぃぅぇぉゃゅょゎァィゥェォャュョヮ";
+
+    private static bool IsKana(char c) => c is (>= 'ぁ' and <= 'ゖ') or (>= 'ァ' and <= 'ヺ') or 'ー';
 
     /// <summary>
     /// 文脈付きと文脈なしの両方で変換し、文節の区切りが同じなら文脈付き (漢字の選び方だけが文脈で変わる: この本は + あつい → 厚い)、

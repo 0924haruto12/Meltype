@@ -751,6 +751,13 @@ internal static class CompositionTests
         k = new Keyboard();
         k.Type("uisuki- ");
         Assert.True(!k.Host.View!.Candidates.Any(c => c.Contains('ゐ') || c.Contains('ヰ')), "ui で打ったら出さない");
+        // 日本語のすぐ後ろの we は英単語にしない (こ + we = こうぇ → こゑ)
+        foreach (var (typed, old) in new[] { ("kowi ", "こゐ"), ("kowe ", "こゑ") })
+        {
+            k = new Keyboard();
+            k.Type(typed);
+            Assert.True(k.Host.View?.Candidates.Contains(old) == true, typed + ": " + string.Join(",", k.Host.View?.Candidates ?? []));
+        }
     }
 
     [Test]
