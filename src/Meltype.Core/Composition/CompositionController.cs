@@ -1032,8 +1032,8 @@ public sealed class CompositionController
     }
 
     /// <summary>
-    /// 候補を切り替え始めたときに、Windows の変換候補 API の一覧 (はし → 橋 端 箸 …) を 2 番目以降に足す。
-    /// 打つたびには呼ばない (時間がかかることがあるため)。今選んでいる候補はそのまま選んだ状態にする。
+    /// 変換中に文節を選んだときに、変換エンジンの候補の一覧 (はし → 橋 端 箸 …) を 2 番目以降に足す。
+    /// 打つたびには呼ばない (時間がかかることがあるため。ライブ変換では呼ばない)。今選んでいる候補はそのまま選んだ状態にする。
     /// </summary>
     private void Expand(Clause clause)
     {
@@ -1361,6 +1361,8 @@ public sealed class CompositionController
         if (_converting && _clauses.Count > 0)
         {
             var selected = _clauses[_selectedClause];
+            // 選んでいる文節は、最初から候補の一覧をすべて出す (Space を 1 回押しただけでは一部しか出ず、選び間違えやすかった)。
+            if (!selected.IsEnglish && !selected.Expanded) Expand(selected);
             _host.Show(new CompositionView(
                 string.Concat(_clauses.Select(c => c.Text)),
                 selected.Candidates,

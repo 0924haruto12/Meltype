@@ -231,7 +231,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             RequestLine(0);
             return true;
         }
-        return LineContext.Classify(line) == LineKind.Code;
+        return LineContext.ClassifyText(line) == LineKind.Code;
     }
 
     /// <summary>アプリへ届いたキーで、今の行を追いかける。</summary>

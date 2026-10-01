@@ -251,7 +251,7 @@ public sealed class FocusInspector : IDisposable
         string? before = null;
         try
         {
-            if (Automation()?.Focused() is { IsPassword: false } element) before = element.Surrounding(300)?.Before;
+            if (Automation()?.Focused() is { IsPassword: false } element) before = element.Surrounding(3000)?.Before;
         }
         catch
         {

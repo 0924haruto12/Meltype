@@ -256,11 +256,28 @@ internal static class CodeProfileTests
         line.Backspace();
         Assert.Equal("x = 1 ", line.Text);
         line.NewLine();
-        Assert.Equal("", line.Text, "改行で新しい行");
+        Assert.Equal("x = 1 \n", line.Text, "改行で新しい行 (前の行も持っておく)");
+        Assert.Equal(LineKind.Code, LineContext.ClassifyText(line.Text!));
         line.Invalidate();
         Assert.True(line.Text is null, "キャレットが動いたら分からない");
         line.SetFromText("first line\r\n    print(\"こん");
-        Assert.Equal(LineKind.String, LineContext.Classify(line.Text!), "UI Automation で読んだ行の最後の改行より後ろを使う");
+        Assert.Equal(LineKind.String, LineContext.ClassifyText(line.Text!), "UI Automation で読んだ文字列の、今の行で調べる");
+    }
+
+    [Test]
+    public static void LineContext_MultiLineStringsAndComments()
+    {
+        // Python の """ の中の行 (本文) で日本語が打てなかった
+        Assert.Equal(LineKind.String, LineContext.ClassifyText("def f():\n    \"\"\"\n    "));
+        Assert.Equal(LineKind.String, LineContext.ClassifyText("x = '''\nほん"));
+        Assert.Equal(LineKind.Comment, LineContext.ClassifyText("/*\n  説明"));
+        Assert.Equal(LineKind.Comment, LineContext.ClassifyText("<!--\n"));
+        // 閉じた後はコード
+        Assert.Equal(LineKind.Code, LineContext.ClassifyText("\"\"\"\ndoc\n\"\"\"\nx = "));
+        Assert.Equal(LineKind.Code, LineContext.ClassifyText("/* a */\nint x = "));
+        // コメント・1 行の文字列の中の """ /* は数えない
+        Assert.Equal(LineKind.Code, LineContext.ClassifyText("# \"\"\" in comment\nx = "));
+        Assert.Equal(LineKind.Code, LineContext.ClassifyText("s = \"/*\"\nx = "));
     }
 
     [Test]

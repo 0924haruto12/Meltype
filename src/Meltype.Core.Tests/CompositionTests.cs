@@ -789,11 +789,14 @@ internal static class CompositionTests
     public static void Candidates_ExpandWithWindowsCandidates()
     {
         var k = new Keyboard(moreCandidates: reading => reading == "かわ" ? ["川", "皮", "河", "革"] : []);
-        k.Type("kawa ");
-        Assert.True(!k.Host.View!.Candidates.Contains("河"), "打っている間は Windows の候補を取りに行かない");
+        k.Type("kawa");
+        Assert.True(k.Host.View!.Candidates.Count == 0, "打っている間は候補を取りに行かない");
+        // 報告: Space を 1 回押しただけでは候補が一部しか出ず、選び間違えやすい。最初から一覧をすべて出す。
         k.Type(" ");
-        Assert.Equal("皮", k.Host.View!.Clauses![0], "候補を切り替え始めたら Windows の候補一覧から");
+        Assert.Equal("川", k.Host.View!.Clauses![0]);
         Assert.True(k.Host.View.Candidates.Contains("河") && k.Host.View.Candidates.Contains("革"), string.Join(",", k.Host.View.Candidates));
+        k.Type(" ");
+        Assert.Equal("皮", k.Host.View!.Clauses![0], "次の候補");
     }
 
     [Test]

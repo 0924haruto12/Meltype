@@ -36,6 +36,82 @@ public enum CodeFocus
 /// </summary>
 public static class LineContext
 {
+    /// <summary>
+    /// キャレットより前の文字列 (前の行も含んでよい) から、キャレットの位置の種類を調べる。
+    /// 前の行から続く複数行の文字列・コメント (Python の """ … """、/* … */、&lt;!-- … --&gt;) の中なら、その種類。
+    /// それ以外は、今の行 (最後の改行より後ろ) だけで調べる。
+    /// </summary>
+    public static LineKind ClassifyText(string text)
+    {
+        var lastNewline = text.LastIndexOfAny(['\r', '\n']);
+        var line = lastNewline >= 0 ? text[(lastNewline + 1)..] : text;
+        if (lastNewline >= 0 && OpenBlock(text) is { } block) return block;
+        return Classify(line);
+    }
+
+    /// <summary>
+    /// 前の行から始まって、まだ閉じていない複数行の文字列・コメントがあれば、その種類 (無ければ null)。
+    /// 1 行のコメント (# //) と 1 行の文字列 ("…" '…') の中の """ /* は数えない。
+    /// </summary>
+    private static LineKind? OpenBlock(string text)
+    {
+        string? close = null; // 閉じる記号 (""" ''' */ -->)
+        var kind = LineKind.Code;
+        var lineStart = true;
+        var startedBeforeLastLine = false;
+        var lastNewline = text.LastIndexOfAny(['\r', '\n']);
+        for (var i = 0; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (c is '\r' or '\n')
+            {
+                lineStart = true;
+                continue;
+            }
+            if (close is not null)
+            {
+                if (StartsWith(text, i, close))
+                {
+                    i += close.Length - 1;
+                    close = null;
+                }
+                continue;
+            }
+            var atStart = lineStart && !char.IsWhiteSpace(c);
+            if (!char.IsWhiteSpace(c)) lineStart = false;
+            string? open = null;
+            if (StartsWith(text, i, "\"\"\"")) (open, kind) = ("\"\"\"", LineKind.String);
+            else if (StartsWith(text, i, "'''")) (open, kind) = ("'''", LineKind.String);
+            else if (StartsWith(text, i, "/*")) (open, kind) = ("*/", LineKind.Comment);
+            else if (StartsWith(text, i, "<!--")) (open, kind) = ("-->", LineKind.Comment);
+            if (open is not null)
+            {
+                close = open;
+                startedBeforeLastLine = i < lastNewline;
+                i += (open == "*/" ? 2 : open == "-->" ? 4 : 3) - 1;
+                continue;
+            }
+            // 1 行のコメント: 行の終わりまで飛ばす
+            if (StartsWith(text, i, "//") || (c == '#' && (i + 1 == text.Length || char.IsWhiteSpace(text[i + 1]) || text[i + 1] == '#')) ||
+                (atStart && StartsWithIgnoreCase(text, i, "rem ")))
+            {
+                while (i + 1 < text.Length && text[i + 1] is not ('\r' or '\n')) i++;
+                continue;
+            }
+            // 1 行の文字列: 同じ引用符か行の終わりまで飛ばす
+            if (c is '"' or '\'' && !(c == '\'' && i > 0 && char.IsLetterOrDigit(text[i - 1])))
+            {
+                for (i++; i < text.Length && text[i] != c && text[i] is not ('\r' or '\n'); i++)
+                {
+                    if (text[i] == '\\') i++;
+                }
+                if (i < text.Length && text[i] is '\r' or '\n') i--;
+            }
+        }
+        // 今の行より前で開いて、まだ閉じていない。今の行で開いたものは、今の行だけで調べる (Classify)。
+        return close is not null && startedBeforeLastLine ? kind : null;
+    }
+
     public static LineKind Classify(string line)
     {
         if (IsChatPrompt(line)) return LineKind.Prompt;
@@ -163,19 +239,21 @@ public static class LineContext
 }
 
 /// <summary>
-/// 今の行のキャレットより前の文字列を、打鍵から追いかける (フックのスレッドと UI スレッドから呼ばれる)。
+/// キャレットより前の文字列を、打鍵から追いかける (フックのスレッドと UI スレッドから呼ばれる)。
+/// 複数行のコメント・文字列 (""" … """、/* … */) の中かを調べるため、前の行も最大 4000 文字持つ (行の区切りは改行 1 文字)。
 /// キャレットが動いた (矢印キー・クリック・フォーカスの変化・Ctrl の操作) ら分からなくなり、UI Automation で読み直す。
 /// </summary>
 public sealed class LineTracker
 {
+    private const int MaxLength = 4000;
     private readonly object _gate = new();
-    private readonly StringBuilder _line = new();
+    private readonly StringBuilder _text = new();
     private bool _known;
 
-    /// <summary>今の行のキャレットより前の文字列。分からなければ null。</summary>
+    /// <summary>キャレットより前の文字列 (前の行も含む)。分からなければ null。</summary>
     public string? Text
     {
-        get { lock (_gate) return _known ? _line.ToString() : null; }
+        get { lock (_gate) return _known ? _text.ToString() : null; }
     }
 
     public void Append(string text)
@@ -183,12 +261,8 @@ public sealed class LineTracker
         lock (_gate)
         {
             if (!_known) return;
-            foreach (var c in text)
-            {
-                if (c is '\r' or '\n') _line.Clear();
-                else _line.Append(c);
-            }
-            if (_line.Length > 500) _line.Remove(0, _line.Length - 500);
+            foreach (var c in text) _text.Append(c == '\r' ? '\n' : c);
+            Trim();
         }
     }
 
@@ -197,8 +271,9 @@ public sealed class LineTracker
         lock (_gate)
         {
             if (!_known) return;
-            if (_line.Length > 0) _line.Length--;
-            else _known = false; // 前の行とつながった
+            // 改行を消したら前の行とつながる (前の行も持っているので分かる)。
+            if (_text.Length > 0) _text.Length--;
+            else _known = false;
         }
     }
 
@@ -207,8 +282,11 @@ public sealed class LineTracker
     {
         lock (_gate)
         {
-            _line.Clear();
+            // 前の行が分からなければ、新しい行から追いかける (複数行のコメント・文字列の中かは分からない)。
+            if (!_known) _text.Clear();
+            else _text.Append('\n');
             _known = true;
+            Trim();
         }
     }
 
@@ -217,7 +295,7 @@ public sealed class LineTracker
     {
         lock (_gate)
         {
-            _line.Clear();
+            _text.Clear();
             _known = false;
         }
     }
@@ -227,15 +305,20 @@ public sealed class LineTracker
         get { lock (_gate) return _known; }
     }
 
-    /// <summary>UI Automation で読んだキャレットより前の文字列 (最後の改行より後ろを使う)。</summary>
+    /// <summary>UI Automation で読んだキャレットより前の文字列 (前の行も含めて持つ)。</summary>
     public void SetFromText(string before)
     {
-        var newline = before.LastIndexOfAny(['\r', '\n']);
         lock (_gate)
         {
-            _line.Clear();
-            _line.Append(newline >= 0 ? before[(newline + 1)..] : before);
+            _text.Clear();
+            _text.Append(before.Replace("\r\n", "\n").Replace('\r', '\n'));
             _known = true;
+            Trim();
         }
+    }
+
+    private void Trim()
+    {
+        if (_text.Length > MaxLength) _text.Remove(0, _text.Length - MaxLength);
     }
 }
