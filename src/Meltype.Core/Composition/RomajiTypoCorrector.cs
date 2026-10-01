@@ -214,6 +214,21 @@ public sealed class RomajiTypoCorrector
         return new RomajiFix(letters, ranked[0].Letters, ranked[0].Kana);
     }
 
+    /// <summary>
+    /// 英字の並びが、ローマ字としてよく使う日本語になるか (kyouha = きょう|は、sushi = すし)。
+    /// 最後まで読めて、よく使う語の読みで区切ったとき、ほぼ 2 文字以上の語か付属語だけでできているもの。
+    /// </summary>
+    public bool IsCommonJapanese(string letters)
+    {
+        var lower = letters.ToLowerInvariant();
+        var analysis = _romaji.AnalyzeFragment(lower);
+        if (!analysis.IsValid || analysis.Partial is { Length: > 0 } and not "n") return false;
+        var kana = analysis.Kana + (analysis.Partial == "n" ? "ん" : "");
+        if (kana.Length < 2) return false;
+        var (cost, _) = Segment(kana, -1);
+        return cost <= kana.Length / 2.0;
+    }
+
     /// <summary>ローマ字として読めない最初の文字の位置 (無ければ -1)。final でなければ語末の途中の子音は読めるとみなす。</summary>
     public int FirstUnreadable(string letters, bool final)
     {

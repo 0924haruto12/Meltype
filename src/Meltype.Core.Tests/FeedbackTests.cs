@@ -332,6 +332,22 @@ internal static class CodeProfileTests
 internal static class LanguageLearningTests
 {
     [Test]
+    public static void CommonJapanese_NeedsTwoTimesToBecomeEnglish()
+    {
+        // 一度 kyouha を英字で確定しただけで、ずっと kyouha朝から… になっていた。
+        var typos = RomajiTypoCorrector.Load(CompositionTests.Detector.Romaji);
+        Assert.True(typos.IsCommonJapanese("kyouha") && typos.IsCommonJapanese("sushi"), "よく使う日本語の読み");
+        Assert.True(!typos.IsCommonJapanese("api") && !typos.IsCommonJapanese("github") && !typos.IsCommonJapanese("tao"), "日本語の語にならない");
+        var memory = new LanguageMemory(null) { IsCommonJapanese = typos.IsCommonJapanese };
+        memory.Remember("kyouha", english: true);
+        Assert.True(memory.Get("kyouha") is null, "1 回では英語にしない");
+        memory.Remember("kyouha", english: true);
+        Assert.Equal(true, memory.Get("kyouha") ?? false, "2 回で英語");
+        memory.Remember("api", english: true);
+        Assert.Equal(true, memory.Get("api") ?? false, "ふつうの語は 1 回で英語");
+    }
+
+    [Test]
     public static void F10_TeachesEnglish_ThenUsedInContext()
     {
         var memory = new LanguageMemory(null);

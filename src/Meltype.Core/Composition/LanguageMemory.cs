@@ -20,7 +20,16 @@ public sealed class LanguageMemory
     {
         public bool English { get; set; }
         public DateTime Used { get; set; }
+
+        /// <summary>同じ向きに直した回数 (前の版で保存したものは 0 = 1 回)。</summary>
+        public int Count { get; set; }
     }
+
+    /// <summary>
+    /// ローマ字としてよく使う日本語になる語か (kyouha = 今日は、sushi = すし)。こういう語は、一度英字にして確定しただけでは
+    /// 英語として覚えない (2 回で覚える)。間違えて一度確定しただけで、ふつうの日本語がずっと英字になってしまうため。
+    /// </summary>
+    public Func<string, bool>? IsCommonJapanese { get; set; }
 
     public LanguageMemory(string? path)
     {
@@ -40,7 +49,12 @@ public sealed class LanguageMemory
     public int Count => _entries.Count;
 
     /// <summary>覚えている語なら英語か (true) 日本語か (false)。覚えていなければ null。word は小文字の英字。</summary>
-    public bool? Get(string word) => _entries.TryGetValue(word, out var entry) ? entry.English : null;
+    public bool? Get(string word)
+    {
+        if (!_entries.TryGetValue(word, out var entry)) return null;
+        if (entry.English && Math.Max(1, entry.Count) < 2 && IsCommonJapanese?.Invoke(word) == true) return null;
+        return entry.English;
+    }
 
     /// <summary>ユーザーが英字 / かなに直した語を覚える (2 文字以上の英字だけ)。</summary>
     public void Remember(string word, bool english)
@@ -50,11 +64,15 @@ public sealed class LanguageMemory
         if (_entries.TryGetValue(word, out var old) && old.English == english)
         {
             old.Used = DateTime.UtcNow;
+            old.Count = Math.Max(1, old.Count) + 1;
+            if (old.Count == 2 && english && IsCommonJapanese?.Invoke(word) == true) Diagnostics.Log.Decision($"「{word}」は次から英語にします (2 回目の学習)。");
         }
         else
         {
-            _entries[word] = new Entry { English = english, Used = DateTime.UtcNow };
-            Diagnostics.Log.Decision($"「{word}」は次から{(english ? "英語" : "日本語")}にします (学習)。");
+            _entries[word] = new Entry { English = english, Used = DateTime.UtcNow, Count = 1 };
+            Diagnostics.Log.Decision(english && IsCommonJapanese?.Invoke(word) == true
+                ? $"「{word}」はよく使う日本語の読みなので、もう一度英字にして確定したら英語にします (学習)。"
+                : $"「{word}」は次から{(english ? "英語" : "日本語")}にします (学習)。");
         }
         if (_entries.Count > MaxEntries)
         {

@@ -115,12 +115,18 @@ public sealed class CompositionDetector
             // (sometealcoholic → 染めて + alcoholic。teal を取ると残りの coholic がローマ字になってしまう)。
             if (found > i && found < n && !kanaInput && !IsAsciiSymbol(units[i]))
             {
-                for (var k = i + 1; k < found; k++)
+                // 後ろに日本語が続いてもよい (motte|school|he → mottes を取ると chool が ちょおl になる。持って + school + へ)。
+                var foundLength = Raw(units, i, found).Length;
+                for (var k = i + 1; k < found && found >= 0; k++)
                 {
-                    if (IsLongEnglishWord(Raw(units, k, n) + pending) && n - k > found - i)
+                    for (var e = n; e > found; e--)
                     {
-                        found = -1;
-                        break;
+                        var word = Raw(units, k, e) + (e == n ? pending : "");
+                        if (word.Length >= foundLength && IsLongEnglishWord(word))
+                        {
+                            found = -1;
+                            break;
+                        }
                     }
                 }
             }

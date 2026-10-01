@@ -480,6 +480,15 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void LaterLongerEnglishWord_WinsOverShorterOne()
+    {
+        // motteschoolhe が mottes (英単語) + ちょおl + へ になっていた。持って + school + へ。
+        var k = new Keyboard();
+        k.Type("kameramotteschoolheiku\n");
+        Assert.Equal("かめらもってschoolへいく", k.Host.Document);
+    }
+
+    [Test]
     public static void SingleCapital_ThenParticle_IsSplit()
     {
         // Anisiyouka が英字のままになっていた (A にしようか)。名前 (Tanaka) は区切らない。
