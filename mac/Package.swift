@@ -12,7 +12,8 @@ let package = Package(
     name: "MeltypeIME",
     platforms: [.macOS(.v13)],
     dependencies: [
-        .package(url: "https://github.com/azooKey/AzooKeyKanaKanjiConverter", branch: "main"),
+        // main は API がよく変わるので、確かめたコミットに固定する (更新するときは Converter.swift も合わせて直す)。
+        .package(url: "https://github.com/azooKey/AzooKeyKanaKanjiConverter", revision: "d59a28e4c7ca049aef04f29a91eae9677a7753f2"),
     ],
     targets: [
         .executableTarget(

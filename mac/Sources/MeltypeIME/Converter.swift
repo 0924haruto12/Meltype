@@ -9,7 +9,8 @@ import KanaKanjiConverterModuleWithDefaultDictionary
 final class MeltypeConverter {
     static let shared = MeltypeConverter()
 
-    private let converter = KanaKanjiConverter()
+    // 同梱の辞書 (KanaKanjiConverterModuleWithDefaultDictionary) を使う変換エンジン
+    private let converter = KanaKanjiConverter.withDefaultDictionary()
     private let options: ConvertRequestOptions
 
     private init() {
@@ -17,13 +18,15 @@ final class MeltypeConverter {
         let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Meltype/azooKey", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        options = .withDefaultDictionary(
-            requireJapanesePrediction: false,
-            requireEnglishPrediction: false,
+        options = ConvertRequestOptions(
+            requireJapanesePrediction: .disabled,
+            requireEnglishPrediction: .disabled,
             keyboardLanguage: .ja_JP,
             learningType: .nothing,
             memoryDirectoryURL: directory,
             sharedContainerURL: directory,
+            textReplacer: .withDefaultEmojiDictionary(),
+            specialCandidateProviders: KanaKanjiConverter.defaultSpecialCandidateProviders,
             metadata: .init(versionString: "Meltype 0.1.0")
         )
     }
