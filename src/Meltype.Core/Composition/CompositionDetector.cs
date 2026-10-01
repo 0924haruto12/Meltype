@@ -175,7 +175,7 @@ public sealed class CompositionDetector
         var analysis = _romaji.Analyze(lower);
         if (!analysis.IsValid) return _english.Words.ContainsWord(lower) || _english.IsPrefix(lower) || lower.Length >= 4;
         // 確定するときに呼ぶので、語は打ち終わっている (it が itai の打ちかけかは気にしない)。
-        var word = _english.Words.ContainsWord(lower) || SpellChecker?.IsWord(lower) == true;
+        var word = _english.Words.ContainsWord(lower) || IsSpellWord(lower);
         return word && analysis.Partial.Length > 0 && analysis.Partial != "n";
     }
 
@@ -189,8 +189,23 @@ public sealed class CompositionDetector
         var lower = raw.ToLowerInvariant();
         var analysis = _romaji.Analyze(lower);
         if (!analysis.IsValid || analysis.Partial.Length == 0 || analysis.Partial is "n" or "nn") return false;
-        return _english.Words.ContainsWord(lower) || SpellChecker?.IsWord(lower) == true;
+        return _english.Words.ContainsWord(lower) || IsSpellWord(lower);
     }
+
+    /// <summary>スペルチェッカーが正しいと言う英単語か、よくある打ち間違い (teh、recieve) か。</summary>
+    private bool IsSpellWord(string lower) => SpellChecker is { } checker && (checker.IsWord(lower) || checker.AutoCorrection(lower) is not null);
+
+    /// <summary>よくある英語の打ち間違いなら正しい綴り (teh → the)。大文字で始まる語は大文字で始める。</summary>
+    public string? EnglishAutoCorrection(string word)
+    {
+        if (word.Length < 2 || !word.All(char.IsAsciiLetter) || SpellChecker?.AutoCorrection(word.ToLowerInvariant()) is not { } right) return null;
+        if (word.All(char.IsAsciiLetterUpper) && word.Length > 1) return right.ToUpperInvariant();
+        return char.IsAsciiLetterUpper(word[0]) ? char.ToUpperInvariant(right[0]) + right[1..] : right;
+    }
+
+    /// <summary>同梱の英単語の辞書・固有名詞にある語か、ユーザーが英字に直して覚えた語か (ok、github)。スペルチェッカーは使わない。</summary>
+    public bool IsListedEnglishWord(string lower) =>
+        lower.Length >= 2 && (Memory?.Get(lower) ?? (_english.Words.ContainsWord(lower) || _proper.Contains(lower)));
 
     /// <summary>
     /// 知っている英単語か (同梱の辞書・固有名詞・ユーザーが英字に直して覚えた語・4 文字以上ならスペルチェッカー)。
@@ -201,7 +216,7 @@ public sealed class CompositionDetector
         var lower = word.ToLowerInvariant();
         if (lower.Length < 3 || !lower.All(char.IsAsciiLetterLower)) return false;
         if (Memory?.Get(lower) is { } learned) return learned;
-        return _english.Words.ContainsWord(lower) || _proper.Contains(lower) || (lower.Length >= 4 && SpellChecker?.IsWord(lower) == true);
+        return _english.Words.ContainsWord(lower) || _proper.Contains(lower) || (lower.Length >= 4 && IsSpellWord(lower));
     }
 
     private static int Score(bool? english) => english switch { true => 1, false => -1, null => 0 };
@@ -224,7 +239,7 @@ public sealed class CompositionDetector
         var conservative = level == DetectionLevel.Conservative;
         // 小書き文字の綴り (mala = まぁ, xtu = っ) で最後まで読める語は、日本語をわざわざ打っている。同梱の辞書の英単語以外は日本語。
         var smallKanaSpelling = !_romaji.Analyze(lower).IsValid && _romaji.AnalyzeFragment(lower) is { IsValid: true, Partial: "" };
-        var spellWord = !inDictionary && !smallKanaSpelling && SpellChecker?.IsWord(lower) == true;
+        var spellWord = !inDictionary && !smallKanaSpelling && IsSpellWord(lower);
         var exact = inDictionary || (spellWord && !_romaji.Analyze(lower).IsValid);
         var prefix = growing && lower.Length >= 4 && !conservative && !smallKanaSpelling && _english.IsPrefix(lower);
 
@@ -320,7 +335,7 @@ public sealed class CompositionDetector
         var lower = span.ToLowerInvariant();
         var inDictionary = _english.Words.ContainsWord(lower) || (lower.Length >= 4 && _proper.Contains(lower));
         // キー列が偶然スペルチェッカーの語になることがあるので、スペルチェッカーの語は 4 文字以上だけ。
-        var word = inDictionary || (lower.Length >= 4 && SpellChecker?.IsWord(lower) == true);
+        var word = inDictionary || (lower.Length >= 4 && IsSpellWord(lower));
         var prefix = atEnd && !final && level == DetectionLevel.Aggressive && lower.Length >= 4 && _english.IsPrefix(lower);
 
         // Shift を押して打った大文字で始まる語は英語 (手動でも)。
@@ -381,7 +396,7 @@ public sealed class CompositionDetector
         if (raw.Length < 5 || !raw.All(char.IsAsciiLetter)) return false;
         var lower = raw.ToLowerInvariant();
         if (_romaji.Analyze(lower).IsValid) return false;
-        return _english.Words.ContainsWord(lower) || _proper.Contains(lower) || SpellChecker?.IsWord(lower) == true;
+        return _english.Words.ContainsWord(lower) || _proper.Contains(lower) || IsSpellWord(lower);
     }
 
     private bool IsKnownCapitalizedWord(string word)

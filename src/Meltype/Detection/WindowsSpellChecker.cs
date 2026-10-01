@@ -37,6 +37,54 @@ public sealed class WindowsSpellChecker : IWordChecker
         return result;
     }
 
+    private readonly ConcurrentDictionary<string, string?> _corrections = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Windows の自動修正の一覧にある打ち間違いなら、正しい綴り (teh → the、recieve → receive)。
+    /// スペルチェッカーが「置き換える」と言うものだけで、候補が複数あるもの (提案だけのもの) は null。
+    /// </summary>
+    public string? AutoCorrection(string lower)
+    {
+        if (lower.Length < 2 || lower.Length > 30 || !lower.All(char.IsAsciiLetterLower)) return null;
+        if (_corrections.TryGetValue(lower, out var known)) return known;
+        string? result = null;
+        lock (_gate)
+        {
+            var checker = Checker();
+            if (checker is null) return null;
+            try
+            {
+                if (checker.Check(lower, out var errors) >= 0 && errors is not null)
+                {
+                    try
+                    {
+                        if (errors.Next(out var item) == 0 && item is ISpellingError error)
+                        {
+                            // CORRECTIVE_ACTION_REPLACE = 2
+                            if (error.GetCorrectiveAction(out var action) >= 0 && action == 2 && error.GetReplacement(out var text) >= 0 && text != IntPtr.Zero)
+                            {
+                                result = Marshal.PtrToStringUni(text);
+                                Marshal.FreeCoTaskMem(text);
+                            }
+                            Marshal.ReleaseComObject(error);
+                        }
+                    }
+                    finally
+                    {
+                        Marshal.ReleaseComObject(errors);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Diagnostics.Log.Warn($"スペルチェッカーの自動修正でエラー ({ex.Message})");
+            }
+        }
+        if (_corrections.Count > 20000) _corrections.Clear();
+        _corrections[lower] = result;
+        return result;
+    }
+
     private bool Check(string word)
     {
         lock (_gate)
@@ -119,5 +167,14 @@ public sealed class WindowsSpellChecker : IWordChecker
     private interface IEnumSpellingError
     {
         [PreserveSig] int Next([MarshalAs(UnmanagedType.IUnknown)] out object? value);
+    }
+
+    [ComImport, Guid("B7C82D61-FBE8-4B47-9B27-6C0D2E0DE0A3"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface ISpellingError
+    {
+        [PreserveSig] int GetStartIndex(out uint value);
+        [PreserveSig] int GetLength(out uint value);
+        [PreserveSig] int GetCorrectiveAction(out int value);
+        [PreserveSig] int GetReplacement(out IntPtr value);
     }
 }

@@ -399,3 +399,54 @@ internal static class RawCandidateTests
         }
     }
 }
+
+internal static class RomajiTypoTests
+{
+    [Test]
+    public static void RomajiTypos_AreFixedOnCommit()
+    {
+        foreach (var (typed, expected) in new[]
+        {
+            ("onegaishimsu", "おねがいします"),   // 抜け
+            ("arigatpu", "ありがとう"),           // 隣のキー
+            ("arigtou", "ありがとう"),
+            ("sumimasne", "すみません"),          // 入れ替わり
+            ("shitmeasu", "してます"),
+            ("gozaimsu", "ございます"),
+            ("yorosikuy", "よろしく"),            // 余計な 1 文字
+            ("kinouhaamegafuttemshita", "きのうはあめがふってました"),
+        })
+        {
+            var k = new CompositionTests.Keyboard();
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, typed);
+        }
+    }
+
+    [Test]
+    public static void RomajiTypos_LeaveEnglishAndAbbreviations()
+    {
+        foreach (var (typed, expected) in new[]
+        {
+            ("oknotasuku", "okのたすく"),
+            ("googlede", "googleで"),
+            ("kyouhamtgdesu", "きょうはmtgです"),
+            ("sdakega", "sだけが"),
+            ("htmlnokaisetu", "htmlのかいせつ"),
+        })
+        {
+            var k = new CompositionTests.Keyboard();
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, typed);
+        }
+    }
+
+    [Test]
+    public static void RomajiTypos_CanBeTurnedOff()
+    {
+        var k = new CompositionTests.Keyboard();
+        k.CorrectTypos = false;
+        k.Type("onegaishimsu\n");
+        Assert.Equal("おねがいしmす", k.Host.Document);
+    }
+}

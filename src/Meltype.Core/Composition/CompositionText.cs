@@ -103,6 +103,7 @@ public sealed class CompositionText
         }
         // 記号・数字の前で、途中の n は ん に、読めない子音は英字のまま確定させる。
         Normalize(final: true);
+        FixTypos();
         // 数字の後の . と , は小数点・桁区切り (GPL3.0、1,000)。句点・読点にしない。
         if (c is ',' or '.' && _units.Count > 0 && _units[^1].Raw is [var previous] && char.IsAsciiDigit(previous))
         {
@@ -397,6 +398,80 @@ public sealed class CompositionText
         }
         return null;
     }
+
+    /// <summary>ローマ字の打ち間違いを直すもの (null なら直さない)。</summary>
+    public RomajiTypoCorrector? TypoCorrector { get; set; }
+
+    /// <summary>ローマ字の打ち間違いを直すか (設定)。</summary>
+    public Func<bool> CorrectTypos { get; set; } = () => true;
+
+    /// <summary>
+    /// 英字を続けて打った部分 (ローマ字) の打ち間違いを直す (onegaishimsu → onegaishimasu)。直したら true。
+    /// 確定・変換の直前 (Space・Enter・記号) に呼ぶ。打っている途中は続きを打つと読めることがあり、
+    /// 直し方も続きで変わる (futtemshi の時点では ふってんし、futtemshita まで打てば ふってました) ので直さない。
+    /// 大文字を含む部分・英単語は直さない。
+    /// </summary>
+    public bool FixTypos()
+    {
+        if (TypoCorrector is not { } corrector || !CorrectTypos() || Mode != DisplayMode.Auto || KanaInput) return false;
+        var changed = false;
+        var start = 0;
+        while (start < _units.Count)
+        {
+            if (!IsLetters(_units[start].Raw))
+            {
+                start++;
+                continue;
+            }
+            var end = start;
+            while (end < _units.Count && IsLetters(_units[end].Raw)) end++;
+            var atEnd = end == _units.Count;
+            var letters = string.Concat(_units.Skip(start).Take(end - start).Select(u => u.Raw)) + (atEnd ? Pending : "");
+            if (letters.All(char.IsAsciiLetterLower) && !_detector.IsKnownEnglishWord(letters) &&
+                corrector.FirstUnreadable(letters, final: true) is var first and > 0 &&
+                !ContainsEnglishWord(letters, first) &&
+                corrector.Fix(letters, final: true) is { } fix)
+            {
+                Diagnostics.Log.Decision($"ローマ字の打ち間違いを直しました: 「{fix.Wrong}」→「{fix.Right}」({fix.Kana})");
+                var analysis = _detector.Romaji.AnalyzeFragment(fix.Right);
+                var units = analysis.Tokens.Select(t => new CompositionUnit(t.Kana, t.Romaji)).ToList();
+                _units.RemoveRange(start, end - start);
+                _units.InsertRange(start, units);
+                if (atEnd)
+                {
+                    _pending.Clear();
+                    _pending.Append(analysis.Partial);
+                    Normalize(final: true);
+                }
+                changed = true;
+                end = start + units.Count;
+            }
+            start = end;
+        }
+        return changed;
+    }
+
+    /// <summary>
+    /// 読めない文字 (位置 first) が英単語の一部か。
+    /// 先頭から打った英単語 (google|de、kotlin|ni、ok|no) と、同梱の辞書・固有名詞にある 5 文字以上の英単語 (…github|ni) は直さない。
+    /// スペルチェッカーだけが知っている語は、先頭からの 5 文字以上のときだけ見る
+    /// (日本語のローマ字の途中にも、shims や him のような英単語が偶然現れる)。
+    /// </summary>
+    private bool ContainsEnglishWord(string letters, int first)
+    {
+        for (var s = Math.Max(0, first - 12); s <= first; s++)
+        {
+            for (var e = Math.Min(letters.Length, s + 16); e > first; e--)
+            {
+                var word = letters[s..e];
+                if (s == 0 && word.Length >= 5 && _detector.IsKnownEnglishWord(word)) return true;
+                if ((s == 0 || word.Length >= 5) && _detector.IsListedEnglishWord(word)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool IsLetters(string raw) => raw.Length > 0 && raw.All(char.IsAsciiLetter);
 
     /// <summary>単位 [start, end) の読みを、正しい読み (カタカナ) に置き換える。end が単位の数を超えるときは語末の n も含む。</summary>
     public void ReplaceReading(int start, int end, string rightKatakana)

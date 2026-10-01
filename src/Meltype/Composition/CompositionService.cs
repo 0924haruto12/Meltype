@@ -57,6 +57,8 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             Languages = Languages,
             Translations = options.Translations ?? TranslationDictionary.Load(),
             TranslationCandidates = options.TranslationCandidates,
+            RomajiTypos = options.RomajiTypos ?? RomajiTypoCorrector.Load(detector.Romaji),
+            CorrectTypos = options.CorrectTypos,
             TranslationHistory = options.TranslationHistory ?? new TranslationHistory(Config.AppPaths.TranslationHistoryFile),
         };
         _hybrid = new HybridConverter(options.Engine, _mozc, _converter, reading => _windowsCandidates.Get(reading));

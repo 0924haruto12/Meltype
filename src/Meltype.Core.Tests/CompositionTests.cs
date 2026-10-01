@@ -121,6 +121,8 @@ internal static class CompositionTests
         private static readonly CandidateDictionary Candidates = CandidateDictionary.Load(null);
         private static readonly ContextRules Rules = ContextRules.Load(null);
         private static readonly MisspellingDictionary Misspellings = MisspellingDictionary.Load(null);
+        private static readonly Lazy<RomajiTypoCorrector> SharedTypos = new(() => RomajiTypoCorrector.Load(Detector.Romaji));
+        private static RomajiTypoCorrector Typos => SharedTypos.Value;
         private bool _directEnglishWord;
 
         /// <summary>自動判定の強さ。</summary>
@@ -130,6 +132,7 @@ internal static class CompositionTests
 
         /// <summary>かな入力 (JIS) か。</summary>
         public bool Kana { get; set; }
+        public bool CorrectTypos { get; set; } = true;
 
         /// <summary>かな入力で、仮想キーを順に打つ (shift: その打鍵で Shift を押す)。</summary>
         public void TypeKeys(params (int Vk, bool Shift)[] keys)
@@ -183,6 +186,8 @@ internal static class CompositionTests
                 Languages = languages,
                 Translations = translations,
                 TranslationHistory = translationHistory,
+                RomajiTypos = Typos,
+                CorrectTypos = () => CorrectTypos,
             });
         }
 

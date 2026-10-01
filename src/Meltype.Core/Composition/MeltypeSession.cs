@@ -135,6 +135,8 @@ public sealed class MeltypeSession
             Languages = languages,
             Translations = TranslationDictionary.Load(),
             TranslationCandidates = () => settings.TranslationCandidates,
+            RomajiTypos = RomajiTypoCorrector.Load(detector.Romaji),
+            CorrectTypos = () => settings.CorrectTypos,
             TranslationHistory = new TranslationHistory(AppPaths.TranslationHistoryFile),
         };
         return new MeltypeSession(detector, converter, options, () => settings);

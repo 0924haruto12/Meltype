@@ -112,6 +112,12 @@ public sealed class CompositionOptions
     /// <summary>よくある書き間違い (ブレスレッド → ブレスレット) の辞書。「もしかして」に使う。null なら出さない。</summary>
     public MisspellingDictionary? Misspellings { get; init; }
 
+    /// <summary>ローマ字の打ち間違いを直すもの (onegaishimsu → お願いします)。null なら直さない。</summary>
+    public RomajiTypoCorrector? RomajiTypos { get; init; }
+
+    /// <summary>ローマ字の打ち間違いを直すか (設定)。</summary>
+    public Func<bool> CorrectTypos { get; init; } = () => true;
+
     /// <summary>ユーザーが英字 / かなに直した語の学習。</summary>
     public LanguageMemory? Languages { get; init; }
 
@@ -203,6 +209,8 @@ public sealed class CompositionController
         _host = host;
         _options = options ?? new CompositionOptions();
         _text.Level = () => _options.Level();
+        _text.TypoCorrector = _options.RomajiTypos;
+        _text.CorrectTypos = () => _options.CorrectTypos();
     }
 
     /// <summary>変換ボックスに入力中か、英数状態の判定のために打鍵を保留中か。</summary>
@@ -355,14 +363,16 @@ public sealed class CompositionController
         switch (vk)
         {
             case VirtualKeys.Return:
+                _text.FixTypos();
                 Commit();
                 return;
             case VirtualKeys.Space:
+                _text.FixTypos();
                 // 英語と判定した語で終わっているなら、変換ではなく確定して空白を入れる
                 // (日本語の部分は、ライブ変換が ON なら漢字にして、OFF なら見えているかなのまま確定)。
-                if (_text.IsAlphanumericAt(final: true)) Commit(suffix: " ");
-                else if (EndsWithEnglish(final: true)) CommitText(_text.RenderSegments(final: true, _options.LiveConversion() ? Convert : null) + " ", english: true, _text.Raw);
-                else if (_text.Mode == DisplayMode.Auto && _detector.IsEnglishAtWordEnd(_text.Raw, _options.Level())) CommitText(_text.Raw + " ", english: true, _text.Raw);
+                if (_text.IsAlphanumericAt(final: true)) Commit(suffix: " ", fixEnglish: true);
+                else if (EndsWithEnglish(final: true)) CommitText(FixEnglishTypo(_text.RenderSegments(final: true, _options.LiveConversion() ? Convert : null)) + " ", english: true, _text.Raw);
+                else if (_text.Mode == DisplayMode.Auto && _detector.IsEnglishAtWordEnd(_text.Raw, _options.Level())) CommitText(FixEnglishTypo(_text.Raw) + " ", english: true, _text.Raw);
                 else
                 {
                     // Space で変換した = 語の後に空白を打とうとした、とも取れる (確定し直して英語にするときに空白を足す)。
@@ -1043,15 +1053,29 @@ public sealed class CompositionController
         if (!_text.IsEmpty) Commit();
     }
 
-    private void Commit(string suffix = "")
+    private void Commit(string suffix = "", bool fixEnglish = false)
     {
         var converting = _converting && _clauses.Count > 0;
         var text = converting ? string.Concat(_clauses.Select(c => c.Text)) : CurrentDisplay(final: true);
+        if (fixEnglish && !converting && _text.Mode == DisplayMode.Auto) text = FixEnglishTypo(text);
         var english = converting ? _clauses.All(c => c.IsEnglish) : _text.IsAlphanumericAt(final: true);
         var chosen = converting && _clauses.Any(c => c.Changed);
         if (converting) Learn();
         else LearnLanguage();
         CommitText(text + suffix, english, _text.Raw, chosen);
+    }
+
+    /// <summary>
+    /// 英単語で終わる文字列の最後の語が、よくある打ち間違い (teh、recieve) なら正しい綴りにする (Space で確定するとき)。
+    /// </summary>
+    private string FixEnglishTypo(string text)
+    {
+        if (!_options.CorrectTypos()) return text;
+        var start = text.Length;
+        while (start > 0 && char.IsAsciiLetter(text[start - 1])) start--;
+        if (start == text.Length || _detector.EnglishAutoCorrection(text[start..]) is not { } right) return text;
+        Diagnostics.Log.Decision($"英語の打ち間違いを直しました: 「{text[start..]}」→「{right}」");
+        return text[..start] + right;
     }
 
     /// <summary>

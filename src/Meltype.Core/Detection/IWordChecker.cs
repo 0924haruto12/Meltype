@@ -14,4 +14,7 @@ public interface IWordChecker
 
     /// <summary>小文字の英単語 (a-z だけ) が、英語として正しい綴りか。</summary>
     bool IsWord(string lower);
+
+    /// <summary>よくある打ち間違い (teh → the) なら、OS の自動修正の綴り。無ければ null。</summary>
+    string? AutoCorrection(string lower) => null;
 }

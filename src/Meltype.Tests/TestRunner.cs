@@ -15,6 +15,13 @@ internal static class TestRunner
         TestSupport.WordChecker = Detection.WindowsSpellChecker.Shared;
         // dotnet run --project src/Meltype.Tests -- --convert きょうはいいてんきです
         // で、Microsoft IME の変換エンジン (MSIME.Japan) が使えるかを確かめる。
+        // dotnet run --project src/Meltype.Tests -- --autocorrect teh recieve
+        // で、Windows のスペルチェッカーの自動修正 (teh → the) を確かめる。
+        if (args.FirstOrDefault() == "--autocorrect")
+        {
+            foreach (var word in args.Skip(1)) Console.WriteLine($"{word} → {Detection.WindowsSpellChecker.Shared.AutoCorrection(word) ?? "(なし)"}");
+            return 0;
+        }
         if (args.FirstOrDefault() == "--type")
         {
             // dotnet run --project src/Meltype.Tests -- --type "ke-kiwotabeta "
