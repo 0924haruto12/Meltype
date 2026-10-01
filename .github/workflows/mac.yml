@@ -1,0 +1,58 @@
+name: mac
+
+# Mac 版 (mac/) をビルドして、テスター向けの zip (Meltype.app + install.sh + 説明) を実行結果 (Artifacts) に置く。
+# Actions の画面から手動で実行するか、Mac 版・共通部分を変えて push したとき。タグ (v*) ならリリースにも添付する。
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths:
+      - 'mac/**'
+      - 'src/Meltype.Core/**'
+      - 'src/Meltype.Mac.Native/**'
+      - 'dictionaries/**'
+      - '.github/workflows/mac.yml'
+
+jobs:
+  app:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Tools
+        run: |
+          sw_vers
+          swift --version
+          dotnet --version
+      # azooKey の変換エンジンと辞書 (Swift Package) は大きいので、次からはキャッシュを使う。
+      - uses: actions/cache@v4
+        with:
+          path: mac/.build
+          key: mac-swiftpm-${{ hashFiles('mac/Package.swift', 'mac/Package.resolved') }}
+          restore-keys: mac-swiftpm-
+      - name: Build
+        working-directory: mac
+        run: ./build.sh --no-install
+      - name: Package
+        run: |
+          mkdir -p dist/Meltype-mac
+          cp -R mac/build/Meltype.app dist/Meltype-mac/
+          cp mac/install.sh mac/TESTER-README.txt dist/Meltype-mac/
+          cp LICENSE THIRD-PARTY-NOTICES.md dist/Meltype-mac/
+          chmod +x dist/Meltype-mac/install.sh
+          version=$(date +%Y%m%d-%H%M)
+          (cd dist && ditto -c -k --keepParent Meltype-mac "Meltype-mac-test-$version.zip")
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: meltype-mac
+          path: dist/Meltype-mac-test-*.zip
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Meltype-mac-test-*.zip
