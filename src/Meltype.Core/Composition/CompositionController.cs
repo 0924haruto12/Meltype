@@ -327,6 +327,19 @@ public sealed class CompositionController
                 Hold(e);
                 return;
             }
+            // 母音の後の - は長音 (ro-maji → ろーまじ、de-ta → でーた)。英単語の途中にはまず出てこないので、ローマ字として
+            // 読めれば日本語に戻す。英語の接頭辞 (e-mail、re-do、co-op) は今までどおり英語として出す。
+            if (vk == VirtualKeys.OemMinus && _swallowedShift.Count == 0 && _heldLetters.Length > 0 &&
+                !HyphenPrefixes.Contains(_heldLetters.ToString()) &&
+                _detector.Romaji.AnalyzeFragment(_heldLetters.ToString()) is { IsValid: true, Partial: "" })
+            {
+                _held.Add(e);
+                _heldDown.Add(vk);
+                _heldLetters.Append('-');
+                Diagnostics.Log.Decision($"英数状態でローマ字を検知: 「{_heldLetters}」(母音の後の長音)");
+                SwitchHeldToJapanese();
+                return;
+            }
             // 英字以外のキー・Shift で判定を打ち切り、英語として出してから、そのキーを普通に処理する。
             Diagnostics.Log.Info($"英数状態の判定を打ち切り: キー 0x{vk:X2} (Shift {_swallowedShift.Count})");
             ReleaseHeldAsEnglish();
@@ -556,6 +569,9 @@ public sealed class CompositionController
     }
 
     // ---- 英数状態のローマ字判定 ----
+
+    // - を付けて使う英語の接頭辞 (e-mail、re-do、co-op、x-ray)
+    private static readonly HashSet<string> HyphenPrefixes = ["a", "e", "i", "o", "u", "re", "co", "ex", "non", "anti", "semi", "multi", "pre", "sub", "post", "mid", "self", "well"];
 
     private void Hold(KeyEvent e)
     {

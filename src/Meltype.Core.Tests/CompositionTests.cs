@@ -424,6 +424,22 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void DirectMode_LongVowelDashSwitchesToJapanese()
+    {
+        // 英数状態で ro-maji と打つと、- の時点で英語として出してしまっていた (ローマ字 が打てない)。
+        var k = new Keyboard(direct: true);
+        k.Type("ro-maji");
+        Assert.True(!k.Direct, "母音の後の - (長音) で日本語に戻る");
+        Assert.Equal("ろーまじ", k.Showing);
+        Assert.Equal(0, k.Host.Events.Count(e => e.StartsWith("down:")), "英字をアプリに送ってはいない");
+
+        // 英語の接頭辞 (e-mail) は英語のまま
+        k = new Keyboard(direct: true);
+        k.Type("e-mail");
+        Assert.True(k.Direct, "e-mail は英数のまま");
+    }
+
+    [Test]
     public static void DirectMode_EnglishPassesThroughInOrder()
     {
         var k = new Keyboard(direct: true);

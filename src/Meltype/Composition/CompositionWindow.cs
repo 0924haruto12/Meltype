@@ -58,6 +58,9 @@ internal sealed class CompositionWindow : Form
         Invalidate();
     }
 
+    /// <summary>候補の一覧に一度に出す数 (Microsoft IME と同じく 9 個)。</summary>
+    private const int PageSize = 9;
+
     private Size Measure(CompositionView view)
     {
         using var g = CreateGraphics();
@@ -76,7 +79,9 @@ internal sealed class CompositionWindow : Form
                 var note = view.Notes?.ElementAtOrDefault(i) is { } n ? TextRenderer.MeasureText(g, n, _hintFont).Width + 12 : 0;
                 width = Math.Max(width, TextRenderer.MeasureText(g, $"9  {view.Candidates[i]}", _candidateFont).Width + 28 + note);
             }
-            height += view.Candidates.Count * (_candidateFont.Height + 4) + 6;
+            height += Math.Min(view.Candidates.Count, PageSize) * (_candidateFont.Height + 4) + 6;
+            // 2 ページ以上あるときは、下に「3 / 27」を出す分
+            if (view.Candidates.Count > PageSize) height += _hintFont.Height + 2;
         }
         width = Math.Max(width, TextRenderer.MeasureText(g, view.Hint, _hintFont).Width + 16);
         height += _hintFont.Height + 6;
@@ -129,7 +134,10 @@ internal sealed class CompositionWindow : Form
 
         if (view.Converting)
         {
-            for (var i = 0; i < view.Candidates.Count; i++)
+            // 9 個ずつのページに分けて、選んでいる候補のページだけを出す (候補が多いと画面に収まらないため)。
+            var first = Math.Max(0, view.SelectedIndex) / PageSize * PageSize;
+            var listTop = y;
+            for (var i = first; i < Math.Min(view.Candidates.Count, first + PageSize); i++)
             {
                 var rowHeight = _candidateFont.Height + 4;
                 if (i == view.SelectedIndex)
@@ -137,7 +145,7 @@ internal sealed class CompositionWindow : Form
                     using var highlight = new SolidBrush(Color.FromArgb(60, 76, 160, 255));
                     g.FillRectangle(highlight, 4, y - 2, Width - 8, rowHeight);
                 }
-                DrawText(g, $"{i + 1}  {view.Candidates[i]}", _candidateFont, new Point(12, y),
+                DrawText(g, $"{i - first + 1}  {view.Candidates[i]}", _candidateFont, new Point(12, y),
                     i == view.SelectedIndex ? Color.White : Color.FromArgb(200, 200, 200),
                     i == view.SelectedIndex ? Blend(Background, Color.FromArgb(60, 76, 160, 255)) : Background, TextFormatFlags.NoPrefix);
                 if (view.Notes?.ElementAtOrDefault(i) is { } note)
@@ -147,6 +155,15 @@ internal sealed class CompositionWindow : Form
                     TextRenderer.DrawText(g, note, _hintFont, new Point(Width - noteWidth - 10, y + (_candidateFont.Height - _hintFont.Height) / 2), Accent, TextFormatFlags.NoPrefix);
                 }
                 y += rowHeight;
+            }
+            if (view.Candidates.Count > PageSize)
+            {
+                // 最後のページで候補が少なくても、ページ番号と案内は同じ位置に (ページを送っても窓の大きさが変わらないように)
+                y = listTop + PageSize * (_candidateFont.Height + 4);
+                var page = $"{Math.Max(0, view.SelectedIndex) + 1} / {view.Candidates.Count}";
+                var pageWidth = TextRenderer.MeasureText(g, page, _hintFont).Width;
+                TextRenderer.DrawText(g, page, _hintFont, new Point(Width - pageWidth - 10, y + 1), Color.FromArgb(150, 150, 150), TextFormatFlags.NoPrefix);
+                y += _hintFont.Height + 2;
             }
             y += 6;
         }
