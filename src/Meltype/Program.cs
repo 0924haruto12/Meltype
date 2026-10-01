@@ -34,6 +34,9 @@ internal static class Program
             try { settings.Save(AppPaths.ConfigFile); } catch { }
         }
 
+        // ダウンロード済みの新しい版があれば、起動せずに更新する (install.ps1 が新しい版を起動する)。
+        if (Updater.ApplyStagedAtStartup(() => settings.AutoUpdate)) return 0;
+
         MeltypeEngine engine;
         try
         {

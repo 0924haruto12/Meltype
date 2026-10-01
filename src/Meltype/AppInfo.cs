@@ -9,6 +9,9 @@ namespace Meltype;
 internal static class AppInfo
 {
     public const string SourceUrl = "https://github.com/yksr-melt/Meltype";
+
+    /// <summary>自動更新で最新のリリースを見に行く GitHub のリポジトリ (公開されている必要がある)。</summary>
+    public const string UpdateRepository = "yksr-melt/Meltype";
     public const string CommercialContact = "ibutya0319@gmail.com";
 
     public static string Version =>

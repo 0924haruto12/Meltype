@@ -137,6 +137,8 @@ foreach ($file in Get-ChildItem (Join-Path $runtime 'shared') -Recurse -Filter '
 Update-DepsJson
 Invoke-SelfTest '読み込まれない部品も削った後' | Out-Null
 
+# 自動更新の確認に使う (Meltype が app フォルダーから呼ぶ)
+Copy-Item -LiteralPath (Join-Path $root 'packaging\update.ps1') -Destination $app
 foreach ($file in 'Install.cmd', 'Uninstall.cmd', 'install.ps1', 'uninstall.ps1', 'README.txt') {
     Copy-Item -LiteralPath (Join-Path $root "packaging\$file") -Destination $stage
 }

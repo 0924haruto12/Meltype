@@ -28,6 +28,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private SettingsForm? _settingsForm;
     private LogForm? _logForm;
     private UserDictionaryForm? _dictionaryForm;
+    private readonly Updater _updater;
+    private readonly ToolStripMenuItem _updateItem;
 
     public TrayApplicationContext(MeltypeEngine engine)
     {
@@ -79,6 +81,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add("データフォルダを開く", null, (_, _) => OpenDataFolder());
         menu.Items.Add("Meltype について...", null, (_, _) => MessageBox.Show(AppInfo.AboutText, "Meltype について", MessageBoxButtons.OK, MessageBoxIcon.Information));
         menu.Items.Add("学習データをリセット", null, (_, _) => ResetLearning());
+        menu.Items.Add("更新を確認", null, (_, _) => CheckForUpdate());
+        _updateItem = new ToolStripMenuItem("", null, (_, _) => ApplyUpdate()) { Visible = false };
+        menu.Items.Add(_updateItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("終了", null, (_, _) => ExitThread());
         menu.Opening += (_, _) => UpdateStatus();
@@ -90,7 +95,55 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _enabledItem.Text = _hotkey.Name is { } hotkey ? $"Meltype を有効にする (Ctrl+半角/全角, {hotkey})" : "Meltype を有効にする (Ctrl+半角/全角)";
         _engine.StatusChanged += OnEngineStatusChanged;
         _engine.ImeSuggested += OnImeSuggested;
+        _updater = new Updater(() => _engine.Settings.AutoUpdate);
+        _updater.Ready += OnUpdateReady;
+        ShowUpdateItem();
         UpdateStatus();
+    }
+
+    /// <summary>新しい版をダウンロードし終えた: メニューに「更新して再起動」を出し、通知する (クリックで今すぐ更新)。</summary>
+    private void OnUpdateReady(string version)
+    {
+        if (!_invoker.IsHandleCreated || _invoker.IsDisposed) return;
+        _invoker.BeginInvoke(() =>
+        {
+            ShowUpdateItem();
+            if (!_engine.Settings.ShowNotifications) return;
+            _tray.BalloonTipClicked -= OnUpdateBalloonClicked;
+            _tray.BalloonTipClicked += OnUpdateBalloonClicked;
+            _tray.ShowBalloonTip(5000, "Meltype の更新", $"Meltype {version} を準備しました。次に Windows にサインインしたときに更新します。ここをクリックすると今すぐ更新します。", ToolTipIcon.Info);
+        });
+    }
+
+    private void OnUpdateBalloonClicked(object? sender, EventArgs e)
+    {
+        _tray.BalloonTipClicked -= OnUpdateBalloonClicked;
+        ApplyUpdate();
+    }
+
+    private void ShowUpdateItem()
+    {
+        if (Updater.Staged() is not { } staged) return;
+        _updateItem.Text = $"Meltype {staged.Version} に更新して再起動";
+        _updateItem.Visible = true;
+    }
+
+    private void ApplyUpdate()
+    {
+        // install.ps1 が Meltype を終了させてから入れ替え、新しい版を起動する。
+        if (!Updater.Apply()) MessageBox.Show("更新を始められませんでした。ログを確認してください。", "Meltype", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+
+    private async void CheckForUpdate()
+    {
+        var result = await _updater.CheckNowAsync();
+        ShowUpdateItem();
+        if (Updater.Staged() is { } staged)
+        {
+            if (MessageBox.Show($"Meltype {staged.Version} に更新できます。今すぐ更新しますか？ (Meltype が再起動します)", "Meltype の更新", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes) ApplyUpdate();
+            return;
+        }
+        MessageBox.Show(result, "Meltype の更新", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private void OnToggleRequested()
@@ -244,6 +297,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _settingsForm?.Close();
         _logForm?.Close();
         _dictionaryForm?.Close();
+        _updater.Dispose();
         _hotkey.Dispose();
         _tray.Visible = false;
         _tray.Dispose();
