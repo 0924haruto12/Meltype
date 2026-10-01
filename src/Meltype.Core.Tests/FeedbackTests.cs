@@ -373,6 +373,28 @@ internal static class LanguageLearningTests
     }
 
     [Test]
+    public static void ShortLearnedWord_DoesNotSplitJapanese()
+    {
+        // 一度 go を英字で確定したら、日本語 (nihongo) が にほんgo になっていた。
+        var memory = new LanguageMemory(null);
+        memory.Remember("go", english: true);
+        CompositionTests.Detector.Memory = memory;
+        try
+        {
+            var k = new CompositionTests.Keyboard(languages: memory);
+            k.Type("nihongo\n");
+            Assert.Equal("にほんご", k.Host.Document, "日本語のすぐ後ろでは、覚えた短い英単語を使わない");
+            k = new CompositionTests.Keyboard(languages: memory);
+            k.Type("go\n");
+            Assert.Equal("go", k.Host.Document, "単独なら覚えたとおり英字");
+        }
+        finally
+        {
+            CompositionTests.Detector.Memory = null;
+        }
+    }
+
+    [Test]
     public static void F6_TeachesJapanese()
     {
         var memory = new LanguageMemory(null);
