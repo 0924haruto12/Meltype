@@ -30,6 +30,16 @@ public enum DetectionLevel
     [Description("手動 (提案のみ)")] Manual,
 }
 
+/// <summary>変換ボックスの文字の大きさ。</summary>
+public enum CompositionSize
+{
+    /// <summary>入力欄の文字の高さ (キャレットの高さ) に合わせる。分からなければ「中」。</summary>
+    [Description("自動 (入力欄に合わせる)")] Auto,
+    [Description("小")] Small,
+    [Description("中")] Medium,
+    [Description("大")] Large,
+}
+
 /// <summary>変換ボックスを出す位置。</summary>
 public enum CompositionPlacement
 {
@@ -159,6 +169,14 @@ public sealed class Settings
     [Category("1. 全般"), DisplayName("変換ボックスの位置"),
      Description("入力位置に重ねる: 打っている文字が入力欄の中の入力位置にそのまま出ているように見えます。カーソルの下: 入力位置の下に別の枠で出します (今までの出し方)。入力位置が分からないアプリでは、どちらも入力欄の下に出します。")]
     public CompositionPlacement CompositionPlacement { get; set; } = CompositionPlacement.Overlay;
+
+    [Category("1. 全般"), DisplayName("変換ボックスの文字の大きさ"),
+     Description("自動: 入力欄の文字の高さに合わせます (小さな入力欄では小さく出ます)。入力欄の文字の高さが分からないアプリでは「中」になります。")]
+    public CompositionSize CompositionSize { get; set; } = CompositionSize.Auto;
+
+    [Category("1. 全般"), DisplayName("通知を出す"),
+     Description("Meltype を有効・一時停止にしたときなどに、画面の右下に通知を出します (Windows の通知の音も鳴ります)。OFF にすると通知も音も出しません。")]
+    public bool ShowNotifications { get; set; } = true;
 
     [Category("1. 全般"), DisplayName("入力方式"), Description("ローマ字入力 / かな入力 (JIS) / 両方を判定。Meltype キーボードでは、かな入力を選ぶと JIS かな配列で入力し (Shift+E = ぃ, Shift+Z = っ, Shift+ね = 、)、打ったキーの英字が英単語なら英字で見せます。「両方を判定」は IME 自動切替のみ (Meltype キーボードではローマ字入力)。")]
     public InputStyle InputStyle { get; set; } = InputStyle.Romaji;

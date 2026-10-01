@@ -14,9 +14,34 @@ internal sealed class CompositionWindow : Form
     private const int WS_EX_NOACTIVATE = 0x08000000, WS_EX_TOOLWINDOW = 0x00000080, WS_EX_TOPMOST = 0x00000008;
     private static readonly Color Background = Color.FromArgb(32, 34, 40);
     private static readonly Color Accent = Color.FromArgb(76, 160, 255);
-    private readonly Font _textFont = new("Yu Gothic UI", 13F);
-    private readonly Font _candidateFont = new("Yu Gothic UI", 11F);
-    private readonly Font _hintFont = new("Yu Gothic UI", 8.5F);
+    private Font _textFont = new("Yu Gothic UI", 13F);
+    private Font _candidateFont = new("Yu Gothic UI", 11F);
+    private Font _hintFont = new("Yu Gothic UI", 8.5F);
+    private float _scale = 1F;
+
+    /// <summary>文字の大きさの倍率 (1 = 打った文字が 13pt)。変わったときだけ作り直す。</summary>
+    public void SetScale(float scale)
+    {
+        scale = Math.Clamp(scale, 0.6F, 2F);
+        if (Math.Abs(scale - _scale) < 0.01F) return;
+        _scale = scale;
+        _textFont.Dispose();
+        _candidateFont.Dispose();
+        _hintFont.Dispose();
+        _textFont = new Font("Yu Gothic UI", 13F * scale);
+        _candidateFont = new Font("Yu Gothic UI", 11F * scale);
+        // 案内の文字は小さくしすぎると読めないので、縮めるのは少しだけ
+        _hintFont = new Font("Yu Gothic UI", 8.5F * Math.Max(scale, 0.9F));
+    }
+
+    /// <summary>倍率 1 のときの、打った文字の行の高さ (ピクセル)。</summary>
+    public int BaseTextHeight { get; } = MeasureBaseHeight();
+
+    private static int MeasureBaseHeight()
+    {
+        using var font = new Font("Yu Gothic UI", 13F);
+        return font.Height;
+    }
     private CompositionView? _view;
     private readonly ColorTextRenderer _color = new();
 

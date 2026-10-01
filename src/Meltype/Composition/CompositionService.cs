@@ -17,6 +17,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     private readonly ModeIndicatorWindow _indicator = new();
     private readonly Func<bool> _showIndicator;
     private readonly Func<Config.CompositionPlacement> _placement;
+    private readonly Func<Config.CompositionSize> _size;
     private readonly Func<bool> _directMode;
     private readonly MsImeKanjiConverter _converter = new();
     private readonly KeyInjector _injector = new();
@@ -67,6 +68,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         if (options.Engine() != Config.ConversionEngine.System && _mozc.IsInstalled) _mozc.WarmUp();
         _showIndicator = options.ModeIndicator;
         _placement = options.Placement;
+        _size = options.Size;
         _directMode = options.DirectMode;
         var onFocus = options.ModeIndicatorOnFocus;
         Focus.TextInputEntered += () => { if (onFocus()) ShowMode(!_directMode()); };
@@ -311,14 +313,23 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             _window.ShowView(view, null);
             return;
         }
+        var caret = FindCaret();
+        // 文字の大きさ: 自動なら、入力欄の文字の高さ (キャレットの高さ) に合わせる。小さな入力欄で大きく出すぎないように。
+        _window.SetScale(_size() switch
+        {
+            Config.CompositionSize.Small => 0.8F,
+            Config.CompositionSize.Large => 1.25F,
+            Config.CompositionSize.Auto when caret is { Height: >= 8 } c => (float)c.Height / _window.BaseTextHeight,
+            _ => 1F,
+        });
         // 入力位置に重ねる: 変換ボックスの文字の行を、入力位置の行の高さの真ん中にそろえる。
-        if (_placement() == Config.CompositionPlacement.Overlay && FindCaret() is { } caret)
+        if (_placement() == Config.CompositionPlacement.Overlay && caret is { } at)
         {
             var offset = _window.TextOffset;
-            _window.ShowView(view, new Point(caret.Left - offset.X, caret.Top + caret.Height / 2 - offset.Y), overlay: true);
+            _window.ShowView(view, new Point(at.Left - offset.X, at.Top + at.Height / 2 - offset.Y), overlay: true);
             return;
         }
-        _window.ShowView(view, FindAnchor());
+        _window.ShowView(view, FindAnchor(caret));
     }
 
     public void Hide()
@@ -346,9 +357,9 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     }
 
     /// <summary>変換ボックスを入力位置の下に出すときの位置。キャレット → 入力欄の左下 → マウスカーソルの順に試す。</summary>
-    private Point FindAnchor()
+    private Point FindAnchor(Rectangle? caret = null)
     {
-        if (FindCaret() is { } caret) return new Point(caret.Left, caret.Bottom + 4);
+        if ((caret ?? FindCaret()) is { } found) return new Point(found.Left, found.Bottom + 4);
         if (Focus.Current.Bounds is { } bounds && bounds.Height is > 0 and < 120)
         {
             return new Point(bounds.Left, bounds.Bottom + 2);

@@ -127,6 +127,9 @@ public sealed class CompositionOptions
     /// <summary>変換ボックスを出す位置 (入力位置に重ねる / カーソルの下)。</summary>
     public Func<Config.CompositionPlacement> Placement { get; init; } = () => Config.CompositionPlacement.Overlay;
 
+    /// <summary>変換ボックスの文字の大きさ。</summary>
+    public Func<Config.CompositionSize> Size { get; init; } = () => Config.CompositionSize.Auto;
+
     /// <summary>入力欄に入った (フォーカスが入った) ときにも入力モードを出すか。false なら 半角/全角 を押したときだけ。</summary>
     public Func<bool> ModeIndicatorOnFocus { get; init; } = () => true;
 }
