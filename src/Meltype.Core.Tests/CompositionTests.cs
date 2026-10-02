@@ -494,6 +494,19 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void CandidateMeaning_Japanese()
+    {
+        // 日本語の意味 (ウィクショナリー)。読みで意味を選ぶ、活用した形・助詞付きでも引ける
+        var meanings = MeaningDictionary.Load();
+        Assert.True(meanings.Lookup("箸を", "はしを")?.Contains("食器") == true, "箸を → 食器の一種");
+        Assert.True(meanings.Lookup("橋", "はし")?.Contains("渡る") == true, "はし と読んだ 橋");
+        Assert.True(meanings.Lookup("橋", "きょう")?.StartsWith("中脳") == true, "きょう と読んだ 橋 は脳橋の意味");
+        Assert.True(meanings.Lookup("持って", "もって") is not null, "活用した形 (持って → 持つ)");
+        Assert.True(meanings.Lookup("美しかった", "うつくしかった") is not null, "い形容詞の活用");
+        Assert.Equal(null, meanings.Lookup("はし", "はし"), "かなだけの候補には出さない");
+    }
+
+    [Test]
     public static void LaterLongerEnglishWord_WinsOverShorterOne()
     {
         // motteschoolhe が mottes (英単語) + ちょおl + へ になっていた。持って + school + へ。

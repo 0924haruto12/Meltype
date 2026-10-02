@@ -95,6 +95,9 @@ public sealed class CompositionOptions
     /// <summary>英訳の候補を出すか (設定)。</summary>
     public Func<bool> TranslationCandidates { get; init; } = () => true;
 
+    /// <summary>候補の日本語の意味 (ウィクショナリー)。null なら英訳だけ。</summary>
+    public MeaningDictionary? Meanings { get; init; }
+
     /// <summary>変換中に選んでいる候補の意味 (英訳) を変換ボックスに渡すか (設定)。</summary>
     public Func<bool> CandidateMeanings { get; init; } = () => true;
 
@@ -1055,6 +1058,10 @@ public sealed class CompositionController
         return Distinct(raw, _detector.ProperNouns.Canonical(lower), capitalized, raw.ToUpperInvariant(), CompositionText.ToFullWidth(raw));
     }
 
+    /// <summary>選んでいる候補の意味: 日本語の意味 (ウィクショナリー)、無ければ英訳 (JMdict)。</summary>
+    private string? CandidateMeaning(Clause clause) =>
+        _options.Meanings?.Lookup(clause.Text, clause.IsEnglish ? null : clause.Reading) ?? _options.Translations?.Meaning(clause.Text);
+
     /// <summary>英語と判定した語を、ローマ字として読んだときの候補 (go → 語 ご ゴ)。読み切れなければ空。</summary>
     private List<string> RomajiCandidates(string raw)
     {
@@ -1435,7 +1442,7 @@ public sealed class CompositionController
                 _clauses.Select(c => c.Text).ToList(),
                 _selectedClause,
                 selected.Translations.Count == 0 ? null : selected.Candidates.Select(c => selected.Translations.Contains(c) ? "英訳" : null).ToList(),
-                _options.CandidateMeanings() ? _options.Translations?.Meaning(selected.Text) : null));
+                _options.CandidateMeanings() ? CandidateMeaning(selected) : null));
         }
         else
         {

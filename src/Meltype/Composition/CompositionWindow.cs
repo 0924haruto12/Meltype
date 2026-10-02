@@ -178,7 +178,7 @@ internal sealed class CompositionWindow : Form
         {
             _text = text;
             _font = font;
-            var size = TextRenderer.MeasureText(text, font, new Size(360, 0), TextFormatFlags.NoPrefix | TextFormatFlags.WordBreak);
+            var size = TextRenderer.MeasureText(text, font, new Size(420, 0), TextFormatFlags.NoPrefix | TextFormatFlags.WordBreak);
             Size = new Size(size.Width + 16, size.Height + 10);
             Invalidate();
         }

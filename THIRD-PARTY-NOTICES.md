@@ -43,6 +43,14 @@ Meltype のソースコード (このリポジトリ) には、他者の著作�
 
 リナックス → Linux のように、カタカナで打った語の候補に英字の書き方を出すのに使います。JMdict の英字で書く語 (Ｌｉｎｕｘ、ＧＨＱ) の書き方とカタカナの読みを `tools/make-loanwords.mjs` で取り出して作りました。著作権・ライセンスは英訳の候補と同じ (EDRDG、CC BY-SA 4.0) で、この派生データも CC BY-SA 4.0 です。
 
+### 候補の意味 (dictionaries/meanings.txt)
+
+変換中に候補で止まったとき、その候補の日本語の意味を出すのに使います。[ウィクショナリー日本語版](https://ja.wiktionary.org/) の記事から [kaikki.org](https://kaikki.org/jawiktionary/) (wiktextract、Tatu Ylonen) が取り出したデータを元に、英訳の候補と同じよく使う語の意味の最初の文を `tools/make-meanings.mjs` で取り出して作りました (長い文は途中で切っています)。
+
+- 著作権: ウィクショナリーの執筆者 (各記事の履歴を参照)
+- ライセンス: [Creative Commons Attribution-ShareAlike 4.0 International (CC BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/)
+- この派生データ (dictionaries/meanings.txt) も CC BY-SA 4.0 です。
+
 ### 絵文字の辞書 (dictionaries/emoji-cldr.txt)
 
 Unicode CLDR の絵文字の日本語の名前・キーワード (common/annotations/ja.xml, common/annotationsDerived/ja.xml) から、読みを付けて作りました。Unicode License v3 (SPDX: Unicode-3.0) です。

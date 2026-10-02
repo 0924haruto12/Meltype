@@ -155,7 +155,7 @@ public sealed class Settings
     public bool TranslationCandidates { get; set; } = true;
 
     [Category("1. 全般"), DisplayName("候補の意味を表示"),
-     Description("変換中に同じ候補で少し (約 1.5 秒) 止まると、その候補の意味 (英訳、JMdict のよく使う語から) を候補の一覧の横に出します (橋 → bridge、箸 → chopsticks)。同音異義語を選ぶときの手がかりに。")]
+     Description("変換中に同じ候補で少し (約 1.5 秒) 止まると、その候補の意味をウィクショナリー日本語版から候補の一覧の横に出します (日本語の意味が無い語は JMdict の英訳: 橋 → bridge)。同音異義語を選ぶときの手がかりに。")]
     public bool ShowCandidateMeanings { get; set; } = true;
 
     [Category("1. 全般"), DisplayName("打ち間違いを直す"),

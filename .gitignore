@@ -27,3 +27,4 @@ mac/build/
 # Mozc の変換ヘルパー (native/mozc/Build-MozcHelper.ps1 で作る)
 native/mozc/bin/
 linux/build/
+tools/data/
