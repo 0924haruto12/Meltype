@@ -2,7 +2,7 @@
 
 ## 版を出す (テスト版・公開版共通)
 
-1. 版を上げる: `src/Meltype/Meltype.csproj`・`src/Meltype.Core/Meltype.Core.csproj`・`src/Meltype.Mac.Native/Meltype.Mac.Native.csproj` の `<Version>`、
+1. 版を上げる: `src/Meltype/Meltype.csproj`・`src/Meltype.Core/Meltype.Core.csproj` の `<Version>`、
    `mac/Resources/Info.plist` の `CFBundleShortVersionString`・`CFBundleVersion`、`mac/Sources/MeltypeIME/Converter.swift` の版。
 2. コミットして push し、タグを付けて push: `git tag v0.2.0 && git push origin v0.2.0`
 3. GitHub Actions が Windows (build.yml)・Mac (mac.yml)・Linux (linux.yml) の zip を作り、リリースに添付する。
