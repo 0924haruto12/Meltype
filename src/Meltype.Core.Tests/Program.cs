@@ -32,6 +32,9 @@ internal static class Program
                 // --expect 入力ファイル 出力ファイル (Pull Request のチェック用)
                 Checks.Expect(args[1], args[2]);
                 return 0;
+            case "--henkan":
+                Henkan.Run(string.Join(" ", args.Skip(1)));
+                return 0;
             case "--explain":
                 if (Environment.GetEnvironmentVariable("MELTYPE_UTF8") == "1") Console.OutputEncoding = new System.Text.UTF8Encoding(false);
                 TestHost.Explain(args.Skip(1));

@@ -100,3 +100,52 @@ internal static class Checks
     private static string Words(string text) =>
         string.Join(" ", System.Text.RegularExpressions.Regex.Matches(text, "[A-Za-z][A-Za-z'’-]*").Select(m => m.Value.ToLowerInvariant()));
 }
+
+/// <summary>
+/// Discord の bot の henkan-test で使う: 打ったキーを Meltype キーボードで打ち、変換ボックスの表示・Enter で確定した結果・Space で変換した結果を JSON で返す。
+/// 環境変数 MELTYPE_MOZC に Mozc の変換ヘルパーの場所があれば、アプリと同じく Mozc で漢字に変換する。無ければ日本語 / 英語の判定だけ (漢字にしない)。
+///   dotnet run --project src/Meltype.Core.Tests -- --henkan kyouhagoogledekensaku
+/// </summary>
+internal static class Henkan
+{
+    private const int MaxKeys = 300;
+
+    public static void Run(string keys)
+    {
+        Console.OutputEncoding = new System.Text.UTF8Encoding(false);
+        CompositionTests.Detector.SpellChecker ??= Detection.BuiltInWordChecker.Shared;
+        var typed = new string(keys.Where(c => c is >= ' ' and <= '~').Take(MaxKeys).ToArray()).Trim();
+        using var mozc = Environment.GetEnvironmentVariable("MELTYPE_MOZC") is { Length: > 0 } helper && File.Exists(helper)
+            ? new Composition.MozcConverter(helper, Path.Combine(Path.GetTempPath(), "meltype-henkan-mozc"))
+            : null;
+        var translations = Composition.TranslationDictionary.Load();
+        CompositionTests.Keyboard Create() => new(live: true, converter: mozc, moreCandidates: mozc is null ? null : mozc.Candidates,
+            userDictionary: new Composition.UserDictionary(null), translations: translations);
+
+        // そのまま打った表示と、Enter で確定した結果
+        var k = Create();
+        k.Type(typed);
+        var showing = k.Showing ?? "";
+        k.Type("\n");
+        var entered = k.Host.Document;
+
+        // Space で変換した結果 (英語で終わっていれば確定して空白)
+        var s = Create();
+        s.Type(typed + " ");
+        var view = s.Host.View;
+        var converted = view is { Converting: true } ? string.Concat(view.Clauses ?? [view.Text]) : s.Host.Document;
+        var clauses = view is { Converting: true, Clauses: { } c } ? c : [];
+        var candidates = view is { Converting: true } ? view.Candidates.Take(9).ToList() : [];
+
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            typed,
+            engine = mozc is not null ? "Mozc" : "なし (判定だけ)",
+            showing,
+            entered,
+            converted,
+            clauses,
+            candidates,
+        }, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
+    }
+}
