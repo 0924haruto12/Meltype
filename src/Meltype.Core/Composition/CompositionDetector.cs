@@ -257,6 +257,12 @@ public sealed class CompositionDetector
         // 小文字で始まって途中に大文字がある区間 (iPC、meteSNS) は、固有名詞の書き方 (iPhone・eBay・macOS) でなければ 1 語ではない:
         // 小文字の部分は前の日本語の続き (atarashi|i|PC → あたらしいPC、motome|te|SNS → 求めてSNS)。
         if (char.IsAsciiLetterLower(span[0]) && span.Skip(1).Any(char.IsAsciiLetterUpper) && _proper.Canonical(lower) != span) return false;
+        // 短い区間の最後の子音が、次の音と合わせて っ になる (u|lo|t + ti = ぉっち) なら、英単語 (lot) ではなく日本語の途中
+        if (lower.Length <= 4 && next is [var following, ..] && char.ToLowerInvariant(following) == lower[^1] && lower[^1] is not ('a' or 'i' or 'u' or 'e' or 'o' or 'n') &&
+            _romaji.AnalyzeFragment(lower[..^1]) is { IsValid: true, Partial: "" })
+        {
+            return false;
+        }
         // 数字のすぐ前の、ローマ字として読めない子音で始まる短い英字 (kaibunsho|rta|2026、ps5): 略語。日本語の打ちかけではない
         if (next is [var digit, ..] && char.IsAsciiDigit(digit) && span.Length is >= 2 and <= 6 && span.All(char.IsAsciiLetter) &&
             _romaji.AnalyzeFragment(lower[..2]) is { IsValid: false })
