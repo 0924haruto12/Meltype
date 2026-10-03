@@ -30,6 +30,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private UserDictionaryForm? _dictionaryForm;
     private readonly Updater _updater;
     private readonly ToolStripMenuItem _updateItem;
+    private readonly ToolStripMenuItem _autoUpdateItem;
 
     public TrayApplicationContext(MeltypeEngine engine)
     {
@@ -81,9 +82,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add("データフォルダを開く", null, (_, _) => OpenDataFolder());
         menu.Items.Add("Meltype について...", null, (_, _) => MessageBox.Show(AppInfo.AboutText, "Meltype について", MessageBoxButtons.OK, MessageBoxIcon.Information));
         menu.Items.Add("学習データをリセット", null, (_, _) => ResetLearning());
-        menu.Items.Add("更新を確認", null, (_, _) => CheckForUpdate());
+        // 更新: 自動更新の ON/OFF、今すぐ確認、ダウンロード済みなら更新して再起動
+        var updates = new ToolStripMenuItem("更新");
+        _autoUpdateItem = new ToolStripMenuItem("自動で更新する", null, (_, _) => ToggleAutoUpdate());
+        updates.DropDownItems.Add(_autoUpdateItem);
+        updates.DropDownItems.Add("今すぐ更新を確認", null, (_, _) => CheckForUpdate());
         _updateItem = new ToolStripMenuItem("", null, (_, _) => ApplyUpdate()) { Visible = false };
-        menu.Items.Add(_updateItem);
+        updates.DropDownItems.Add(_updateItem);
+        updates.DropDownOpening += (_, _) => _autoUpdateItem.Checked = _engine.Settings.AutoUpdate;
+        menu.Items.Add(updates);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("終了", null, (_, _) => ExitThread());
         menu.Opening += (_, _) => UpdateStatus();
@@ -186,6 +193,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         DetectionLevel.Conservative => "慎重 (確信度が高いときだけ英字)",
         _ => "手動 (提案のみ・Tab で英字)",
     };
+
+    private void ToggleAutoUpdate()
+    {
+        var next = _engine.Settings.Clone();
+        next.AutoUpdate = !next.AutoUpdate;
+        _engine.ApplySettings(next);
+        _autoUpdateItem.Checked = next.AutoUpdate;
+    }
 
     private void SetLevel(DetectionLevel level)
     {

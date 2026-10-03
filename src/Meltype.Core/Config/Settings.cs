@@ -182,7 +182,7 @@ public sealed class Settings
      Description("Meltype を有効・一時停止にしたときなどに、画面の右下に通知を出します (Windows の通知の音も鳴ります)。OFF にすると通知も音も出しません。")]
     public bool ShowNotifications { get; set; } = true;
 
-    [Category("1. 全般"), DisplayName("自動で更新する"),
+    [Category("9. 更新"), DisplayName("自動で更新する"),
      Description("新しい版が公開されたら自動でダウンロードし、次に Meltype を起動したとき (Windows にサインインしたとき) に更新します。トレイの「更新して再起動」で今すぐ更新もできます。設定・学習データはそのまま残ります。")]
     public bool AutoUpdate { get; set; } = true;
 
