@@ -423,6 +423,36 @@ internal static class LanguageLearningTests
         }
     }
 
+
+    [Test]
+    public static void SymbolCandidates_ShowHalfOrFullWidth()
+    {
+        // 変換の候補で、記号が半角か全角か分からなかった (@ と ＠)。両方あるときは右に「半角」「全角」と出す。
+        var k = new CompositionTests.Keyboard();
+        k.Type("@ ");
+        var view = k.Host.View!;
+        Assert.True(view.Converting, "変換中");
+        var notes = view.Notes ?? [];
+        Assert.Equal("半角", notes.ElementAtOrDefault(view.Candidates.ToList().IndexOf("@")), string.Join(" ", view.Candidates));
+        Assert.Equal("全角", notes.ElementAtOrDefault(view.Candidates.ToList().IndexOf("＠")), string.Join(" ", view.Candidates));
+    }
+
+    [Test]
+    public static void UnitsAfterNumbers_StayLetters()
+    {
+        // 単位 (mm、min) が打ちにくく、日本語になることがあった (10mmで → 10っまで、5min → 5みん)。
+        foreach (var (typed, expected) in new[]
+        {
+            ("10mmde", "10mmで"), ("kyouha10mmdesu", "きょうは10mmです"), ("5min", "5min"), ("3mol", "3mol"), ("2mmol", "2mmol"),
+            ("100mlnomizu", "100mlのみず"), ("3nin", "3にん"), ("1man", "1まん"), ("10mina", "10みな"), ("5ko", "5こ"),
+        })
+        {
+            var k = new CompositionTests.Keyboard();
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, typed);
+        }
+    }
+
     [Test]
     public static void ShortWord_ChosenFromCandidates_IsLearnedOnSecondTime()
     {

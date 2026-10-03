@@ -104,6 +104,7 @@ public sealed class CompositionText
                 _pending.Clear();
             }
             _pending.Append(c);
+            SplitUnitAfterNumber(final: false);
             Normalize(final: false);
             return;
         }
@@ -215,9 +216,48 @@ public sealed class CompositionText
         LevelOverride = null;
     }
 
+    /// <summary>
+    /// 数字のすぐ後ろの単位 (10mm、5min、3mol)。ローマ字として読める綴りでも英字のままにする
+    /// (10mmで が 10っまで、5min が 5みん になっていた)。ローマ字として読めない単位 (kg、cm、px) は今までどおり英字になる。
+    /// 数字の後ろでよく打つ日本語 (人 nin、個 ko、回 kai、万 man、度 do、時 ji) と同じ綴りの単位は入れない。
+    /// </summary>
+    private static readonly string[] UnitWords =
+    [
+        "mmol", "kcal", "mhz", "ghz", "khz", "kwh", "mah", "mol", "min", "sec", "rem", "dpi", "ppi", "fps", "bpm", "rpm", "mph", "kph",
+        "mm", "cm", "km", "nm", "um", "mg", "kg", "ml", "dl", "ms", "ns", "hz", "kb", "mb", "gb", "tb", "px", "pt", "em", "wh",
+    ];
+
+    /// <summary>
+    /// 数字の後ろに打った英字 (と打ちかけ) が単位で始まるなら、その単位を英字のままの単位 (1 文字ずつ) にする。
+    /// 単位の後ろにまだ文字が続くとき (10mm + で) か、確定するとき (final) だけ。より長い単位の打ちかけ (mm + o → mmol) なら待つ。
+    /// </summary>
+    private void SplitUnitAfterNumber(bool final)
+    {
+        // 最後の数字の位置 (その後ろが英字だけのとき)
+        var digit = _units.Count - 1;
+        while (digit >= 0 && IsLetters(_units[digit].Raw)) digit--;
+        if (digit < 0 || _units[digit].Raw is not [var d] || !char.IsAsciiDigit(d)) return;
+        var run = string.Concat(_units.Skip(digit + 1).Select(u => u.Raw)) + _pending;
+        var lower = run.ToLowerInvariant();
+        foreach (var unit in UnitWords)
+        {
+            if (!lower.StartsWith(unit, StringComparison.Ordinal)) continue;
+            if (lower.Length == unit.Length && !final) return; // まだ続きを打つかもしれない
+            if (lower.Length > unit.Length && UnitWords.Any(u => u.Length > unit.Length && u.StartsWith(lower[..(unit.Length + 1)], StringComparison.Ordinal))) return;
+            // 小文字の母音が続くなら、ローマ字の語の途中 (10mina → 10みな) かもしれないので単位にしない
+            if (lower.Length > unit.Length && lower[unit.Length] is 'a' or 'i' or 'u' or 'e' or 'o') return;
+            _units.RemoveRange(digit + 1, _units.Count - digit - 1);
+            foreach (var letter in run[..unit.Length]) _units.Add(new CompositionUnit(letter.ToString(), letter.ToString()));
+            _pending.Clear();
+            _pending.Append(run[unit.Length..]);
+            return;
+        }
+    }
+
     /// <summary>Pending のうち、音として確定した部分を単位に移す。</summary>
     private void Normalize(bool final)
     {
+        if (final) SplitUnitAfterNumber(final: true);
         var romaji = _detector.Romaji;
         while (_pending.Length > 0)
         {
@@ -457,6 +497,9 @@ public sealed class CompositionText
     /// </summary>
     public bool FixTypos()
     {
+        // 確定・変換の前に、数字の後ろの単位を英字のままにする (5min を 5みん にしない)。打ち間違いを直す設定に関係なく
+        SplitUnitAfterNumber(final: true);
+        Normalize(final: false);
         if (TypoCorrector is not { } corrector || !CorrectTypos() || Mode != DisplayMode.Auto || KanaInput) return false;
         var changed = false;
         // 今の表示で英字に見えている文字 (きょうは|meeting|です の meeting)。ここは直さない
@@ -478,7 +521,10 @@ public sealed class CompositionText
             var letters = string.Concat(_units.Skip(start).Take(end - start).Select(u => u.Raw)) + (atEnd ? Pending : "");
             var runOffset = offset;
             offset += letters.Length;
-            if (letters.All(char.IsAsciiLetterLower) && !_detector.IsKnownEnglishWord(letters) &&
+            // 数字のすぐ後ろの単位 (10|mm|で) は打ち間違いではない
+            var unitAfterNumber = start > 0 && _units[start - 1].Raw is [var digit] && char.IsAsciiDigit(digit) &&
+                UnitWords.Any(u => letters.StartsWith(u, StringComparison.OrdinalIgnoreCase));
+            if (!unitAfterNumber && letters.All(char.IsAsciiLetterLower) && !_detector.IsKnownEnglishWord(letters) &&
                 corrector.FirstUnreadable(letters, final: true) is var first and > 0 &&
                 !(runOffset + first < shownEnglish.Count && shownEnglish[runOffset + first]) &&
                 !ContainsEnglishWord(letters, first) &&

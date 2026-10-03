@@ -1064,6 +1064,28 @@ public sealed class CompositionController
     private string? CandidateMeaning(Clause clause) =>
         _options.Meanings?.Lookup(clause.Text, clause.IsEnglish ? null : clause.Reading) ?? _options.Translations?.Meaning(clause.Text);
 
+    /// <summary>
+    /// 候補の右に小さく出す注記: 英訳 (complex)、半角 / 全角 (同じ記号・英数字の半角と全角が両方候補にあるとき。# と ＃ は見分けにくい)。
+    /// 注記が 1 つも無ければ null。
+    /// </summary>
+    private static List<string?>? CandidateNotes(Clause clause)
+    {
+        var notes = clause.Candidates.Select(c =>
+        {
+            if (clause.Translations.Contains(c)) return "英訳";
+            var half = ToHalfWidth(c);
+            if (half != c && clause.Candidates.Contains(half)) return "全角";
+            var full = CompositionText.ToFullWidth(c);
+            if (full != c && clause.Candidates.Contains(full)) return "半角";
+            return null;
+        }).ToList();
+        return notes.Any(n => n is not null) ? notes : null;
+    }
+
+    /// <summary>全角の英数字・記号 (！〜～) と全角の空白を半角にする。</summary>
+    private static string ToHalfWidth(string text) =>
+        new(text.Select(c => c is >= '！' and <= '～' ? (char)(c - 0xFEE0) : c == '　' ? ' ' : c).ToArray());
+
     /// <summary>英語と判定した語を、ローマ字として読んだときの候補 (go → 語 ご ゴ)。読み切れなければ空。</summary>
     private List<string> RomajiCandidates(string raw)
     {
@@ -1443,7 +1465,7 @@ public sealed class CompositionController
                 "←→ 文節　Space/↓ 候補　Shift+←→ 区切り　Enter 確定　Esc 戻る",
                 _clauses.Select(c => c.Text).ToList(),
                 _selectedClause,
-                selected.Translations.Count == 0 ? null : selected.Candidates.Select(c => selected.Translations.Contains(c) ? "英訳" : null).ToList(),
+                CandidateNotes(selected),
                 _options.CandidateMeanings() ? CandidateMeaning(selected) : null,
                 MisspellingSuggestion()));
         }
