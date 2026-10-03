@@ -470,6 +470,7 @@ internal static class LanguageLearningTests
                 ("Swingin'", "Swingin'"), ("rockin' and rollin'", "rockin' and rollin'"),
                 ("A fool a fool a, for u", "A fool a fool a, for u"), ("how r u", "how r u"), ("kyouhau", "きょうはう"),
                 ("atarashiiPCwokatta", "あたらしいPCをかった"), ("iPhonewokatta", "iPhoneをかった"),
+                ("toshiteOCRwoshi,amerikagonaruEnglishwohappyni", "としてOCRをし、あめりかごなるEnglishをhappyに"), ("Tokyonisumu", "Tokyoにすむ"),
             })
             {
                 var k = new CompositionTests.Keyboard();

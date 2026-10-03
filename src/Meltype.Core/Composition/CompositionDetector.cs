@@ -404,7 +404,10 @@ public sealed class CompositionDetector
     /// </summary>
     private int CapitalizedWordEnd(IReadOnlyList<CompositionUnit> units, int start, string pending, bool final)
     {
-        var n = units.Count;
+        // 見るのは、次の記号・数字・空白まで (長い文の OCR|woshi, … では、後ろの , までの woshi を見る)
+        var n = start;
+        while (n < units.Count && units[n].Raw.All(char.IsAsciiLetter) && units[n].Raw.Length > 0) n++;
+        if (n < units.Count) pending = "";
         var whole = Raw(units, start, n) + pending;
         if (whole.Length == 0 || !char.IsAsciiLetterUpper(whole[0])) return -1;
         // 全体が英単語・固有名詞 (Tokyo, Github) なら区切らない。
@@ -415,10 +418,15 @@ public sealed class CompositionDetector
             if (!head.All(char.IsAsciiLetter)) continue;
             // 後ろは小文字のローマ字 (長音の - を含んでもよい: TSyu-za- の yu-za-)。
             var rest = Raw(units, k, n) + pending;
-            if (rest.Length < 3 || !rest.All(c => char.IsAsciiLetterLower(c) || c == '-') || !char.IsAsciiLetterLower(rest[0])) continue;
+            // 後ろが助詞 1 つだけ (OCR|wo、English|ga) なら 2 文字でもよい
+            if ((rest.Length < 3 && Detection.DictionaryDetector.StartsWithParticle(rest) != rest) || !rest.All(c => char.IsAsciiLetterLower(c) || c == '-') || !char.IsAsciiLetterLower(rest[0])) continue;
+            // 知っている英単語・略語 (English、OCR) の後ろが助詞で始まるなら、その後ろに英単語が続いても (English|wo|happy) 区切る
+            var knownHead = head.Length >= 2 && char.IsAsciiLetterUpper(head[^1]) || head.Length >= 3 && IsKnownCapitalizedWord(head) || head.Length >= 4 && IsSpellWord(head.ToLowerInvariant());
+            if (knownHead && Detection.DictionaryDetector.StartsWithParticle(rest) is not null) return k;
             var analysis = _romaji.AnalyzeFragment(rest.Replace("-", ""));
             if (!analysis.IsValid || (final && analysis.Partial.Length > 0 && analysis.Partial != "n")) continue;
-            if (head.Length >= 2 && char.IsAsciiLetterUpper(head[^1]) || head.Length >= 3 && IsKnownCapitalizedWord(head)) return k;
+            // 大文字で終わる略語 (OCR)、知っている語 (Tokyo)、スペルチェッカーの 4 文字以上の語 (English)
+            if (head.Length >= 2 && char.IsAsciiLetterUpper(head[^1]) || head.Length >= 3 && IsKnownCapitalizedWord(head) || head.Length >= 4 && IsSpellWord(head.ToLowerInvariant())) return k;
             // 大文字 1 文字 + 助詞で始まるローマ字 (A|nisiyouka → Aにしようか、B|noan → Bの案)。
             // 名前 (Tanaka、Hanako) を区切らないよう、後ろが助詞で始まるときだけ。
             if (head.Length == 1 && char.IsAsciiLetterUpper(head[0]) && Detection.DictionaryDetector.StartsWithParticle(rest.Replace("-", "")) is not null) return k;
