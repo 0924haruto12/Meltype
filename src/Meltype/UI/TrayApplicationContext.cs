@@ -17,6 +17,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _statusItem;
     private readonly ToolStripMenuItem _enabledItem;
     private readonly HotkeyWindow _hotkey;
+    private readonly HotkeyWindow _registerHotkey;
     private readonly Control _invoker = new();
     private readonly Icon _onIcon = CreateIcon("あ", Color.FromArgb(0, 120, 212));
     private readonly Icon _directIcon = CreateIcon("A", Color.FromArgb(0, 120, 212));
@@ -84,6 +85,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add("ログ / 判定理由...", null, (_, _) => ShowLog());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("データフォルダを開く", null, (_, _) => OpenDataFolder());
+        var backup = new ToolStripMenuItem("バックアップ");
+        backup.DropDownItems.Add("バックアップを書き出す...", null, (_, _) => CreateBackup());
+        backup.DropDownItems.Add("バックアップから戻す...", null, (_, _) => RestoreBackup());
+        menu.Items.Add(backup);
         menu.Items.Add("不具合の報告・提案...", null, (_, _) => OpenReport());
         menu.Items.Add("Meltype について...", null, (_, _) => MessageBox.Show(AppInfo.AboutText, "Meltype について", MessageBoxButtons.OK, MessageBoxIcon.Information));
         menu.Items.Add("学習した語...", null, (_, _) => ShowLearnedWords());
@@ -104,6 +109,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _tray = new NotifyIcon { ContextMenuStrip = menu, Visible = true };
         _tray.DoubleClick += (_, _) => ToggleEnabled();
         _hotkey = new HotkeyWindow(ToggleEnabled);
+        _registerHotkey = new HotkeyWindow(RegisterSelectedWord, HotkeyWindow.RegisterWordKeys, "単語の登録");
         _engine.ToggleRequested += OnToggleRequested;
         _enabledItem.Text = _hotkey.Name is { } hotkey ? $"Meltype を有効にする (Ctrl+半角/全角, {hotkey})" : "Meltype を有効にする (Ctrl+半角/全角)";
         _engine.StatusChanged += OnEngineStatusChanged;
@@ -326,6 +332,35 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _dictionaryForm.Show();
     }
 
+    /// <summary>
+    /// Ctrl+F7: 前面のアプリで選んでいる語を、ユーザー辞書の登録画面に入れて開く (読みは Microsoft IME で推測)。
+    /// 選んでいる語は、Ctrl+C を送ってクリップボードから読む (クリップボードの元の中身は戻す)。
+    /// </summary>
+    private async void RegisterSelectedWord()
+    {
+        string? word = null;
+        IDataObject? saved = null;
+        try
+        {
+            saved = Clipboard.GetDataObject();
+            Clipboard.Clear();
+            Input.KeyInjector.SendShortcut(0x11, 0x43); // Ctrl+C
+            for (var i = 0; i < 10 && !Clipboard.ContainsText(); i++) await Task.Delay(30);
+            if (Clipboard.ContainsText()) word = Clipboard.GetText().Trim();
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log.Warn($"選んでいる語を読めませんでした: {ex.Message}");
+        }
+        finally
+        {
+            try { if (saved is not null) Clipboard.SetDataObject(saved, copy: true); } catch { }
+        }
+        ShowUserDictionary();
+        // 1 行で短いものだけ (文章を選んでいたら語は入れない)
+        if (word is { Length: > 0 and <= 30 } && !word.Contains('\n')) _dictionaryForm!.Prefill(word, _composition.GuessReading(word));
+    }
+
     private void ShowLog()
     {
         if (_logForm is { IsDisposed: false })
@@ -335,6 +370,60 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         _logForm = new LogForm(_engine);
         _logForm.Show();
+    }
+
+    /// <summary>設定・学習データ・ユーザー辞書を 1 つのファイルに書き出す (PC の買い替え・別の PC への移行)。</summary>
+    private void CreateBackup()
+    {
+        using var dialog = new SaveFileDialog
+        {
+            Title = "Meltype のバックアップを書き出す",
+            Filter = "Meltype のバックアップ (*.meltype-backup)|*.meltype-backup",
+            FileName = $"Meltype-{DateTime.Now:yyyyMMdd}.meltype-backup",
+        };
+        if (dialog.ShowDialog() != DialogResult.OK) return;
+        try
+        {
+            var (content, files) = Config.Backup.Create(AppPaths.DataDirectory, AppInfo.Version);
+            File.WriteAllBytes(dialog.FileName, content);
+            MessageBox.Show($"設定・学習データ・ユーザー辞書を書き出しました ({files} 個のファイル)。\n別の PC の Meltype で「バックアップ」→「バックアップから戻す...」を選ぶと戻せます。", "Meltype のバックアップ",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"書き出せませんでした。\n\n{ex.Message}", "Meltype のバックアップ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    /// <summary>バックアップから戻す。Meltype を起動し直し、新しい Meltype が戻してから読み込む。</summary>
+    private void RestoreBackup()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "Meltype のバックアップから戻す",
+            Filter = "Meltype のバックアップ (*.meltype-backup)|*.meltype-backup|すべてのファイル (*.*)|*.*",
+        };
+        if (dialog.ShowDialog() != DialogResult.OK) return;
+        try
+        {
+            var content = File.ReadAllBytes(dialog.FileName);
+            var (created, app, files) = Config.Backup.Inspect(content);
+            var answer = MessageBox.Show($"{created} に作ったバックアップ (Meltype {app}、{files.Count} 個のファイル) で、今の設定・学習データ・ユーザー辞書を置き換えます。\nMeltype を起動し直します。よろしいですか？",
+                "Meltype のバックアップ", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+            if (answer != DialogResult.OK) return;
+            // 新しい Meltype に渡す (この Meltype が終わってから戻す)
+            var copy = Path.Combine(Path.GetTempPath(), $"meltype-restore-{Environment.ProcessId}.meltype-backup");
+            File.WriteAllBytes(copy, content);
+            var start = new ProcessStartInfo(Application.ExecutablePath) { UseShellExecute = false };
+            start.ArgumentList.Add("--restore");
+            start.ArgumentList.Add(copy);
+            Process.Start(start);
+            ExitThread();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"戻せませんでした。\n\n{ex.Message}", "Meltype のバックアップ", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
     }
 
     private static void OpenDataFolder()
@@ -369,6 +458,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _welcomeForm?.Close();
         _updater.Dispose();
         _hotkey.Dispose();
+        _registerHotkey.Dispose();
         _tray.Visible = false;
         _tray.Dispose();
         _invoker.Dispose();
@@ -407,8 +497,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         private const uint MOD_ALT = 0x0001, MOD_CONTROL = 0x0002, MOD_SHIFT = 0x0004, MOD_NOREPEAT = 0x4000, VK_F12 = 0x7B;
         private readonly Action _pressed;
 
-        // 他のアプリと衝突したら順に次の候補を試す。
-        private static readonly (uint Modifiers, uint Key, string Name)[] Candidates =
+        // 一時停止 / 再開。他のアプリと衝突したら順に次の候補を試す。
+        public static readonly (uint Modifiers, uint Key, string Name)[] ToggleKeys =
         [
             (MOD_CONTROL | MOD_ALT, VK_F12, "Ctrl+Alt+F12"),
             (MOD_CONTROL | MOD_ALT, 0x7A, "Ctrl+Alt+F11"),
@@ -416,20 +506,27 @@ internal sealed class TrayApplicationContext : ApplicationContext
             (MOD_CONTROL | MOD_ALT, 0x13, "Ctrl+Alt+Pause"),
         ];
 
+        // 選んでいる語をユーザー辞書に登録する (Microsoft IME の単語の登録と同じ Ctrl+F7)
+        public static readonly (uint Modifiers, uint Key, string Name)[] RegisterWordKeys =
+        [
+            (MOD_CONTROL, 0x76, "Ctrl+F7"),
+            (MOD_CONTROL | MOD_ALT, 0x76, "Ctrl+Alt+F7"),
+        ];
+
         public string? Name { get; }
 
-        public HotkeyWindow(Action pressed)
+        public HotkeyWindow(Action pressed, (uint Modifiers, uint Key, string Name)[]? candidates = null, string purpose = "一時停止/再開")
         {
             _pressed = pressed;
             CreateHandle(new CreateParams { Caption = "Meltype Hotkey" });
-            foreach (var (modifiers, key, name) in Candidates)
+            foreach (var (modifiers, key, name) in candidates ?? ToggleKeys)
             {
                 if (!RegisterHotKey(Handle, Id, modifiers | MOD_NOREPEAT, key)) continue;
                 Name = name;
-                Diagnostics.Log.Info($"一時停止/再開のホットキー: {name}");
+                Diagnostics.Log.Info($"{purpose}のホットキー: {name}");
                 return;
             }
-            Diagnostics.Log.Warn("一時停止/再開のホットキーを登録できませんでした (候補がすべて他のアプリで使用中)。トレイアイコンのダブルクリックで切り替えてください。");
+            Diagnostics.Log.Warn($"{purpose}のホットキーを登録できませんでした (候補がすべて他のアプリで使用中)。");
         }
 
         protected override void WndProc(ref Message m)

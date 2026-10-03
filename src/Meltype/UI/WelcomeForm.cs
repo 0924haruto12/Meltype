@@ -55,6 +55,7 @@ internal sealed class WelcomeForm : Form
             ("F6 / F7", "ひらがな / カタカナにする (次からその語は日本語)"),
             ("Shift + Space", "英字になった語を、ローマ字として変換する (go → 語)"),
             ("Esc", "変換を取り消す・打った文字を消す"),
+            ("Ctrl + F7", "選んでいる語をユーザー辞書に登録する (読みは自動で入ります)"),
         ]));
         body.Controls.Add(Paragraph("候補で少し止まると、その語の意味が出ます (設定で OFF にできます)。"));
 

@@ -133,6 +133,18 @@ internal sealed class UserDictionaryForm : Form
         _reading.Focus();
     }
 
+    /// <summary>選んでいた語を入れて開く (Ctrl+F7)。読みは推測したもの (直して登録できる)。</summary>
+    public void Prefill(string word, string reading)
+    {
+        _word.Text = word;
+        _reading.Text = reading;
+        _message.Text = reading.Length == 0 ? "読みを入力してください。" : "読みを確かめて「登録」を押してください。";
+        _message.ForeColor = reading.Length == 0 ? Color.Firebrick : SystemColors.GrayText;
+        Activate();
+        _reading.Focus();
+        _reading.SelectAll();
+    }
+
     private void Import()
     {
         using var dialog = new OpenFileDialog

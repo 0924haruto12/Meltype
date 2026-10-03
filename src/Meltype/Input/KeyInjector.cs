@@ -45,6 +45,18 @@ internal sealed class KeyInjector : IKeyInjector
         return Native.SendAll(inputs, "再入力");
     }
 
+    /// <summary>修飾キーと一緒にキーを送る (Ctrl+C など)。</summary>
+    public static void SendShortcut(int modifier, int vk)
+    {
+        new KeyInjector().Inject(
+        [
+            new KeyEvent(modifier, 0, false, false, false, 0),
+            new KeyEvent(vk, 0, false, false, false, 0),
+            new KeyEvent(vk, 0, false, true, false, 0),
+            new KeyEvent(modifier, 0, false, true, false, 0),
+        ]);
+    }
+
     public static void SendKey(int vk)
     {
         new KeyInjector().Inject(

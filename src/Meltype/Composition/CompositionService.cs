@@ -104,6 +104,21 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         return text.Any(char.IsAsciiLetter) ? _detector.Romaji.ConvertLenient(text.ToLowerInvariant(), final: true) : text;
     }
 
+    /// <summary>ユーザー辞書の登録画面用: 語の読みを推測する (かなならそのまま、漢字は Microsoft IME の逆変換)。分からなければ空。</summary>
+    public string GuessReading(string word)
+    {
+        if (word.All(c => c is >= 'ぁ' and <= 'ゖ' or >= 'ァ' and <= 'ヶ' or 'ー')) return new string(word.Select(c => c is >= 'ァ' and <= 'ヶ' ? (char)(c - 0x60) : c).ToArray());
+        try
+        {
+            return _converter.Reading(word) ?? "";
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log.Warn($"読みを推測できませんでした: {ex.Message}");
+            return "";
+        }
+    }
+
     /// <summary>ユーザー辞書の登録画面用: 読みの変換候補 (変換エンジンの結果 → Windows の候補一覧 → カタカナ)。</summary>
     public IReadOnlyList<string> SuggestWords(string reading)
     {
