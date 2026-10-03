@@ -249,9 +249,17 @@ public sealed class CompositionDetector
         if (IsContraction(span)) return level != DetectionLevel.Manual || char.IsAsciiLetterUpper(span[0]);
         if (span.Length == 0 || !span.All(char.IsAsciiLetter)) return false;
         var lower = span.ToLowerInvariant();
-        // 小文字 1 文字 + 大文字 (iPC) は、固有名詞の書き方 (iPhone・eBay) でなければ、小文字は前の日本語の続き
-        // (atarashi|i|PC: あたらしい + PC。iPC = ipc を英単語にして 新シiPC になっていた)。
-        if (span.Length >= 2 && char.IsAsciiLetterLower(span[0]) && char.IsAsciiLetterUpper(span[1]) && _proper.Canonical(lower) != span) return false;
+        // 小文字で始まって途中に大文字がある区間 (iPC、meteSNS) は、固有名詞の書き方 (iPhone・eBay・macOS) でなければ 1 語ではない:
+        // 小文字の部分は前の日本語の続き (atarashi|i|PC → あたらしいPC、motome|te|SNS → 求めてSNS)。
+        if (char.IsAsciiLetterLower(span[0]) && span.Skip(1).Any(char.IsAsciiLetterUpper) && _proper.Canonical(lower) != span) return false;
+        // 日本語のすぐ後ろで、助詞 + 英単語 (dochira|mo|user の mouser) は、スペルチェッカーが 1 語と言っても 助詞 + 英単語
+        // (同梱の英語の辞書の語は除く)。後ろの英単語の区間は、この後で別に見る。
+        if (before < 0 && Detection.DictionaryDetector.StartsWithParticle(lower) is { } leading && lower.Length - leading.Length >= 3 &&
+            !_english.Words.ContainsWord(lower) && IsKnownEnglishWord(lower[leading.Length..]))
+        {
+            return false;
+        }
+
         var inDictionary = _english.Words.ContainsWord(lower);
         // Windows のスペルチェッカーの英単語 (meeting, name …)。ローマ字の語 (kore, sore) まで含む緩いものなので、
         // ローマ字として読めない語か、前後の文脈で英語と分かるときだけ使う (同梱の辞書の語より弱い)。

@@ -214,7 +214,9 @@ internal static class Jht
             string first;
             if (k.Host.View is { Converting: true, Clauses: { } clauses } view)
             {
-                first = string.Concat(clauses);
+                // 途中の空白 (thinking boy) で、それまでの部分は確定している。確定した分 + 最後の変換の文節で比べる
+                var committed = k.Host.Document;
+                first = committed + string.Concat(clauses);
                 // 文節ごとの候補を先に集める (→ で文節を選ぶと、その文節の候補の一覧が出る)
                 var all = new List<List<string>>();
                 for (var c = 0; c < clauses.Count; c++)
@@ -225,6 +227,13 @@ internal static class Jht
                 // 出てほしい文の頭から順に、文節の候補と突き合わせる。候補に無い文節があっても最後まで見る
                 // (その文節の分は、次の文節の候補が合う所まで、とみなして続ける)。
                 var remaining = expected;
+                if (committed.Length > 0)
+                {
+                    var same = 0;
+                    while (same < committed.Length && same < expected.Length && committed[same] == expected[same]) same++;
+                    if (same < committed.Length) notes.Add($"空白までで確定した部分: 「{Trim(committed[same..], 12)}」が違う (出てほしいのは「{Trim(expected[same..], 12)}」)");
+                    remaining = expected[Math.Min(committed.Length, expected.Length)..];
+                }
                 for (var c = 0; c < clauses.Count; c++)
                 {
                     if (remaining.Length == 0)
