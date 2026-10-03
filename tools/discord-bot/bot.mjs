@@ -7,11 +7,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Client, EmbedBuilder, Events, GatewayIntentBits, PermissionFlagsBits } from 'discord.js';
+import { AttachmentBuilder, Client, EmbedBuilder, Events, GatewayIntentBits, PermissionFlagsBits } from 'discord.js';
 import { code, helpText, parseChannelIds, parseCommand, parseNumber, shorten } from './commands.mjs';
 import { formatJht } from './jht-format.mjs';
 import { ChannelCheckQueue, readAllMessages } from './channel-check.mjs';
-import { formatSummary, parseJhtEmbed, summarize } from './summary.mjs';
+import { formatSummary, loadEnglishWords, parseJhtEmbed, summarize, summaryJson } from './summary.mjs';
 import { runHenkan, runJht, sanitizeKeys } from './henkan.mjs';
 import { Kinds, ListStore, Status } from './store.mjs';
 
@@ -37,6 +37,8 @@ if (!config.token || !config.category) {
 }
 
 const store = await new ListStore(config.dataFile).load();
+// summary で、英単語でもローマ字でも読める語 (tomato) を見分けるのに使う
+const englishWords = loadEnglishWords(path.resolve(here, '../../dictionaries'));
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   // bot の返事で、だれにも通知を飛ばさない (リストの内容に @everyone などがあっても)
@@ -122,10 +124,10 @@ async function handleSummary(message, rest) {
     }
   }
   if (entries.length === 0) return waiting.edit('指定したチャンネルに jht の結果が見つかりませんでした。');
-  const [first, ...more] = formatSummary(summarize(entries), channels.map(c => c.id));
-  await waiting.edit(first);
-  // 続き (2000 文字を超えた分) は順に送る
-  for (const text of more) await message.channel.send(text);
+  const summary = summarize(entries, { englishWords });
+  // 文は概要と上位だけ (1 メッセージ)。全体は JSON のファイルで添える
+  const file = new AttachmentBuilder(Buffer.from(JSON.stringify(summaryJson(summary, channels.map(c => c.id)), null, 2), 'utf8'), { name: 'summary.json' });
+  await waiting.edit({ content: formatSummary(summary, channels.map(c => c.id), 'summary.json'), files: [file] });
 }
 
 async function handleHenkan(message, rest) {

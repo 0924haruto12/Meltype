@@ -114,10 +114,10 @@ test('chjht: 問題があったものを送り、順番待ちのチャンネル�
   assert.ok(sent.some(s => s.includes('<#1> のチェックが終わりました') && s.includes('**1 件**') && s.includes('試せなかったもの 1 件')), '最後にまとめ');
 });
 
-test('summary: チャンネルの指定・結果の読み取り・重複の無視・2000 文字の上限', async () => {
+test('summary: チャンネルの指定・結果の読み取り・重複の無視・文の上限と JSON・決められない語の除外', async () => {
   const { parseChannelIds } = await import('../commands.mjs');
   const { formatJht } = await import('../jht-format.mjs');
-  const { chunkLines, formatSummary, MessageLimit, parseJhtEmbed, summarize } = await import('../summary.mjs');
+  const { formatSummary, isRomaji, loadEnglishWords, parseJhtEmbed, summarize, summaryJson } = await import('../summary.mjs');
   assert.deepEqual(parseChannelIds('<#111111111111111111> 222222222222222222,<#111111111111111111>'), ['111111111111111111', '222222222222222222'], 'いくつでも・重複は 1 つに');
   assert.deepEqual(parseChannelIds('<@333333333333333333>'), [], 'ユーザーのメンションはチャンネルではない');
 
@@ -142,11 +142,22 @@ test('summary: チャンネルの指定・結果の読み取り・重複の無�
   assert.equal(summary.groups.split[0].ok, 1, '新しい結果を使う');
   assert.equal(summary.groups.width.length, 1, '全角 / 半角だけのものは分ける');
 
-  // たくさんあっても 1 メッセージ 2000 文字を超えない
+  // たくさんあっても文は 1 メッセージ (2000 文字以下)。全体は JSON
   const many = Array.from({ length: 300 }, (_, i) => ({ ...split, expected: `文${i}`.repeat(10), at: i }));
-  const messages = formatSummary(summarize(many), ['111111111111111111']);
-  assert.ok(messages.length > 1);
-  assert.ok(messages.every(m => m.length <= 2000));
-  assert.match(messages.at(-1), /ほか \d+ 件/, '上限を超えた分は件数だけ');
-  assert.ok(chunkLines(['x'.repeat(5000)]).every(m => m.length <= MessageLimit), '1 行が長すぎても切る');
+  const big = summarize(many);
+  const text = formatSummary(big, ['111111111111111111']);
+  assert.ok(text.length <= 2000);
+  assert.match(text, /ほか \d+ 件/, '入りきらない分は件数だけ');
+  assert.match(text, /summary\.json/);
+  assert.equal(summaryJson(big, ['1']).split.length, 300, 'JSON にはすべて入る');
+
+  // 英単語でもローマ字でも読める語 (tomato) だけの違いは除外
+  const words = loadEnglishWords(path.resolve(import.meta.dirname, '../../../dictionaries'));
+  assert.ok(words.has('tomato'));
+  assert.ok(isRomaji('tomato') && isRomaji('made') && !isRomaji('good') && isRomaji('kitte') && isRomaji('honda'));
+  const tomato = { ...split, expected: 'トマトを買う', problems: ['日本語 / 英語の分かれ方が違う (英字: tomato、出てほしいのは なし)'] };
+  const good = { ...split, expected: 'goodかも', problems: ['日本語 / 英語の分かれ方が違う (英字: なし、出てほしいのは good)'] };
+  const groups = summarize([tomato, good], { englishWords: words }).groups;
+  assert.deepEqual(groups.ambiguous.map(e => e.expected), ['トマトを買う']);
+  assert.deepEqual(groups.split.map(e => e.expected), ['goodかも'], 'ローマ字として読めない英単語は除外しない');
 });
