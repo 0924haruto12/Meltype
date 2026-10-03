@@ -37,7 +37,7 @@ const ClaText = [
   '>',
   '> 1. 貢献は私自身が作成したもので、私にはそれを提供する権利がある。',
   '> 2. 私は Meltype の作者に対し、貢献を複製・改変・配布・サブライセンスする、無償で取り消し不能な、世界的・非独占的な権利を許諾する。',
-  '>    これには、GNU GPL v3 以外のライセンス (商用ライセンスを含む) で配布することを含む。',
+  '>    これには、GNU GPL v3 以外の条件 (作者が個別に認める利用を含む) で配布することを含む。',
   '> 3. 貢献の著作権は私に残り、私は自分の貢献を自由に利用できる。',
 ].join('\n');
 
@@ -94,7 +94,7 @@ async function onPullRequest() {
   await upsertComment(pr.number, [
     `@${author.login} さん、Pull Request ありがとうございます！`,
     '',
-    'Meltype は GNU GPL v3 と商用ライセンスのデュアルライセンスで提供しています。作者が商用ライセンスでも提供し続けられるように、初めての方には次の貢献者ライセンス同意 (CLA) をお願いしています ([詳しく](https://github.com/yksr-melt/Meltype/blob/main/CONTRIBUTING.md))。',
+    'Meltype は GNU GPL v3 で公開していますが、GPL v3 の条件で使えない方には作者が個別に利用を認めることがあります。これを続けられるように、初めての方には次の貢献者ライセンス同意 (CLA) をお願いしています ([詳しく](https://github.com/yksr-melt/Meltype/blob/main/CONTRIBUTING.md))。',
     '',
     ClaText,
     '',

@@ -102,5 +102,5 @@ SPDX-License-Identifier: Unicode-3.0
 ### そのほかの辞書
 
 `dictionaries/` の辞書 (日本語・英語の単語、固有名詞、同音異義語の候補、文脈の手がかり) は Meltype のために作成したもので、
-Meltype 本体と同じライセンス (GPL-3.0-or-later、商用ライセンス) です。
+Meltype 本体と同じライセンス (GPL-3.0-or-later) です。
 固有名詞の辞書に含まれる製品名・会社名は各社の商標です。

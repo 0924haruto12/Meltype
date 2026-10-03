@@ -43,7 +43,7 @@ internal static class AppInfo
 
     /// <summary>自動更新で最新のリリースを見に行く GitHub のリポジトリ (公開されている必要がある)。</summary>
     public const string UpdateRepository = "yksr-melt/Meltype";
-    public const string CommercialContact = "ibutya0319@gmail.com";
+    public const string Contact = "ibutya0319@gmail.com";
 
     public static string Version =>
         typeof(AppInfo).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "?";
@@ -58,7 +58,7 @@ internal static class AppInfo
         https://www.gnu.org/licenses/gpl-3.0.html
 
         ソースコード: {SourceUrl}
-        製品への組み込み (商用ライセンス): {CommercialContact}
+        GPL v3 の条件で使えない (非公開で利用したい) 場合は、メールでご相談ください: {Contact}
 
         同梱の .NET ランタイムは MIT ライセンスです (app\dotnet\LICENSE.txt)。
         変換エンジン Mozc は BSD-3-Clause ライセンスです (app\mozc\MOZC-LICENSE.txt、辞書は app\mozc\MOZC-CREDITS.html)。

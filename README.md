@@ -329,15 +329,15 @@ dotnet run --project src/Meltype.Core.Tests -- --eval       # 品質テスト (�
 
 ## プライバシー
 
-Meltype はキーボードの入力を監視して動くツールですが、打った内容をネットワークに送ることはありません (通信する処理がありません)。
+Meltype はキーボードの入力を監視して動くツールですが、打った内容をネットワークに送ることはありません。通信するのは、自動更新で GitHub に新しい版があるかを確かめるとき (送るのは今の版だけ) と、自分で開いた不具合報告のフォームだけです。
 保存するのは `%LOCALAPPDATA%\Meltype` の設定・学習データ・ユーザー辞書と、ファイルログを ON にしたときのログだけです。
 
 ## ライセンス
 
-Meltype は **GNU General Public License v3.0** ([LICENSE](LICENSE)) と **商用ライセンス** のデュアルライセンスです。
+Meltype は **GNU General Public License v3.0** ([LICENSE](LICENSE)) で公開しています。
 
-- 個人・会社でそのまま使う、GPL v3 の条件 (改造版もソースを公開) で改造・再配布する → GPL v3 で無料
-- 自社製品に組み込んで、ソースを公開せずに配布したい → 商用ライセンス ([COMMERCIAL.md](COMMERCIAL.md))
+- 個人・会社でそのまま使う、GPL v3 の条件 (改造版もソースを公開) で改造・再配布する → 無料で自由に使えます
+- GPL v3 の条件で使えない場合 (製品に組み込んでソースを公開せずに配布したいなど、非公開で利用したい場合) は、メールでご相談ください: ibutya0319@gmail.com
 
 貢献の方法と貢献者ライセンス同意 (CLA) は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
 
