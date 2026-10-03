@@ -630,8 +630,8 @@ public sealed class CompositionText
         var mask = new List<bool>();
         foreach (var segment in Segments(final: false))
         {
-            // 5 文字以上の知っている語 (meeting) か、同梱の英語の辞書の 3〜4 文字の語 (user・rta)
-            var word = segment.IsEnglish && (segment.Raw.Length >= 5 && _detector.IsKnownEnglishWord(segment.Raw) || segment.Raw.Length is 3 or 4 && _detector.IsListedEnglishWord(segment.Raw.ToLowerInvariant()));
+            // 5 文字以上の知っている語 (meeting) か、同梱の英語の辞書の 2〜4 文字の語 (user・rta・av)
+            var word = segment.IsEnglish && (segment.Raw.Length >= 5 && _detector.IsKnownEnglishWord(segment.Raw) || segment.Raw.Length is >= 2 and <= 4 && _detector.IsListedEnglishWord(segment.Raw.ToLowerInvariant()));
             for (var i = 0; i < segment.Raw.Length; i++) mask.Add(word);
         }
         return mask;
