@@ -63,7 +63,7 @@ jobs:
           python-version: '3.12'
       - name: Bazelisk
         if: steps.check.outputs.build == 'true'
-        shell: powershell
+        shell: pwsh
         run: |
           # 版を固定し、ダウンロードしたものが公開されているものと同じか (SHA-256) を確かめる。
           $version = 'v1.29.0'

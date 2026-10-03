@@ -177,8 +177,7 @@ final class MeltypeInputController: IMKInputController {
     private var meaningKey: String?
 
     private func scheduleMeaning(_ view: CompositionView) {
-        let key = view.meaning.map { "(view.selectedIndex)
-($0)" }
+        let key = view.meaning.map { "\(view.selectedIndex):\($0)" }
         guard key != meaningKey else { return }
         meaningKey = key
         guard let key, let meaning = view.meaning else { return }

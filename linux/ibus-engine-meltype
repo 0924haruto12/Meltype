@@ -252,8 +252,7 @@ class MeltypeEngine(IBus.Engine):
 
     def _schedule_meaning(self, view):
         meaning = view.get("meaning")
-        key = f"{view.get('selectedIndex')}
-{meaning}" if meaning else None
+        key = f"{view.get('selectedIndex')}:{meaning}" if meaning else None
         if key == self._meaning_key:
             return
         self._meaning_key = key
