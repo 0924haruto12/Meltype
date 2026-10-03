@@ -137,6 +137,23 @@ foreach ($file in Get-ChildItem (Join-Path $runtime 'shared') -Recurse -Filter '
 Update-DepsJson
 Invoke-SelfTest '読み込まれない部品も削った後' | Out-Null
 
+# コード署名 (証明書があるときだけ): 環境変数 MELTYPE_SIGN_PFX (証明書の .pfx) と MELTYPE_SIGN_PASSWORD を設定すると、
+# Meltype.exe・Meltype.dll・Mozc のヘルパーに署名する (SmartScreen の警告とウイルス対策ソフトの誤検知を減らすため)。
+# GitHub Actions では、秘密 SIGN_PFX_BASE64 / SIGN_PASSWORD を登録すると build.yml が設定する。
+if ($env:MELTYPE_SIGN_PFX -and (Test-Path -LiteralPath $env:MELTYPE_SIGN_PFX)) {
+    $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -like '*\x64\*' } | Sort-Object FullName | Select-Object -Last 1
+    if (-not $signtool) { throw 'signtool.exe が見つかりません (Windows SDK が必要です)。' }
+    $targets = @('Meltype.exe', 'Meltype.dll', 'Meltype.Core.dll', 'mozc\meltype_mozc_helper.exe') |
+        ForEach-Object { Join-Path $app $_ } | Where-Object { Test-Path -LiteralPath $_ }
+    & $signtool.FullName sign /f $env:MELTYPE_SIGN_PFX /p $env:MELTYPE_SIGN_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $targets
+    if ($LASTEXITCODE -ne 0) { throw "署名に失敗しました (exit code $LASTEXITCODE)。" }
+    Write-Host "署名しました: $($targets.Count) 個のファイル"
+}
+else {
+    Write-Host '証明書が無いので署名しません (MELTYPE_SIGN_PFX)。'
+}
+
 # 自動更新の確認に使う (Meltype が app フォルダーから呼ぶ)
 Copy-Item -LiteralPath (Join-Path $root 'packaging\update.ps1') -Destination $app
 foreach ($file in 'Install.cmd', 'Uninstall.cmd', 'install.ps1', 'uninstall.ps1', 'README.txt') {

@@ -79,6 +79,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _levelItem.DropDownItems.Add(new ToolStripMenuItem(LevelName(level), null, (_, _) => SetLevel(level)) { Tag = level });
         }
         menu.Items.Add(_levelItem);
+        var startup = new ToolStripMenuItem("Windows の起動時に起動", null, (_, _) => ToggleStartup());
+        menu.Items.Add(startup);
         menu.Items.Add("使い方...", null, (_, _) => ShowWelcome());
         menu.Items.Add("設定...", null, (_, _) => ShowSettings());
         menu.Items.Add("ユーザー辞書...", null, (_, _) => ShowUserDictionary());
@@ -104,6 +106,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(updates);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("終了", null, (_, _) => ExitThread());
+        menu.Opening += (_, _) => startup.Checked = Startup.IsEnabled;
         menu.Opening += (_, _) => UpdateStatus();
 
         _tray = new NotifyIcon { ContextMenuStrip = menu, Visible = true };
@@ -239,6 +242,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _reportDialog = new ReportDialog(_engine.Settings);
         _reportDialog.FormClosed += (_, _) => _reportDialog = null;
         _reportDialog.Show();
+    }
+
+    private static void ToggleStartup()
+    {
+        try
+        {
+            Startup.Set(!Startup.IsEnabled);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"変えられませんでした。\n\n{ex.Message}", "Meltype", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
     }
 
     private void ToggleAutoUpdate()

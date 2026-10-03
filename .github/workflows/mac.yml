@@ -35,9 +35,40 @@ jobs:
           path: mac/.build
           key: mac-swiftpm-${{ hashFiles('mac/Package.swift', 'mac/Package.resolved') }}
           restore-keys: mac-swiftpm-
+      # 配布用の署名 (Apple Developer Program の Developer ID の証明書があるときだけ)。秘密:
+      #   MAC_CERT_P12_BASE64 (証明書の .p12 を Base64 にしたもの)、MAC_CERT_PASSWORD、MAC_IDENTITY ("Developer ID Application: 名前 (チームID)")
+      - name: Signing certificate
+        env:
+          MAC_CERT_P12_BASE64: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          MAC_CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          MAC_IDENTITY: ${{ secrets.MAC_IDENTITY }}
+        run: |
+          if [[ -z "$MAC_CERT_P12_BASE64" ]]; then echo "証明書が無いので配布用の署名はしません"; exit 0; fi
+          keychain="$RUNNER_TEMP/meltype.keychain-db"
+          password="$(uuidgen)"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 3600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$MAC_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$keychain" -P "$MAC_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          rm "$RUNNER_TEMP/cert.p12"
+          echo "MELTYPE_MAC_IDENTITY=$MAC_IDENTITY" >> "$GITHUB_ENV"
       - name: Build
         working-directory: mac
         run: ./build.sh --no-install
+      # 公証 (notarization): 署名したときだけ。秘密 NOTARY_APPLE_ID・NOTARY_TEAM_ID・NOTARY_PASSWORD (App 用パスワード)
+      - name: Notarize
+        if: env.MELTYPE_MAC_IDENTITY != ''
+        env:
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: |
+          ditto -c -k --keepParent mac/build/Meltype.app "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --apple-id "$NOTARY_APPLE_ID" --team-id "$NOTARY_TEAM_ID" --password "$NOTARY_PASSWORD" --wait
+          xcrun stapler staple mac/build/Meltype.app
       - name: Package
         run: |
           mkdir -p dist/Meltype-mac

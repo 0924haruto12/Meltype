@@ -108,8 +108,21 @@ jobs:
         with:
           name: mozc-helper
           path: native/mozc/bin/
+      # コード署名の証明書 (秘密 SIGN_PFX_BASE64 = .pfx を Base64 にしたもの、SIGN_PASSWORD) があれば、Build-Package.ps1 が署名する
+      - name: Signing certificate
+        shell: powershell
+        env:
+          SIGN_PFX_BASE64: ${{ secrets.SIGN_PFX_BASE64 }}
+        run: |
+          if ($env:SIGN_PFX_BASE64) {
+            $pfx = Join-Path $env:RUNNER_TEMP 'meltype-sign.pfx'
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGN_PFX_BASE64))
+            "MELTYPE_SIGN_PFX=$pfx" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          }
       - name: Package
         shell: powershell
+        env:
+          MELTYPE_SIGN_PASSWORD: ${{ secrets.SIGN_PASSWORD }}
         run: .\Build-Package.ps1
       - uses: actions/upload-artifact@v4
         with:

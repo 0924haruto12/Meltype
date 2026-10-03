@@ -42,8 +42,15 @@ cp Resources/icon.tiff "$APP/Contents/Resources/icon.tiff"
 for bundle in "$(swift build -c release --show-bin-path)"/*.bundle; do
     [[ -e "$bundle" ]] && cp -R "$bundle" "$APP/Contents/Resources/"
 done
-# 自分の Mac で使うための署名 (配布用の署名ではない)
-codesign --force --deep --sign - "$APP"
+# 署名: 環境変数 MELTYPE_MAC_IDENTITY (Developer ID Application の証明書の名前) があれば配布用に署名する
+# (Hardened Runtime・タイムスタンプ付き。公証 (notarization) は mac.yml で行う)。無ければ自分の Mac で使うための署名。
+if [[ -n "${MELTYPE_MAC_IDENTITY:-}" ]]; then
+    codesign --force --sign "$MELTYPE_MAC_IDENTITY" --options runtime --timestamp "$APP/Contents/Frameworks/libMeltypeNative.dylib"
+    codesign --force --deep --sign "$MELTYPE_MAC_IDENTITY" --options runtime --timestamp "$APP"
+    echo "配布用に署名しました: $MELTYPE_MAC_IDENTITY"
+else
+    codesign --force --deep --sign - "$APP"
+fi
 echo "作成しました: $APP"
 
 if [[ $INSTALL -eq 1 ]]; then
