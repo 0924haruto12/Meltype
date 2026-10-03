@@ -22,7 +22,7 @@ internal static class TestRunner
             foreach (var word in args.Skip(1)) Console.WriteLine($"{word} → {Detection.WindowsSpellChecker.Shared.AutoCorrection(word) ?? "(なし)"}");
             return 0;
         }
-        // 不具合報告のフォームに自動で入れる実行環境 (Meltype の「不具合を報告...」と同じもの)
+        // 不具合報告のフォームに自動で入れる実行環境 (Meltype の「不具合の報告・提案...」と同じもの)
         if (args.FirstOrDefault() == "--report-info")
         {
             var environment = Diagnostics.ReportInfo.Environment(Config.Settings.Load(Config.AppPaths.ConfigFile));

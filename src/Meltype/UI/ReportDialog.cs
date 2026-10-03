@@ -6,7 +6,7 @@ using System.Diagnostics;
 namespace Meltype.UI;
 
 /// <summary>
-/// 不具合の報告 (トレイの「不具合を報告...」)。フォームに入れる実行環境と、貼り付けてもらう最近のログを見せる。
+/// 不具合の報告・提案 (トレイの「不具合の報告・提案...」)。フォームに入れる実行環境と、貼り付けてもらう最近のログを見せる。
 /// ログは中身を確かめて (見られて困る部分は消して) からコピーしてもらう。実行環境はフォームを開くときに自動で入る。
 /// </summary>
 internal sealed class ReportDialog : Form
@@ -16,7 +16,7 @@ internal sealed class ReportDialog : Form
 
     public ReportDialog(Config.Settings settings)
     {
-        Text = "Meltype 不具合の報告";
+        Text = "Meltype 不具合の報告・提案";
         StartPosition = FormStartPosition.CenterScreen;
         Font = new Font("Yu Gothic UI", 9.5F);
         var area = Screen.FromPoint(Cursor.Position).WorkingArea;
@@ -30,7 +30,7 @@ internal sealed class ReportDialog : Form
             AutoSize = true,
             Padding = new Padding(10, 10, 10, 6),
             MaximumSize = new Size(Width - 40, 0),
-            Text = "「フォームで報告」を押すと、報告のフォームがブラウザーで開きます。下の実行環境は自動でフォームに入ります。\n"
+            Text = "「フォームで報告」を押すと、報告のフォームがブラウザーで開きます (改善の提案もここから送れます)。下の実行環境は自動でフォームに入ります。\n"
                 + "ログは「ログをコピー」を押して、フォームの「ログ」の欄に貼り付けてください。見られて困る部分があれば、ここで消してからコピーしてください。",
         };
 
@@ -91,15 +91,19 @@ internal sealed class ReportDialog : Form
         CancelButton = close;
     }
 
-    /// <summary>「GitHub で報告: 不具合 / 変換・判定の間違い」のリンク。</summary>
+    /// <summary>「GitHub で報告: 不具合 / 変換・判定の間違い / 改善の提案」のリンク。</summary>
     private Control GitHubLinks()
     {
         const string prefix = "GitHub のアカウントがある人は GitHub で報告 (返事や修正の通知が届きます): ";
-        const string bug = "不具合", misdetection = "変換・判定の間違い";
-        var link = new LinkLabel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(10, 4, 10, 4), Text = $"{prefix}{bug} / {misdetection}" };
+        (string Text, string Template)[] kinds = [("不具合", "1-bug.yml"), ("変換・判定の間違い", "2-misdetection.yml"), ("改善の提案", "4-idea.yml")];
+        var link = new LinkLabel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(10, 4, 10, 4), Text = prefix + string.Join(" / ", kinds.Select(k => k.Text)) };
         link.Links.Clear();
-        link.Links.Add(prefix.Length, bug.Length, "1-bug.yml");
-        link.Links.Add(prefix.Length + bug.Length + 3, misdetection.Length, "2-misdetection.yml");
+        var start = prefix.Length;
+        foreach (var (text, template) in kinds)
+        {
+            link.Links.Add(start, text.Length, template);
+            start += text.Length + 3;
+        }
         link.LinkClicked += (_, e) =>
         {
             try

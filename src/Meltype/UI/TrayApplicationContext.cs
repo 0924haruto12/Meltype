@@ -81,7 +81,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add("ログ / 判定理由...", null, (_, _) => ShowLog());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("データフォルダを開く", null, (_, _) => OpenDataFolder());
-        menu.Items.Add("不具合を報告...", null, (_, _) => OpenReport());
+        menu.Items.Add("不具合の報告・提案...", null, (_, _) => OpenReport());
         menu.Items.Add("Meltype について...", null, (_, _) => MessageBox.Show(AppInfo.AboutText, "Meltype について", MessageBoxButtons.OK, MessageBoxIcon.Information));
         menu.Items.Add("学習データをリセット", null, (_, _) => ResetLearning());
         // 更新: 自動更新の ON/OFF、今すぐ確認、ダウンロード済みなら更新して再起動

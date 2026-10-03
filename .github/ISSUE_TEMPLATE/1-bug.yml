@@ -101,5 +101,5 @@ body:
     id: environment
     attributes:
       label: 実行環境
-      description: Meltype の「不具合を報告...」→「GitHub で報告」から開くと自動で入ります (入力した文字は入りません)。
+      description: Meltype の「不具合の報告・提案...」→「GitHub で報告」から開くと自動で入ります (入力した文字は入りません)。
       render: text
