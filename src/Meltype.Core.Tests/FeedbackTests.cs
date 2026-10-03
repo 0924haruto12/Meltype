@@ -471,6 +471,11 @@ internal static class LanguageLearningTests
                 ("A fool a fool a, for u", "A fool a fool a, for u"), ("how r u", "how r u"), ("kyouhau", "きょうはう"),
                 ("atarashiiPCwokatta", "あたらしいPCをかった"), ("iPhonewokatta", "iPhoneをかった"),
                 ("toshiteOCRwoshi,amerikagonaruEnglishwohappyni", "としてOCRをし、あめりかごなるEnglishをhappyに"), ("Tokyonisumu", "Tokyoにすむ"),
+                ("motometeSNSde", "もとめてSNSで"), ("shilyowhugaltsucowhu", "しょうがっこう"), ("dochiramouserga", "どちらもuserが"), ("macOSnoupdate", "macOSのupdate"),
+                ("tabetemitaidesupart1026beta", "たべてみたいですpart1026beta"), ("kaibunsyorta2026kotosimo", "かいぶんしょrta2026ことしも"), ("PS5wokaitai", "PS5をかいたい"),
+                ("cyiisai", "ちぃいさい"), ("yiu", "いう"), ("wu", "う"), ("ceito", "せいと"),
+                ("translatebot[Thinking is thinking]", "translatebot「Thinking is thinking」"), ("fuwafuwanacornyorifuwafuwanachocolatenohougayum", "ふわふわなcornよりふわふわなchocolateのほうがyum"),
+                ("hey yo say!", "hey yo say!"), ("korosuzobot", "ころすぞbot"),
             })
             {
                 var k = new CompositionTests.Keyboard();

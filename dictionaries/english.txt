@@ -198,6 +198,8 @@ token tokens prompt prompts model models agent agents tool tools server servers 
 # --- 話し言葉の英語 (歌詞・チャット) ---
 outta gonna wanna gotta kinda sorta lotta dunno gimme lemme ya yeah nope yep hey oh baby tonight
 # --- 感動詞 (Ah! Ooh, Wow) ---
-ah ooh wow oops yay huh ugh aww hmm whoa
+ah ooh wow oops yay huh ugh aww hmm whoa yo
 # --- 言語の名前 (English、Japanese。スペルチェッカーは大文字で始まる形しか知らない) ---
 english japanese chinese korean french german spanish italian russian portuguese arabic hindi thai vietnamese indonesian dutch swedish latin greek
+# --- bot まわり (korosuzobot → 殺すぞbot。bo + t として 墓t になっていた) ---
+bot bots chatbot chatbots

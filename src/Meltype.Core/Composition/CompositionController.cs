@@ -573,12 +573,19 @@ public sealed class CompositionController
     /// 英文の途中か: 最後の行の日本語の文字より後ろが、空白で区切った英単語 2 語以上で、空白で終わる ("I want ", "Thanks, see ")。
     /// 日本語の文の中の英単語 ("今日は GitHub ") は 1 語なので当たらない。
     /// </summary>
+    /// <summary>1 語でも英文の始まりとみなす、行の始めのあいさつ・感動詞。</summary>
+    private static readonly HashSet<string> SentenceOpeners = ["hey", "hi", "hello", "oh", "wow", "yeah", "yes", "well", "so", "hmm", "ah", "ooh", "oops", "thanks", "sorry", "please", "dear", "yay", "whoa", "nope", "yep"];
+
     internal static bool IsEnglishSentence(string? text)
     {
         if (string.IsNullOrEmpty(text) || text[^1] != ' ') return false;
         var start = text.Length;
         while (start > 0 && text[start - 1] < 0x80 && text[start - 1] is not ('\n' or '\r')) start--;
         var words = text[start..].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        // 行の始めのあいさつ・感動詞 (hey・hi・oh …) なら 1 語でも英文の始まり ("hey " の後の yo)。
+        // ほかの 1 語 (GitHub no repo の GitHub) は、日本語の文の中の英単語のことが多いので 2 語以上
+        var lineStart = start == 0 || text[start - 1] is '\n' or '\r';
+        if (lineStart && words is [var first] && SentenceOpeners.Contains(first.TrimEnd(',', '!', '.').ToLowerInvariant())) return true;
         return words.Length >= 2 && words.All(w => w.Any(char.IsAsciiLetter) && w.All(c => char.IsAsciiLetterOrDigit(c) || c is ',' or '.' or '\'' or '-' or '!' or '?' or ':' or ';'));
     }
 
