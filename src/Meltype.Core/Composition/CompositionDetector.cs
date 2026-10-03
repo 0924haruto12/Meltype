@@ -75,11 +75,35 @@ public sealed class CompositionDetector
         // 途中の区間 (… flow) だけを英語にすると「sたcこvえrflow」のようになってしまう。
         // ただし先頭が辞書の英単語として区切れている (github に push) ならその区切りを使う。
         var whole = Raw(units, 0, units.Count) + pending;
+        if (UnknownWordThenJapanese(units, pending, segments, level, whole) is { } split) return split;
         if (level != DetectionLevel.Manual && !segments[0].IsEnglish && Memory?.Get(whole.ToLowerInvariant()) != false && IsUnknownEnglishWord(whole))
         {
             return [new CompositionSegment(true, "", whole)];
         }
         return segments;
+    }
+
+    private List<CompositionSegment>? UnknownWordThenJapanese(IReadOnlyList<CompositionUnit> units, string pending, List<CompositionSegment> segments, DetectionLevel level, string whole)
+    {
+        // 知らない英字の語 + 助詞で始まる日本語 (grokga、grokniyoruto) を最初から打っているなら、語は英字・後ろは日本語 (grokが)。
+        // 語は、ローマ字の打ちかけとしても読めない (gr) もの。後ろは最後までローマ字として読めるもの。
+        if (level != DetectionLevel.Manual && !segments[0].IsEnglish && whole.All(char.IsAsciiLetter) && !IsKnownEnglishWord(whole))
+        {
+            for (var k = 1; k < units.Count; k++)
+            {
+                var stem = Raw(units, 0, k).ToLowerInvariant();
+                if (stem.Length < 3 || _romaji.AnalyzeFragment(stem).IsValid || IsKnownEnglishWord(stem) && stem.Length >= 5) continue;
+                // 語の頭から読めない (gr): 日本語の後ろの英単語 (kyouha|google) ではない。
+                // 読めない 1 文字の後ろが最後まで読める (s|dake) なら、英字 1 文字 + 日本語。
+                var readable = _romaji.Analyze(stem).Tokens.Sum(t => t.Romaji.Length);
+                if (readable >= 2 || _romaji.Analyze(stem[(readable + 1)..]) is { IsValid: true, Partial: "" }) continue;
+                var rest = (Raw(units, k, units.Count) + pending).ToLowerInvariant();
+                if (!TrailingParticles.Any(p => rest.StartsWith(p, StringComparison.Ordinal)) || stem[^1] == rest[0] ||
+                    _romaji.Analyze(rest) is not { IsValid: true, Partial: "" or "n" }) continue;
+                return [new CompositionSegment(true, "", Raw(units, 0, k)), Japanese(units, k, units.Count, pending)];
+            }
+        }
+        return null;
     }
 
     private List<CompositionSegment> FindSpans(IReadOnlyList<CompositionUnit> units, string pending, bool? precedingEnglish, bool? followingEnglish, DetectionLevel level, bool englishSentence, bool kanaInput, bool final)
@@ -278,6 +302,8 @@ public sealed class CompositionDetector
         }
 
         var inDictionary = _english.Words.ContainsWord(lower);
+        // 知らない英字の語 + 助詞 (grok|ga、figma|de) は、助詞までを 1 語にしない。語の部分だけの区間はこの後で別に見る
+        if (EndsWithParticleAfterUnknownWord(lower)) return false;
         // Windows のスペルチェッカーの英単語 (meeting, name …)。ローマ字の語 (kore, sore) まで含む緩いものなので、
         // ローマ字として読めない語か、前後の文脈で英語と分かるときだけ使う (同梱の辞書の語より弱い)。
         var conservative = level == DetectionLevel.Conservative;
@@ -323,7 +349,8 @@ public sealed class CompositionDetector
         }
         // 1 文字は英文の中の a / i だけ。
         // 1 文字は英文の中の a / i と、チャットの略し方の u (you)・r (are) だけ。前が英語の語なら英字 (A fool a fool a, for u / how r u)。
-        if (span.Length < 2) return lower is "a" or "i" or "u" or "r" && before >= 1;
+        // 語として独立している (後ろが空白・記号・終わり) ときだけ。後ろにかなが続く (HH|i|reta = HH いれた) なら日本語の 1 音。
+        if (span.Length < 2) return lower is "a" or "i" or "u" or "r" && before >= 1 && !(next is { Length: > 0 } && char.IsAsciiLetter(next[0]));
 
         // 英語の固有名詞 (amazon, adobe, netflix) は、ローマ字として読めても英語。日本語の語と同じ綴りなら除く。
         // 短い名前 (ben, tom) の偶然の一致 (にほんごの|ben|きょう) を避けるため 4 文字以上。文の途中の区間なら
@@ -345,7 +372,9 @@ public sealed class CompositionDetector
 
         // 英単語で、ローマ字として読めない英字を含む (zoom + でかいぎ → m が読めない)。日本語の文の途中でも英語。
         // 日本語の後ろで、助詞 + 読めない英字 (の + ts: jissainotsyu) は、英単語 (not) ではなく 助詞 + 英字。
-        if (unreadable && before < 0 && Detection.DictionaryDetector.StartsWithParticle(lower) is { } particle && lower.Length - particle.Length <= 2) return false;
+        // 助詞の後ろがローマ字の打ちかけ (ts = つ) のときだけ。ローマ字にならない (he + lp: help) なら英単語。
+        if (unreadable && before < 0 && Detection.DictionaryDetector.StartsWithParticle(lower) is { } particle && lower.Length - particle.Length <= 2 &&
+            _romaji.AnalyzeFragment(lower[particle.Length..]).IsValid) return false;
         // 同梱の辞書の英単語で、ローマ字としては促音 (っ) を使わないと読めない語 (issue = いっすえ, apple) は英語。
         // 日本語の語 (の先頭) なら除く。
         if (inDictionary && lower.Length >= 4 && _romaji.Analyze(lower) is { IsValid: true, Sokuon: > 0 } && !_japanese.IsPrefix(lower)) return true;
@@ -435,13 +464,16 @@ public sealed class CompositionDetector
         while (n < units.Count && units[n].Raw.All(char.IsAsciiLetter) && units[n].Raw.Length > 0) n++;
         if (n < units.Count) pending = "";
         var whole = Raw(units, start, n) + pending;
-        if (whole.Length == 0 || !char.IsAsciiLetterUpper(whole[0])) return -1;
+        // 2 文字目が大文字の語 (iPad、iPhone、eSports) も、知っている語なら同じように区切る (iPad|deii → iPad でいい)
+        var lowerStart = whole.Length >= 2 && char.IsAsciiLetterLower(whole[0]) && char.IsAsciiLetterUpper(whole[1]);
+        if (whole.Length == 0 || !char.IsAsciiLetterUpper(whole[0]) && !lowerStart) return -1;
         // 全体が英単語・固有名詞 (Tokyo, Github) なら区切らない。
         if (IsKnownCapitalizedWord(whole)) return -1;
         for (var k = n - 1; k > start; k--)
         {
             var head = Raw(units, start, k);
             if (!head.All(char.IsAsciiLetter)) continue;
+            if (lowerStart && !(head.Length >= 3 && IsKnownCapitalizedWord(head))) continue;
             // 後ろは小文字のローマ字 (長音の - を含んでもよい: TSyu-za- の yu-za-)。
             var rest = Raw(units, k, n) + pending;
             // 後ろが助詞 1 つだけ (OCR|wo、English|ga) なら 2 文字でもよい
@@ -533,6 +565,25 @@ public sealed class CompositionDetector
         var lower = raw.ToLowerInvariant();
         if (_romaji.Analyze(lower).IsValid) return false;
         return _english.Words.ContainsWord(lower) || _proper.Contains(lower) || IsSpellWord(lower);
+    }
+
+    private static readonly string[] TrailingParticles = ["kara", "made", "yori", "ga", "wo", "ni", "de", "no", "to", "mo", "ha", "wa"];
+
+    /// <summary>
+    /// 知らない英字の語 + 助詞 (grokga = grok + が) か。語の部分は 3 文字以上でローマ字として読めないもの、全体は辞書に無いもの。
+    /// 語の最後の子音と助詞の頭が同じ (lot + to = ろっと) なら っ の綴りなので除く。
+    /// </summary>
+    private bool EndsWithParticleAfterUnknownWord(string lower)
+    {
+        if (_english.Words.ContainsWord(lower) || _proper.Contains(lower) || Memory?.Get(lower) == true || IsSpellWord(lower)) return false;
+        foreach (var particle in TrailingParticles)
+        {
+            if (!lower.EndsWith(particle, StringComparison.Ordinal)) continue;
+            var stem = lower[..^particle.Length];
+            if (stem.Length < 3 || stem[^1] == particle[0]) return false;
+            return !_romaji.Analyze(stem).IsValid;
+        }
+        return false;
     }
 
     private bool IsKnownCapitalizedWord(string word)

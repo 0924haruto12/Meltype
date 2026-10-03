@@ -247,7 +247,9 @@ public sealed class CompositionText
             if (lower.Length == unit.Length && !final) return; // まだ続きを打つかもしれない
             if (lower.Length > unit.Length && UnitWords.Any(u => u.Length > unit.Length && u.StartsWith(lower[..(unit.Length + 1)], StringComparison.Ordinal))) return;
             // 小文字の母音が続くなら、ローマ字の語の途中 (10mina → 10みな) かもしれないので単位にしない
-            if (lower.Length > unit.Length && lower[unit.Length] is 'a' or 'i' or 'u' or 'e' or 'o') return;
+            // ただし単位の最後の文字の前までがローマ字として読めない (51km|ijou の k) なら、母音とつなげても読めないので単位 (51km以上)
+            if (lower.Length > unit.Length && lower[unit.Length] is 'a' or 'i' or 'u' or 'e' or 'o' &&
+                _detector.Romaji.Analyze(lower[..(unit.Length - 1)]) is { IsValid: true, Partial: "" }) return;
             _units.RemoveRange(digit + 1, _units.Count - digit - 1);
             foreach (var letter in run[..unit.Length]) _units.Add(new CompositionUnit(letter.ToString(), letter.ToString()));
             _pending.Clear();
@@ -631,7 +633,10 @@ public sealed class CompositionText
         foreach (var segment in Segments(final: false))
         {
             // 5 文字以上の知っている語 (meeting) か、同梱の英語の辞書の 2〜4 文字の語 (user・rta・av)
-            var word = segment.IsEnglish && (segment.Raw.Length >= 5 && _detector.IsKnownEnglishWord(segment.Raw) || segment.Raw.Length is >= 2 and <= 4 && _detector.IsListedEnglishWord(segment.Raw.ToLowerInvariant()));
+            // 4 文字の知っている語で、ローマ字として読めないもの (help・milk) も英語 (help|pe-ji → へおっぺーじ にしない)
+            var lower = segment.Raw.ToLowerInvariant();
+            var word = segment.IsEnglish && (segment.Raw.Length >= 5 && _detector.IsKnownEnglishWord(segment.Raw) || segment.Raw.Length is >= 2 and <= 4 && _detector.IsListedEnglishWord(lower) ||
+                segment.Raw.Length == 4 && _detector.IsKnownEnglishWord(lower) && !_detector.Romaji.Analyze(lower).IsValid);
             for (var i = 0; i < segment.Raw.Length; i++) mask.Add(word);
         }
         return mask;
