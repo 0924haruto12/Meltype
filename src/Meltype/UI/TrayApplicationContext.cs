@@ -28,6 +28,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private SettingsForm? _settingsForm;
     private LogForm? _logForm;
     private UserDictionaryForm? _dictionaryForm;
+    private ReportDialog? _reportDialog;
     private readonly Updater _updater;
     private readonly ToolStripMenuItem _updateItem;
     private readonly ToolStripMenuItem _autoUpdateItem;
@@ -196,26 +197,19 @@ internal sealed class TrayApplicationContext : ApplicationContext
     };
 
     /// <summary>
-    /// 不具合報告のフォームをブラウザーで開く (GitHub のアカウントが無くても報告できる)。OS・版・実行環境はフォームに入れておく。
-    /// ログは URL に入れず (履歴に残る・長さの上限がある)、クリップボードにコピーして貼り付けてもらう。
+    /// 不具合の報告の画面 (GitHub のアカウントが無くても報告できる)。実行環境とログを見せ、ログはコピーボタンで、フォームはボタンで開く。
+    /// ログは URL に入れない (履歴に残る・長さの上限がある)。
     /// </summary>
     private void OpenReport()
     {
-        try
+        if (_reportDialog is { IsDisposed: false })
         {
-            var log = Diagnostics.ReportInfo.RecentLog();
-            if (log.Length > 0)
-            {
-                Clipboard.SetText(log);
-                MessageBox.Show("最近のログをコピーしました。\n開いたフォームの「ログ」の欄に貼り付けてください (Ctrl+V)。\n\n見られて困る部分があれば、貼り付けた後に消してから送ってください。",
-                    "Meltype 不具合の報告", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            Process.Start(new ProcessStartInfo(AppInfo.ReportUrl(Diagnostics.ReportInfo.Environment(_engine.Settings))) { UseShellExecute = true });
+            _reportDialog.Activate();
+            return;
         }
-        catch (Exception ex)
-        {
-            Diagnostics.Log.Warn($"報告の画面を開けませんでした: {ex.Message}");
-        }
+        _reportDialog = new ReportDialog(_engine.Settings);
+        _reportDialog.FormClosed += (_, _) => _reportDialog = null;
+        _reportDialog.Show();
     }
 
     private void ToggleAutoUpdate()
@@ -336,6 +330,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _settingsForm?.Close();
         _logForm?.Close();
         _dictionaryForm?.Close();
+        _reportDialog?.Close();
         _updater.Dispose();
         _hotkey.Dispose();
         _tray.Visible = false;
