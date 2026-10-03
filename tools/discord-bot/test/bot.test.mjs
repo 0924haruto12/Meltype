@@ -76,3 +76,40 @@ test('jht の結果の表示', async () => {
   assert.ok(text.indexOf('**問題 (1)**') > text.indexOf('eBaydeuru'), '問題は最後にまとめて出す');
   assert.ok(text.includes('・2 番目の文節'));
 });
+
+test('chjht: 試す文の選び方', async () => {
+  const { prepareText } = await import('../channel-check.mjs');
+  assert.deepEqual(prepareText('私はgoogleが好きです'), { text: '私はgoogleが好きです' });
+  assert.deepEqual(prepareText('<@123> 見て https://example.com/a これ <:smile:42>'), { text: '見て これ' });
+  assert.equal(prepareText('hello world').skip, 'noJapanese');
+  assert.equal(prepareText('あ'.repeat(81)).skip, 'long');
+  assert.equal(prepareText('   ').skip, 'empty');
+});
+
+test('chjht: 問題があったものを送り、順番待ちのチャンネルを続けて試す', async () => {
+  const { ChannelCheckQueue } = await import('../channel-check.mjs');
+  const sent = [];
+  const report = { send: async m => { sent.push(typeof m === 'string' ? m : m.embeds[0].data.title); } };
+  const message = (id, content, bot = false) => ({ id, content, createdTimestamp: Number(id), url: `https://discord.com/channels/1/2/${id}`, author: { bot, username: 'a' } });
+  const channel = (id, list) => ({ id, messages: { fetch: async ({ after }) => new Map(list.filter(m => BigInt(m.id) > BigInt(after)).map(m => [m.id, m])) } });
+  const order = [];
+  const queue = new ChannelCheckQueue({
+    concurrency: 2,
+    formatJht: () => '詳しく',
+    runJht: async text => {
+      order.push(text);
+      if (text.includes('打てない')) throw new Error('読みが分からない');
+      return { expected: text, results: [{ firstOk: !text.includes('問題'), liveOk: true }] };
+    },
+  });
+  const first = channel('1', [message('10', 'ふつうの文'), message('11', '問題のある文'), message('12', 'bot の文', true), message('13', 'english only'), message('14', '打てない文')]);
+  const second = channel('2', [message('20', '問題その2')]);
+  assert.equal(queue.enqueue({ target: first, report, botId: '99' }), 0);
+  assert.equal(queue.enqueue({ target: second, report, botId: '99' }), 1, '2 つ目は順番待ち');
+  for (let i = 0; i < 100 && queue.current; i++) await new Promise(r => setTimeout(r, 5));
+  assert.ok(sent.includes('「問題のある文」'), '問題のある文を送る');
+  assert.ok(sent.includes('「問題その2」'), '順番待ちのチャンネルも自動で試す');
+  assert.ok(!order.includes('bot の文') && !order.includes('english only'), 'bot・日本語の無い文は試さない');
+  assert.ok(order.indexOf('問題その2') > order.indexOf('問題のある文'), '1 つ目のチャンネルが終わってから 2 つ目');
+  assert.ok(sent.some(s => s.includes('<#1> のチェックが終わりました') && s.includes('**1 件**') && s.includes('試せなかったもの 1 件')), '最後にまとめ');
+});

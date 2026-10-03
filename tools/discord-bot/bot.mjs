@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { Client, EmbedBuilder, Events, GatewayIntentBits, PermissionFlagsBits } from 'discord.js';
 import { code, helpText, parseCommand, parseNumber, shorten } from './commands.mjs';
 import { formatJht } from './jht-format.mjs';
+import { ChannelCheckQueue } from './channel-check.mjs';
 import { runHenkan, runJht, sanitizeKeys } from './henkan.mjs';
 import { Kinds, ListStore, Status } from './store.mjs';
 
@@ -59,9 +60,41 @@ const label = item => `${Kinds[item.kind].emoji} #${item.id}`;
 const me = () => `<@${client.user.id}>`;
 
 async function canClose(message, item) {
+  return await isManager(message) || (!config.managerRole && item.addedById === message.author.id);
+}
+
+/** 管理する人か (MANAGER_ROLE_ID の役職、無ければ「メッセージの管理」の権限)。 */
+async function isManager(message) {
   const member = message.member ?? await message.guild.members.fetch(message.author.id);
   if (config.managerRole) return member.roles.cache.has(config.managerRole);
-  return member.permissions.has(PermissionFlagsBits.ManageMessages) || item.addedById === message.author.id;
+  return member.permissions.has(PermissionFlagsBits.ManageMessages);
+}
+
+const channelQueue = new ChannelCheckQueue({
+  runJht: text => runJht(text, { dll: config.dll, mozc: fs.existsSync(config.mozc) ? config.mozc : '' }),
+  formatJht,
+  concurrency: Number(env.CHJHT_CONCURRENCY) || 4,
+});
+
+async function handleChannelJht(message, rest) {
+  if (!await isManager(message)) return message.reply('`chjht` は重いので、管理する人だけが使えます。');
+  if (!fs.existsSync(config.dll)) return message.reply('変換のテストの準備ができていません (MELTYPE_DLL が見つかりません)。');
+  const id = rest.match(/^<#(\d+)>$/)?.[1] ?? rest.match(/^(\d{15,})$/)?.[1];
+  if (!id) return message.reply(`チャンネルを指定してください (例: ${me()} ${code('chjht #チャンネル')} か ${code('chjht 1234567890')})。`);
+  const target = await client.channels.fetch(id).catch(() => null);
+  if (!target || target.guildId !== message.guildId || !target.isTextBased?.() || !target.messages) {
+    return message.reply('そのチャンネルが見つからないか、読めません (このサーバーのテキストのチャンネルで、bot が読めるもの)。');
+  }
+  const position = channelQueue.enqueue({ target, report: message.channel, botId: client.user.id });
+  await message.reply(position === 0
+    ? `<#${target.id}> のチェックを始めます。問題が見つかるたびに、このチャンネルに送ります。`
+    : `<#${target.id}> を順番待ちに入れました (${position} 番目)。前のチャンネルが終わったら自動で始めます。`);
+}
+
+async function handleChannelJhtStop(message) {
+  if (!await isManager(message)) return message.reply('管理する人だけが使えます。');
+  const count = channelQueue.stop();
+  await message.reply(count === 0 ? '動いているチェックはありません。' : `チェックを止めて、順番待ちを取り消しました (${count} チャンネル)。`);
 }
 
 async function handleHenkan(message, rest) {
@@ -177,6 +210,8 @@ client.on(Events.MessageCreate, async message => {
     switch (parsed.command) {
       case 'help': return await message.reply(helpText(me()));
       case 'jht': return await handleJht(message, parsed.rest);
+      case 'chjht': return await handleChannelJht(message, parsed.rest);
+      case 'chjhtStop': return await handleChannelJhtStop(message);
       case 'henkan': return await handleHenkan(message, parsed.rest);
       case 'add': return await handleAdd(message, parsed.rest);
       case 'list': return await handleList(message, parsed.rest);

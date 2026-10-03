@@ -34,6 +34,7 @@ internal static class Program
                 return 0;
             case "--henkan":
                 Henkan.Run(string.Join(" ", args.Skip(1)));
+                Henkan.Shutdown();
                 return 0;
             case "--jht":
                 // --jht 出てほしい文 [/ 読み] (Discord の bot の japanese-henkan-test)
@@ -41,6 +42,7 @@ internal static class Program
                     var text = string.Join(" ", args.Skip(1));
                     var slash = text.IndexOf(" / ", StringComparison.Ordinal);
                     Jht.Run(slash >= 0 ? text[..slash] : text, slash >= 0 ? text[(slash + 3)..] : null, null, Henkan.Keyboard, Henkan.EngineName);
+                    Henkan.Shutdown();
                 }
                 return 0;
             case "--explain":

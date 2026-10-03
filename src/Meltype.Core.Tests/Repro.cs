@@ -110,9 +110,19 @@ internal static class Henkan
 {
     private const int MaxKeys = 300;
 
+    /// <summary>Mozc の学習データの場所。bot が同時にいくつも動かすので、プロセスごとに分ける (終わったら消す)。</summary>
+    private static readonly string ProfileDirectory = Path.Combine(Path.GetTempPath(), $"meltype-henkan-mozc-{Environment.ProcessId}");
+
+    /// <summary>終わるときに、Mozc の変換ヘルパーを止めて、学習データの場所を消す。</summary>
+    public static void Shutdown()
+    {
+        if (Mozc.IsValueCreated) Mozc.Value?.Dispose();
+        try { if (Directory.Exists(ProfileDirectory)) Directory.Delete(ProfileDirectory, recursive: true); } catch { }
+    }
+
     private static readonly Lazy<Composition.MozcConverter?> Mozc = new(() =>
         Environment.GetEnvironmentVariable("MELTYPE_MOZC") is { Length: > 0 } helper && File.Exists(helper)
-            ? new Composition.MozcConverter(helper, Path.Combine(Path.GetTempPath(), "meltype-henkan-mozc"))
+            ? new Composition.MozcConverter(helper, ProfileDirectory)
             : null);
     private static readonly Lazy<Composition.TranslationDictionary> Translations = new(Composition.TranslationDictionary.Load);
 

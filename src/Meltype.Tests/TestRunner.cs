@@ -45,10 +45,12 @@ internal static class TestRunner
             if (args[0] == "--henkan")
             {
                 Henkan.Run(text);
+                Henkan.Shutdown();
                 return 0;
             }
             var slash = text.IndexOf(" / ", StringComparison.Ordinal);
             Jht.Run(slash >= 0 ? text[..slash] : text, slash >= 0 ? text[(slash + 3)..] : null, ime.Reading, Henkan.Keyboard, Henkan.EngineName);
+            Henkan.Shutdown();
             return 0;
         }
         if (args.FirstOrDefault() == "--repro")
