@@ -30,7 +30,7 @@ internal sealed class ReportDialog : Form
             AutoSize = true,
             Padding = new Padding(10, 10, 10, 6),
             MaximumSize = new Size(Width - 40, 0),
-            Text = "「フォームを開く」を押すと、報告のフォームがブラウザーで開きます。下の実行環境は自動でフォームに入ります。\n"
+            Text = "「フォームで報告」を押すと、報告のフォームがブラウザーで開きます。下の実行環境は自動でフォームに入ります。\n"
                 + "ログは「ログをコピー」を押して、フォームの「ログ」の欄に貼り付けてください。見られて困る部分があれば、ここで消してからコピーしてください。",
         };
 
@@ -51,7 +51,7 @@ internal sealed class ReportDialog : Form
         logBox.Controls.Add(_log);
 
         var copy = new Button { Text = "ログをコピー", AutoSize = true };
-        var open = new Button { Text = "フォームを開く", AutoSize = true };
+        var open = new Button { Text = "フォームで報告 (おすすめ・アカウント不要)", AutoSize = true };
         var close = new Button { Text = "閉じる", AutoSize = true, DialogResult = DialogResult.Cancel };
         var copied = new Label { AutoSize = true, ForeColor = SystemColors.GrayText, Padding = new Padding(0, 8, 0, 0) };
         copy.Click += (_, _) =>
@@ -83,9 +83,34 @@ internal sealed class ReportDialog : Form
         buttons.Controls.AddRange([close, open, copy, copied]);
 
         Controls.Add(logBox);
+        // GitHub のアカウントがある人向け (返事や修正の通知が届く)。公開 (1.0.0) まではリポジトリが非公開なので出さない。
+        if (AppInfo.IsPublicRelease) Controls.Add(GitHubLinks());
         Controls.Add(environmentBox);
         Controls.Add(intro);
         Controls.Add(buttons);
         CancelButton = close;
+    }
+
+    /// <summary>「GitHub で報告: 不具合 / 変換・判定の間違い」のリンク。</summary>
+    private Control GitHubLinks()
+    {
+        const string prefix = "GitHub のアカウントがある人は GitHub で報告 (返事や修正の通知が届きます): ";
+        const string bug = "不具合", misdetection = "変換・判定の間違い";
+        var link = new LinkLabel { Dock = DockStyle.Bottom, AutoSize = true, Padding = new Padding(10, 4, 10, 4), Text = $"{prefix}{bug} / {misdetection}" };
+        link.Links.Clear();
+        link.Links.Add(prefix.Length, bug.Length, "1-bug.yml");
+        link.Links.Add(prefix.Length + bug.Length + 3, misdetection.Length, "2-misdetection.yml");
+        link.LinkClicked += (_, e) =>
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(AppInfo.GitHubReportUrl((string)e.Link!.LinkData!, _environment)) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                Diagnostics.Log.Warn($"GitHub を開けませんでした: {ex.Message}");
+            }
+        };
+        return link;
     }
 }

@@ -16,6 +16,21 @@ internal static class AppInfo
     /// </summary>
     public const string ReportForm = "";
 
+    /// <summary>公開した版 (1.0.0 以降) か。それまではリポジトリが非公開なので、GitHub で報告する道は出さない。</summary>
+    public static bool IsPublicRelease => System.Version.TryParse(Version, out var version) && version.Major >= 1;
+
+    /// <summary>
+    /// GitHub の Issue の作成画面を、OS・版・実行環境を入れた状態で開く URL。
+    /// template は .github/ISSUE_TEMPLATE のファイル名 (1-bug.yml / 2-misdetection.yml)。欄は id で入れる。
+    /// </summary>
+    public static string GitHubReportUrl(string template, string environment)
+    {
+        // OS の選択肢は雛形ごとに違う (不具合は Windows 11 / 10、誤判定は Windows)
+        var os = template.StartsWith("1-", StringComparison.Ordinal) ? Diagnostics.ReportInfo.OsName : "Windows";
+        return $"{SourceUrl}/issues/new?template={Uri.EscapeDataString(template)}&os={Uri.EscapeDataString(os)}" +
+            $"&version={Uri.EscapeDataString(Version)}&environment={Uri.EscapeDataString(environment)}";
+    }
+
     /// <summary>不具合報告を開く URL (OS・版・実行環境は今のものを入れる)。</summary>
     public static string ReportUrl(string environment)
     {
