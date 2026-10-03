@@ -8,7 +8,7 @@ using Meltype.Config;
 namespace Meltype.Input;
 
 /// <summary>前面アプリの情報 (アプリ別設定と、保留してよいかの判断に使う)。</summary>
-public sealed record AppInfo(IntPtr Window, uint ProcessId, string ProcessName, bool? IsElevated, bool IsFullscreen, bool IsOwnProcess)
+public sealed record AppInfo(IntPtr Window, uint ProcessId, string ProcessName, bool? IsElevated, bool IsFullscreen, bool IsOwnProcess, bool LooksLikeGame = false)
 {
     public static AppInfo None { get; } = new(IntPtr.Zero, 0, "", false, false, false);
 }
@@ -69,6 +69,7 @@ internal sealed class ForegroundTracker
         if (app.IsElevated != false && !SelfElevated) return CollectPermission.Deny($"{app.ProcessName} は管理者権限で動作中 (または権限を確認できない)");
         if (!settings.IsAppEnabled(app.ProcessName)) return CollectPermission.Deny($"{app.ProcessName} はアプリ別設定で OFF");
         if (settings.ExcludeFullscreen && app.IsFullscreen) return CollectPermission.Deny($"{app.ProcessName} は全画面表示");
+        if (settings.IsGame(app.ProcessName, app.LooksLikeGame)) return CollectPermission.Deny($"{app.ProcessName} はゲーム");
         return CollectPermission.Allow;
     }
 
@@ -80,6 +81,7 @@ internal sealed class ForegroundTracker
 
         var name = "";
         bool? elevated = null;
+        var looksLikeGame = false;
         var process = Native.OpenProcess(Native.PROCESS_QUERY_LIMITED_INFORMATION, false, processId);
         if (process != IntPtr.Zero)
         {
@@ -87,7 +89,11 @@ internal sealed class ForegroundTracker
             {
                 var builder = new StringBuilder(1024);
                 var size = builder.Capacity;
-                if (Native.QueryFullProcessImageName(process, 0, builder, ref size)) name = Path.GetFileName(builder.ToString());
+                if (Native.QueryFullProcessImageName(process, 0, builder, ref size))
+                {
+                    name = Path.GetFileName(builder.ToString());
+                    looksLikeGame = LooksLikeGame(builder.ToString());
+                }
                 elevated = QueryElevation(process);
             }
             finally
@@ -95,8 +101,21 @@ internal sealed class ForegroundTracker
                 Native.CloseHandle(process);
             }
         }
-        return new AppInfo(window, processId, name, elevated, IsFullscreen(window), false);
+        return new AppInfo(window, processId, name, elevated, IsFullscreen(window), false, looksLikeGame);
     }
+
+    /// <summary>ゲームのストアのインストール先にある実行ファイルか (Steam・Epic・Riot・EA・Ubisoft・Battle.net・Xbox)。</summary>
+    private static readonly string[] GameFolders =
+    [
+        @"\steamapps\common\", @"\Epic Games\", @"\Riot Games\", @"\EA Games\", @"\Electronic Arts\",
+        @"\Ubisoft Game Launcher\games\", @"\Battle.net\", @"\XboxGames\", @"\GOG Galaxy\Games\", @"\Origin Games\",
+    ];
+
+    public static bool LooksLikeGame(string path) =>
+        GameFolders.Any(folder => path.Contains(folder, StringComparison.OrdinalIgnoreCase)) &&
+        // ランチャー本体 (Steam のクライアントなど) は除く。ストアの画面の検索欄では Meltype を使える
+        !Path.GetFileName(path).Equals("steam.exe", StringComparison.OrdinalIgnoreCase) &&
+        !path.Contains(@"\Launcher\", StringComparison.OrdinalIgnoreCase);
 
     private static bool? QueryElevation(IntPtr process)
     {

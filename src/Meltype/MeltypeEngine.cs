@@ -563,6 +563,12 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             Log.Info($"{app.ProcessName} は「{kind.Name}」: 英数から始めます。");
             KeyboardDirect = true;
         }
+        // ゲームでは Windows の IME に触らない (ゲームのチャットを Windows の IME で打てるように)
+        if (_settings.IsGame(app.ProcessName, app.LooksLikeGame))
+        {
+            Log.Info($"{app.ProcessName} はゲーム: Meltype は何もしません (Windows の IME で打てます)。");
+            return;
+        }
         if (IsKeyboardActive) CloseSystemImeAsync();
     }
 

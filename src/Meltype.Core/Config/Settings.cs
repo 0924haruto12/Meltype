@@ -107,6 +107,8 @@ public enum AppProfile
     [Description("一般")] General,
     /// <summary>コードエディター・ターミナル。英数が基本で、コメントと文字列 ("…") の中だけ日本語を判定する。</summary>
     [Description("コード")] Code,
+    /// <summary>ゲーム。Meltype は何もしない (キーを横取りせず、Windows の IME の ON/OFF にも触らない。ゲームのチャットは Windows の IME で打つ)。</summary>
+    [Description("ゲーム")] Game,
 }
 
 /// <summary>
@@ -248,6 +250,10 @@ public sealed class Settings
     [Category("7. アプリ"), DisplayName("全画面アプリでは無効"), Description("ゲームや動画など全画面のウィンドウではキーを保留しません。")]
     public bool ExcludeFullscreen { get; set; } = true;
 
+    [Category("7. アプリ"), DisplayName("ゲームでは止める"),
+     Description("Steam・Epic Games・Riot Games・EA・Ubisoft・Battle.net・Xbox のゲームのフォルダーにあるアプリ (ウィンドウ表示のゲームも) では、Meltype は何もしません (キーを横取りせず、Windows の IME にも触らないので、ゲームのチャットは Windows の IME で打てます)。ほかのゲームは、アプリ別設定で種類を「ゲーム」にしてください。")]
+    public bool StopInGames { get; set; } = true;
+
     [Category("7. アプリ"), DisplayName("アプリ別設定"), Description("プロセス名ごとに、自動切替の ON/OFF と種類を指定します。種類「コード」(コードエディター・ターミナル) では基本は英数のままで、コメント (// # -- など) と文字列 (\"…\" など) の中だけ日本語を判定します。コードの行で 半角/全角 を押すと、その行だけ日本語で入力できます。README.md などの文章ファイルを開いているときは一般として扱います。")]
     public List<AppRule> AppRules { get; set; } = DefaultAppRules();
 
@@ -284,6 +290,12 @@ public sealed class Settings
     ];
 
     public bool IsAppEnabled(string? processName) => FindRule(processName)?.Enabled ?? true;
+
+    /// <summary>
+    /// ゲームとして Meltype を止めるか: アプリ別設定の種類が「ゲーム」か、アプリ別設定が無く、ゲームのフォルダーにあるアプリ (looksLikeGame) で「ゲームでは止める」が ON。
+    /// </summary>
+    public bool IsGame(string? processName, bool looksLikeGame) =>
+        ProfileFor(processName) == AppProfile.Game || (StopInGames && looksLikeGame && FindRule(processName) is null);
 
     /// <summary>アプリの種類 (アプリ別設定に無ければ一般)。独自の種類なら、その元にした種類。</summary>
     public AppProfile ProfileFor(string? processName) =>
