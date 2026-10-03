@@ -100,6 +100,9 @@ public sealed class CompositionDetector
             if (!kanaInput && IsAsciiSymbol(units[i]) && PrecededByEnglish(i) == true && segments.All(s => s.IsEnglish || !s.Raw.Any(char.IsAsciiLetter))) found = i + 1;
             if (!kanaInput && found < 0 && level != DetectionLevel.Manual) found = CapitalizedWordEnd(units, i, pending, final);
             if (!kanaInput && found < 0 && level != DetectionLevel.Manual) found = HyphenatedWordEnd(units, i, pending);
+            // 英語の語 + 数字のすぐ後ろの英単語 (part1026|beta、win11|pro) は、ローマ字として読めても英語 (ベタ にしない)。
+            // 助詞で始まるなら日本語 (PS5|wokaitai)。
+            if (!kanaInput && found < 0 && level != DetectionLevel.Manual && AlphanumericSuffixEnd(units, i, pending, segments, japaneseStart) is var suffix and > 0) found = suffix;
             for (var j = n; j > i && found < 0; j--)
             {
                 // 区間の後ろ: 末尾まで打っているならキャレットの後ろの文字、途中なら続きの日本語。
@@ -252,6 +255,12 @@ public sealed class CompositionDetector
         // 小文字で始まって途中に大文字がある区間 (iPC、meteSNS) は、固有名詞の書き方 (iPhone・eBay・macOS) でなければ 1 語ではない:
         // 小文字の部分は前の日本語の続き (atarashi|i|PC → あたらしいPC、motome|te|SNS → 求めてSNS)。
         if (char.IsAsciiLetterLower(span[0]) && span.Skip(1).Any(char.IsAsciiLetterUpper) && _proper.Canonical(lower) != span) return false;
+        // 数字のすぐ前の、ローマ字として読めない子音で始まる短い英字 (kaibunsho|rta|2026、ps5): 略語。日本語の打ちかけではない
+        if (next is [var digit, ..] && char.IsAsciiDigit(digit) && span.Length is >= 2 and <= 6 && span.All(char.IsAsciiLetter) &&
+            _romaji.AnalyzeFragment(lower[..2]) is { IsValid: false })
+        {
+            return true;
+        }
         // 日本語のすぐ後ろで、助詞 + 英単語 (dochira|mo|user の mouser) は、スペルチェッカーが 1 語と言っても 助詞 + 英単語
         // (同梱の英語の辞書の語は除く)。後ろの英単語の区間は、この後で別に見る。
         if (before < 0 && Detection.DictionaryDetector.StartsWithParticle(lower) is { } leading && lower.Length - leading.Length >= 3 &&
@@ -538,6 +547,24 @@ public sealed class CompositionDetector
     }
 
     /// <summary>単位 [start, end) に、ローマ字として読めなかった英字 (かなにならなかった 1 文字) があるか。</summary>
+    /// <summary>
+    /// 英語の区間 + 数字のすぐ後ろ (part1026|beta) から始まる英字の並びが英単語なら、その終わり。違えば -1。
+    /// segments・japaneseStart は FindSpans の途中の状態 (数字が、直前の英語の区間のすぐ後ろにあるかを見る)。
+    /// </summary>
+    private int AlphanumericSuffixEnd(IReadOnlyList<CompositionUnit> units, int start, string pending, List<CompositionSegment> segments, int japaneseStart)
+    {
+        static bool IsDigit(CompositionUnit unit) => unit.Raw is [var d] && char.IsAsciiDigit(d);
+        if (start == 0 || !IsDigit(units[start - 1]) || units[start].Raw.Length == 0 || !char.IsAsciiLetter(units[start].Raw[0])) return -1;
+        var k = start - 1;
+        while (k >= 0 && IsDigit(units[k])) k--;
+        if (k < 0 || segments.Count == 0 || !segments[^1].IsEnglish || japaneseStart != k + 1) return -1;
+        var end = start;
+        while (end < units.Count && units[end].Raw.Length > 0 && units[end].Raw.All(char.IsAsciiLetter)) end++;
+        var word = Raw(units, start, end) + (end == units.Count ? pending : "");
+        if (Detection.DictionaryDetector.StartsWithParticle(word.ToLowerInvariant()) is not null || !IsKnownEnglishWord(word)) return -1;
+        return end;
+    }
+
     /// <summary>
     /// 区間 [.., end) が、ん の後の っ (1 文字の子音) で終わるか (meeting|ga の g = っ)。区間だけを見るとこの子音は読めない
     /// (英単語の最後の子音) ので、読めない英字を含む区間と同じに扱う。

@@ -29,10 +29,12 @@
 
 ### 2. Meltype の変換のテストの準備
 
-Windows で動かすなら、Windows 用のテストプログラムを使うと、jht で漢字の読みを Microsoft IME から自動で求めます (`.env` の `MELTYPE_DLL` を Meltype.Tests.dll に)。
+Windows で動かすなら、Windows 用のテストプログラムを bot 用の場所 (`runner/`) に置きます。jht で漢字の読みを Microsoft IME から自動で求めます。
+開発中のビルドと取り合わないように、bot は `runner/` のものを使います (Meltype を直したら、もう一度実行して bot を起動し直す)。
 
 ```
-dotnet build src/Meltype.Tests -c Release
+cd tools/discord-bot
+npm run deploy-runner
 ```
 
 Windows 以外では次を使い、jht では「/ 読み」を付けてもらいます。

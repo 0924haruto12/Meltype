@@ -118,7 +118,9 @@ public sealed class CompositionText
         }
         // 記号・数字の前で、途中の n は ん に、読めない子音は英字のまま確定させる。
         Normalize(final: true);
-        FixTypos();
+        // 数字の前では打ち間違いを直さない (rta2026・ps5・win11 の英字は略語)。数字の後ろの単位を英字のままにするのは FixTypos の中
+        if (char.IsAsciiDigit(c)) SplitUnitAfterNumber(final: true);
+        else FixTypos();
         // 数字の後の . と , は小数点・桁区切り (GPL3.0、1,000)。句点・読点にしない。
         if (c is ',' or '.' && _units.Count > 0 && _units[^1].Raw is [var previous] && char.IsAsciiDigit(previous))
         {
@@ -580,6 +582,8 @@ public sealed class CompositionText
             if (!unitAfterNumber && letters.All(char.IsAsciiLetterLower) && !_detector.IsKnownEnglishWord(letters) &&
                 corrector.FirstUnreadable(letters, final: true) is var first and > 0 &&
                 !(runOffset + first < shownEnglish.Count && shownEnglish[runOffset + first]) &&
+                // 数字のすぐ前の短い英字 (kaibunsyo|rta|2026 の rta) は略語。打ち間違いとして直さない
+                !(end < _units.Count && _units[end].Raw is [var after] && char.IsAsciiDigit(after) && first >= letters.Length - 6) &&
                 !ContainsEnglishWord(letters, first) &&
                 corrector.Fix(letters, final: true) is { } fix)
             {

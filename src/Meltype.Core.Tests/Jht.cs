@@ -198,7 +198,7 @@ internal static class Jht
             }
         }
 
-        var asciiWords = string.Join(" ", runs.Where(r => r.Ascii).Select(r => r.Text.Trim()).Where(t => t.Length > 0));
+
         var results = new List<object>();
         foreach (var keys in Patterns(runs, readings))
         {
@@ -267,12 +267,24 @@ internal static class Jht
                 first = k.Host.Document.TrimEnd();
             }
             var split = Words(entered) == Words(expected);
-            if (!split) notes.Insert(0, $"日本語 / 英語の分かれ方が違う (英字: {(Words(entered) is { Length: > 0 } w ? w : "なし")}、出てほしいのは {(asciiWords.Length > 0 ? asciiWords : "なし")})");
+            if (!split) notes.Insert(0, $"日本語 / 英語の分かれ方が違う (英字: {(Words(entered) is { Length: > 0 } w ? w : "なし")}、出てほしいのは {(Words(expected) is { Length: > 0 } e ? e : "なし")})");
+            // 記号の全角 / 半角だけが違う (： と :) ものは、分けて知らせる (日本語の文の中の記号は全角になる)
+            foreach (var result in new[] { first, entered }.Distinct())
+            {
+                if (result != expected && HalfWidth(result) == HalfWidth(expected)) notes.Add($"記号の全角 / 半角だけが違う: {WidthDifference(result, expected)} (日本語の文の中の記号は全角になる。半角は候補にある)");
+            }
             results.Add(new { keys, entered, first, liveOk = entered == expected, firstOk = first == expected, splitOk = split, notes });
         }
         Console.WriteLine(JsonSerializer.Serialize(new { expected, reading = string.Join(" / ", readings), engine, results },
             new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
     }
+
+    /// <summary>全角の英数字・記号を半角にする。</summary>
+    private static string HalfWidth(string text) => new(text.Select(c => c is >= '！' and <= '～' ? (char)(c - 0xFEE0) : c == '　' ? ' ' : c).ToArray());
+
+    /// <summary>全角 / 半角が違う記号 (「：」→「:」)。</summary>
+    private static string WidthDifference(string actual, string expected) =>
+        string.Join("、", actual.Zip(expected).Where(p => p.First != p.Second).Select(p => $"「{p.First}」→「{p.Second}」").Distinct());
 
     private static string Trim(string text, int max) => text.Length > max ? text[..max] + "…" : text;
 

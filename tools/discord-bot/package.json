@@ -8,7 +8,8 @@
   "main": "bot.mjs",
   "scripts": {
     "start": "node --env-file=.env bot.mjs",
-    "test": "node --test test/bot.test.mjs"
+    "test": "node --test test/bot.test.mjs",
+    "deploy-runner": "dotnet build ../../src/Meltype.Tests -c Release -o runner"
   },
   "engines": {
     "node": ">=20.6"
