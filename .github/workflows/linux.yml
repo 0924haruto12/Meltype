@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       # IBus のエンジン (Python) の書き間違いを、時間のかかるビルドの前に見つける
       - name: Check Python
-        run: python3 -m py_compile linux/ibus-engine-meltype
+        run: python3 -c "import ast; ast.parse(open('linux/ibus-engine-meltype', encoding='utf-8').read())"
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
