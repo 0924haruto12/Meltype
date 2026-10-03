@@ -20,7 +20,13 @@ internal static class Program
             case "--eval":
                 Quality.Print(Quality.Run());
                 return 0;
+            case "--repro":
+                // 打ったキーをそのまま打ってみて、結果を JSON で返す (GitHub の bot が報告を再現するのに使う)。
+                //   --repro nihongowohanasu [enter|space|none]
+                Repro.Type(args.ElementAtOrDefault(1) ?? "", args.ElementAtOrDefault(2) ?? "enter");
+                return 0;
             case "--explain":
+                if (Environment.GetEnvironmentVariable("MELTYPE_UTF8") == "1") Console.OutputEncoding = new System.Text.UTF8Encoding(false);
                 TestHost.Explain(args.Skip(1));
                 return 0;
             default:
