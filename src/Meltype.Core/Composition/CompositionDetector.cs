@@ -240,8 +240,10 @@ public sealed class CompositionDetector
 
     private static int Score(bool? english) => english switch { true => 1, false => -1, null => 0 };
 
+    /// <summary>英文の中では半角のままにする記号。[ ] は日本語の入力では「」なので含めない (英単語の後ろでも「」: bot「Thinking」)。</summary>
     private static bool IsAsciiSymbol(CompositionUnit unit) =>
-        unit.Raw.Length == 1 && unit.Raw[0] is >= '!' and <= '~' && !char.IsAsciiLetterOrDigit(unit.Raw[0]);
+        unit.Raw.Length == 1 && unit.Raw[0] is >= '!' and <= '~' && !char.IsAsciiLetterOrDigit(unit.Raw[0]) && unit.Raw[0] is not ('[' or ']');
+
 
     /// <param name="final">打ち終わった (Space・Enter)。末尾の区間でも、英単語の打ちかけ (amaz) は英語の根拠にしない。</param>
     /// <param name="unreadable">区間にローマ字として読めなかった英字がある (zoom + de の m、bug + wo の g)。</param>
@@ -274,7 +276,8 @@ public sealed class CompositionDetector
         // ローマ字として読めない語か、前後の文脈で英語と分かるときだけ使う (同梱の辞書の語より弱い)。
         var conservative = level == DetectionLevel.Conservative;
         // 小書き文字の綴り (mala = まぁ, xtu = っ) で最後まで読める語は、日本語をわざわざ打っている。同梱の辞書の英単語以外は日本語。
-        var smallKanaSpelling = !_romaji.Analyze(lower).IsValid && _romaji.AnalyzeFragment(lower) is { IsValid: true, Partial: "" };
+        // (6 文字以上のスペルチェッカーの英単語は除く: chocolate の la = ぁ でも英語)
+        var smallKanaSpelling = !_romaji.Analyze(lower).IsValid && _romaji.AnalyzeFragment(lower) is { IsValid: true, Partial: "" } && !(lower.Length >= 6 && IsSpellWord(lower));
         var spellWord = !inDictionary && !smallKanaSpelling && IsSpellWord(lower);
         var exact = inDictionary || (spellWord && !_romaji.Analyze(lower).IsValid);
         var prefix = growing && lower.Length >= 4 && !conservative && !smallKanaSpelling && _english.IsPrefix(lower);

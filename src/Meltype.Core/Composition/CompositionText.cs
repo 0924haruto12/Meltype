@@ -279,6 +279,20 @@ public sealed class CompositionText
                     _units.Add(new CompositionUnit("っ", raw[..1]));
                     _units.Add(new CompositionUnit(tokens[i].Kana[1..], raw[1..]));
                 }
+                // 英単語の最後の n + や行 (corn|yori の nyo = にょ) は、n を英単語に残して よ と分ける
+                // (n が にょ とつながって、英単語の区切りが無くなっていた。cornyori が 小r二より になっていた)。
+                else if (raw.Length >= 3 && raw[..2].Equals("ny", StringComparison.OrdinalIgnoreCase) &&
+                         LettersBefore(_units.Count) + raw[..1] is var word && EndsWithEnglishWord(word) && !romaji.Analyze(word.ToLowerInvariant()).IsValid &&
+                         romaji.AnalyzeFragment(raw[1..].ToLowerInvariant()) is { IsValid: true, Partial: "" } rest)
+                {
+                    _units.Add(new CompositionUnit("ん", raw[..1]));
+                    var offset = 1;
+                    foreach (var token in rest.Tokens)
+                    {
+                        _units.Add(new CompositionUnit(token.Kana, raw.Substring(offset, token.Romaji.Length)));
+                        offset += token.Romaji.Length;
+                    }
+                }
                 else _units.Add(new CompositionUnit(tokens[i].Kana, raw));
                 position += length;
             }
@@ -337,7 +351,8 @@ public sealed class CompositionText
     private static bool IsAsciiSymbol(string raw) => raw is [var c] && c is >= '!' and <= '~' && !char.IsAsciiLetterOrDigit(c);
 
     /// <summary>開きの記号と、その閉じの記号。</summary>
-    private static readonly Dictionary<string, string> Openers = new() { ["("] = ")", ["["] = "]", ["{"] = "}", ["\""] = "\"", ["'"] = "'" };
+    // [ ] は日本語の入力では「」なので、英語の前後でも半角にしない
+    private static readonly Dictionary<string, string> Openers = new() { ["("] = ")", ["{"] = "}", ["\""] = "\"", ["'"] = "'" };
 
     /// <summary>
     /// 開きの記号 (「(」「"」) は打った時点ではまだ後ろが分からないので全角になる。後ろが分かったら、
