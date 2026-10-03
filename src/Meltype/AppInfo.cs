@@ -10,6 +10,20 @@ internal static class AppInfo
 {
     public const string SourceUrl = "https://github.com/yksr-melt/Meltype";
 
+    /// <summary>
+    /// 不具合報告のフォーム (Google フォームの「事前入力した URL」。OS に Windows 11、版に 0.0.0 を入れて作ったもの)。
+    /// 空なら GitHub の Issue の画面を開く。作り方は tools/report-form/README.md。
+    /// </summary>
+    public const string ReportForm = "";
+
+    /// <summary>不具合報告を開く URL (OS と版は今のものを入れる)。</summary>
+    public static string ReportUrl()
+    {
+        if (ReportForm.Length == 0) return $"{SourceUrl}/issues/new/choose";
+        var os = Environment.OSVersion.Version.Build >= 22000 ? "Windows 11" : "Windows 10";
+        return ReportForm.Replace("=Windows+11", "=" + Uri.EscapeDataString(os)).Replace("=0.0.0", "=" + Uri.EscapeDataString(Version));
+    }
+
     /// <summary>自動更新で最新のリリースを見に行く GitHub のリポジトリ (公開されている必要がある)。</summary>
     public const string UpdateRepository = "yksr-melt/Meltype";
     public const string CommercialContact = "ibutya0319@gmail.com";

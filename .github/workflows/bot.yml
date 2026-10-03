@@ -38,10 +38,17 @@ jobs:
         with:
           sparse-checkout: .github/bot
           persist-credentials: false
+      # GitHub App (Meltype bot) の鍵が登録されていれば、その名前でコメントする。無ければ github-actions[bot] の名前で。
+      - id: app
+        if: vars.BOT_APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
       - id: parse
         run: node .github/bot/meltype-bot.mjs parse
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ steps.app.outputs.token || github.token }}
 
   # 誤判定の再現・判定理由 (main と、最新のリリースのコード)。Issue の文は値として渡すだけ。
   run:
@@ -139,9 +146,15 @@ jobs:
         with:
           name: bot-results
           path: results/
+      - id: app
+        if: vars.BOT_APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
       - run: node .github/bot/meltype-bot.mjs report
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ steps.app.outputs.token || github.token }}
           BOT_ACTION: ${{ needs.parse.outputs.action }}
           BOT_ISSUE: ${{ needs.parse.outputs.issue }}
           BOT_KEYS: ${{ needs.parse.outputs.keys }}

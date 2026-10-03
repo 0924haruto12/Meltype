@@ -80,6 +80,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add("ログ / 判定理由...", null, (_, _) => ShowLog());
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("データフォルダを開く", null, (_, _) => OpenDataFolder());
+        menu.Items.Add("不具合を報告...", null, (_, _) => OpenReport());
         menu.Items.Add("Meltype について...", null, (_, _) => MessageBox.Show(AppInfo.AboutText, "Meltype について", MessageBoxButtons.OK, MessageBoxIcon.Information));
         menu.Items.Add("学習データをリセット", null, (_, _) => ResetLearning());
         // 更新: 自動更新の ON/OFF、今すぐ確認、ダウンロード済みなら更新して再起動
@@ -193,6 +194,19 @@ internal sealed class TrayApplicationContext : ApplicationContext
         DetectionLevel.Conservative => "慎重 (確信度が高いときだけ英字)",
         _ => "手動 (提案のみ・Tab で英字)",
     };
+
+    /// <summary>不具合報告のフォームをブラウザーで開く (GitHub のアカウントが無くても報告できる)。</summary>
+    private static void OpenReport()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(AppInfo.ReportUrl()) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log.Warn($"報告の画面を開けませんでした: {ex.Message}");
+        }
+    }
 
     private void ToggleAutoUpdate()
     {
