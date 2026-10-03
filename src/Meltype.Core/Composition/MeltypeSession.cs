@@ -119,7 +119,8 @@ public sealed class MeltypeSession
         Diagnostics.Log.RecordText = settings.LogTypedText;
         var userDirectory = AppPaths.UserDictionaryDirectory;
         var detector = CompositionDetector.CreateDefault(userDirectory);
-        detector.SpellChecker = wordChecker;
+        // OS のスペルチェッカーが無ければ (Linux)、同梱のよく使う英単語の一覧を使う (meeting を英語と分かるように)。
+        detector.SpellChecker = wordChecker is { IsAvailable: true } ? wordChecker : Detection.BuiltInWordChecker.Shared;
         var languages = new LanguageMemory(AppPaths.LanguageMemoryFile);
         detector.Memory = languages;
         var options = new CompositionOptions

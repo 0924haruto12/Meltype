@@ -229,6 +229,7 @@ public sealed class CompositionController
         _text.TypoCorrector = _options.RomajiTypos;
         // よく使う日本語の読み (kyouha = 今日は) は、一度英字にして確定しただけでは英語として覚えない。
         if (_options.Languages is { } languages && _options.RomajiTypos is { } typos) languages.IsCommonJapanese ??= typos.IsCommonJapanese;
+        if (_options.Languages is { } memory) memory.IsReadableRomaji ??= word => detector.Romaji.AnalyzeFragment(word) is { IsValid: true, Partial: "" };
         if (_options.RomajiTypos is { } lexicon) detector.IsCommonJapanese ??= lexicon.IsCommonJapanese;
         _text.CorrectTypos = () => _options.CorrectTypos();
     }
@@ -1243,14 +1244,14 @@ public sealed class CompositionController
         switch (_text.Mode)
         {
             case DisplayMode.HalfWidthAlphanumeric or DisplayMode.FullWidthAlphanumeric when !automatic.All(s => s.IsEnglish):
-                memory.Remember(raw, english: true);
+                memory.Remember(raw, english: true, explicitChoice: true);
                 break;
             case DisplayMode.Hiragana or DisplayMode.Katakana when automatic.Any(s => s.IsEnglish):
-                memory.Remember(raw, english: false);
+                memory.Remember(raw, english: false, explicitChoice: true);
                 break;
             case DisplayMode.Auto when _text.LevelOverride is not null && automatic.All(s => s.IsEnglish):
                 // 判定の強さが手動で、Tab で提案どおり英字にした。
-                memory.Remember(raw, english: true);
+                memory.Remember(raw, english: true, explicitChoice: true);
                 break;
         }
     }

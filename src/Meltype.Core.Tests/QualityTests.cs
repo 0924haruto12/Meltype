@@ -300,7 +300,9 @@ Dictionary<string, (int Pass, int Total)> ByCategory, List<string> Failures, Lis
         }
 
         // 実際と同じく、使えるなら Windows のスペルチェッカーも使う。
-        var spell = TestSupport.WordChecker is { IsAvailable: true } checker && Environment.GetEnvironmentVariable("MELTYPE_NO_SPELLCHECK") is null ? checker : null;
+        // Windows のスペルチェッカーが無い環境 (Linux・Mac の CI) では、アプリの Mac 版・Linux 版と同じく同梱の英単語の一覧を使う。
+        IWordChecker? spell = Environment.GetEnvironmentVariable("MELTYPE_NO_SPELLCHECK") is not null ? null
+            : TestSupport.WordChecker is { IsAvailable: true } checker ? checker : Detection.BuiltInWordChecker.Shared;
         CompositionTests.Detector.SpellChecker = spell;
         try
         {

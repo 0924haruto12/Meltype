@@ -228,7 +228,16 @@ public sealed class CompositionText
             for (var i = 0; i < tokens.Count; i++)
             {
                 var length = tokens[i].Romaji.Length;
-                _units.Add(new CompositionUnit(tokens[i].Kana, original.Substring(position, length)));
+                var raw = original.Substring(position, length);
+                // ん (n 1 つ) の後の っ + 子音 (meeting|ga の ngga = ん + っが) は、っ と が を別の単位にする。
+                // 日本語で ん の後に っ を打つことはまず無く、英単語の最後の g (meeting) が が とつながって、英単語の区切りが無くなっていた。
+                if (tokens[i].Kana is ['っ', _, ..] && raw.Length >= 2 && char.ToLowerInvariant(raw[0]) == char.ToLowerInvariant(raw[1]) &&
+                    _units.Count > 0 && _units[^1] is { Kana: "ん" } previous && previous.Raw.Length == 1)
+                {
+                    _units.Add(new CompositionUnit("っ", raw[..1]));
+                    _units.Add(new CompositionUnit(tokens[i].Kana[1..], raw[1..]));
+                }
+                else _units.Add(new CompositionUnit(tokens[i].Kana, raw));
                 position += length;
             }
 
@@ -450,11 +459,16 @@ public sealed class CompositionText
     {
         if (TypoCorrector is not { } corrector || !CorrectTypos() || Mode != DisplayMode.Auto || KanaInput) return false;
         var changed = false;
+        // 今の表示で英字に見えている文字 (きょうは|meeting|です の meeting)。ここは直さない
+        // (表示では英単語なのに、確定したら g が が に直されて めえちんがです になっていた)。
+        var shownEnglish = EnglishMask();
+        var offset = 0;
         var start = 0;
         while (start < _units.Count)
         {
             if (!IsLetters(_units[start].Raw))
             {
+                offset += _units[start].Raw.Length;
                 start++;
                 continue;
             }
@@ -462,8 +476,11 @@ public sealed class CompositionText
             while (end < _units.Count && IsLetters(_units[end].Raw)) end++;
             var atEnd = end == _units.Count;
             var letters = string.Concat(_units.Skip(start).Take(end - start).Select(u => u.Raw)) + (atEnd ? Pending : "");
+            var runOffset = offset;
+            offset += letters.Length;
             if (letters.All(char.IsAsciiLetterLower) && !_detector.IsKnownEnglishWord(letters) &&
                 corrector.FirstUnreadable(letters, final: true) is var first and > 0 &&
+                !(runOffset + first < shownEnglish.Count && shownEnglish[runOffset + first]) &&
                 !ContainsEnglishWord(letters, first) &&
                 corrector.Fix(letters, final: true) is { } fix)
             {
@@ -484,6 +501,21 @@ public sealed class CompositionText
             start = end;
         }
         return changed;
+    }
+
+    /// <summary>
+    /// 打った英字 (Raw) の 1 文字ずつが、今の表示で英単語 (5 文字以上の知っている語: meeting) の区間に入っているか。
+    /// 短い語 (onegai|shim|su の shim) は、ローマ字の途中に偶然現れることが多いので含めない (打ち間違いとして直す)。
+    /// </summary>
+    private List<bool> EnglishMask()
+    {
+        var mask = new List<bool>();
+        foreach (var segment in Segments(final: false))
+        {
+            var word = segment.IsEnglish && segment.Raw.Length >= 5 && _detector.IsKnownEnglishWord(segment.Raw);
+            for (var i = 0; i < segment.Raw.Length; i++) mask.Add(word);
+        }
+        return mask;
     }
 
     /// <summary>

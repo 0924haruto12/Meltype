@@ -31,6 +31,7 @@ internal static class TestRunner
             Console.WriteLine(AppInfo.GitHubReportUrl("2-misdetection.yml", environment));
             return 0;
         }
+        if (args.FirstOrDefault() == "--units") { DebugUnits.Run(args[1]); return 0; }
         if (args.FirstOrDefault() == "--repro")
         {
             // GitHub の bot 用: 報告された打鍵を打ってみて JSON で返す (Meltype.Core.Tests の --repro に、アプリと同じ Windows のスペルチェッカーを足したもの)。

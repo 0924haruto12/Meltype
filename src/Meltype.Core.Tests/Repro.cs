@@ -20,6 +20,8 @@ internal static class Repro
         // bot が結果を読むので、ほかの環境の文字コードにせず UTF-8 で出す
         Console.OutputEncoding = new System.Text.UTF8Encoding(false);
         var typed = new string(keys.Where(c => c is >= ' ' and <= '~').Take(MaxKeys).ToArray()).Trim();
+        // Windows のテストランナーなら Windows のスペルチェッカー、ほかの環境では同梱の英単語の一覧 (アプリと同じ)
+        CompositionTests.Detector.SpellChecker ??= Detection.BuiltInWordChecker.Shared;
         var k = new CompositionTests.Keyboard();
         k.Type(typed);
         var showing = k.Showing;
@@ -68,6 +70,7 @@ internal static class Checks
     /// </summary>
     public static void Expect(string input, string output)
     {
+        CompositionTests.Detector.SpellChecker ??= Detection.BuiltInWordChecker.Shared;
         var candidates = Composition.CandidateDictionary.Load(null);
         var results = new List<object>();
         foreach (var line in File.ReadAllLines(input))

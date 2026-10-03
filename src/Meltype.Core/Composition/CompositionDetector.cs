@@ -107,7 +107,7 @@ public sealed class CompositionDetector
                 var english = kanaInput
                     ? IsEnglishSpanKana(Raw(units, i, j), Kana(units, i, j), atEnd: j == n, BeforeScore(i), after, level, final)
                     : IsEnglishSpan(Raw(units, i, j) + (j == n ? pending : ""), atEnd: j == n, BeforeScore(i), after, startOfInput: i == 0, level, final,
-                        unreadable: HasUnreadable(units, i, j), next: j < n ? units[j].Raw + (j + 1 == n ? pending : "") : null);
+                        unreadable: HasUnreadable(units, i, j) || EndsWithLoneSokuon(units, j), next: j < n ? units[j].Raw + (j + 1 == n ? pending : "") : null);
                 if (english)
                 {
                     found = j;
@@ -502,6 +502,13 @@ public sealed class CompositionDetector
     }
 
     /// <summary>単位 [start, end) に、ローマ字として読めなかった英字 (かなにならなかった 1 文字) があるか。</summary>
+    /// <summary>
+    /// 区間 [.., end) が、ん の後の っ (1 文字の子音) で終わるか (meeting|ga の g = っ)。区間だけを見るとこの子音は読めない
+    /// (英単語の最後の子音) ので、読めない英字を含む区間と同じに扱う。
+    /// </summary>
+    private static bool EndsWithLoneSokuon(IReadOnlyList<CompositionUnit> units, int end) =>
+        end >= 2 && end < units.Count && units[end - 1] is { Kana: "っ", Raw.Length: 1 } && units[end - 2].Kana == "ん";
+
     private static bool HasUnreadable(IReadOnlyList<CompositionUnit> units, int start, int end)
     {
         for (var k = start; k < end; k++)

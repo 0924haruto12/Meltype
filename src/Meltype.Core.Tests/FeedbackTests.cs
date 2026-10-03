@@ -377,7 +377,7 @@ internal static class LanguageLearningTests
     {
         // 一度 go を英字で確定したら、日本語 (nihongo) が にほんgo になっていた。
         var memory = new LanguageMemory(null);
-        memory.Remember("go", english: true);
+        memory.Remember("go", english: true, explicitChoice: true);
         CompositionTests.Detector.Memory = memory;
         try
         {
@@ -394,12 +394,58 @@ internal static class LanguageLearningTests
         }
     }
 
+
+
+    [Test]
+    public static void EnglishWordEndingInNg_BeforeParticle()
+    {
+        // kyouhameetinggaarimasu が きょうはめえちんっがあります になっていた (meeting の g が が とつながって っが)。
+        // また、表示では きょうはmeetingです なのに、確定したら打ち間違いとして g を直されて めえちんがです になっていた。
+        // meeting を英単語と知るのに、スペルチェッカー (Windows) か同梱の英単語の一覧 (Mac・Linux) を使う。
+        CompositionTests.Detector.SpellChecker = TestSupport.WordChecker is { IsAvailable: true } checker ? checker : Detection.BuiltInWordChecker.Shared;
+        try
+        {
+            foreach (var (typed, expected) in new[]
+            {
+                ("meetingga", "meetingが"), ("shoppinggasuki", "shoppingがすき"), ("sanngatsu", "さんがつ"),
+                ("kyouhameetinggaarimasu", "きょうはmeetingがあります"), ("kyouhameetingdesu", "きょうはmeetingです"), ("onegaishimsu", "おねがいします"),
+            })
+            {
+                var k = new CompositionTests.Keyboard();
+                k.Type(typed + "\n");
+                Assert.Equal(expected, k.Host.Document, typed);
+            }
+        }
+        finally
+        {
+            CompositionTests.Detector.SpellChecker = null;
+        }
+    }
+
+    [Test]
+    public static void ShortWord_ChosenFromCandidates_IsLearnedOnSecondTime()
+    {
+        // 変換の候補から go を英字で選んだだけで覚えると、日本語の中まで英字になりやすい (にほんgo)。2 文字の語は 2 回で覚える。
+        var memory = new LanguageMemory(null) { IsReadableRomaji = _ => true };
+        memory.Remember("go", english: true);
+        Assert.Equal(null, memory.Get("go"), "1 回目はまだ覚えない");
+        Assert.True(!memory.Entries().Single().Active, "一覧では「2 回目を待っている」");
+        memory.Remember("go", english: true);
+        Assert.Equal(true, memory.Get("go"), "2 回目で英語として覚える");
+        memory.Remember("to", english: true, explicitChoice: true);
+        Assert.Equal(true, memory.Get("to"), "F10 ではっきり直したら 1 回で覚える");
+        memory.Remember("api", english: true);
+        Assert.Equal(true, memory.Get("api"), "3 文字以上は今までどおり 1 回で覚える");
+        memory.Remove(["go"]);
+        Assert.Equal(null, memory.Get("go"), "一覧から消したら忘れる");
+    }
+
     [Test]
     public static void ShiftSpace_ConvertsEnglishWordAsRomaji()
     {
         // 英字と判定された語も変換できるように: Shift+Space でローマ字として読んで変換する。
         var memory = new LanguageMemory(null);
-        memory.Remember("go", english: true);
+        memory.Remember("go", english: true, explicitChoice: true);
         CompositionTests.Detector.Memory = memory;
         try
         {
