@@ -150,6 +150,13 @@ test('summary: チャンネルの指定・結果の読み取り・重複の無�
   assert.match(text, /ほか \d+ 件/, '入りきらない分は件数だけ');
   assert.match(text, /summary\.json/);
   assert.equal(summaryJson(big, ['1']).split.length, 300, 'JSON にはすべて入る');
+  // JSON にはリンクではなく結果そのもの
+  const one = summaryJson(summarize([split]), ['1']).split[0];
+  assert.equal(one.url, undefined);
+  assert.equal(one.reading, 'x');
+  assert.equal(one.engine, 'Mozc');
+  assert.deepEqual(one.results, [{ mark: '❌', keys: 'a', space: '私はごおgle', enter: '私はごおgle' }, { mark: '✅', keys: 'b', space: 'OK', enter: 'OK' }]);
+  assert.deepEqual(one.problems, [{ problem: '日本語 / 英語の分かれ方が違う (英字: なし、出てほしいのは google)', keys: ['a'] }]);
 
   // 英単語でもローマ字でも読める語 (tomato) だけの違いは除外
   const words = loadEnglishWords(path.resolve(import.meta.dirname, '../../../dictionaries'));

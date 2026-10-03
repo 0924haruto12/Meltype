@@ -76,14 +76,32 @@ export function parseJhtEmbed(embed, fallbackUrl) {
   const expected = (embed.title ?? '').replace(/^「/, '').replace(/」(の変換テスト)?$/, '');
   const marks = { '✅': 0, '🟡': 0, '🟠': 0, '❌': 0 };
   const problems = [];
+  // JSON に入れる中身 (打ち方ごとの結果と、問題ごとの起きた打ち方)
+  const results = [];
+  const details = [];
+  const header = description.match(/^読み: (.*)　変換エンジン: (.*)$/m);
   let inProblems = false;
   for (const line of description.split('\n')) {
     const mark = line.match(/^(✅|🟡|🟠|❌) `/)?.[1];
-    if (mark && !inProblems) marks[mark]++;
+    if (mark && !inProblems) {
+      marks[mark]++;
+      const parts = line.match(/^\S+ `([^`]*)`(?: → Space: (.*)　Enter: (.*))?$/);
+      if (parts) results.push({ mark, keys: parts[1], space: parts[2] ?? 'OK', enter: parts[3] ?? 'OK' });
+    }
     if (/^\*\*問題 \(\d+\)\*\*/.test(line)) inProblems = true;
-    else if (inProblems && line.startsWith('・')) problems.push(line.slice(1));
+    else if (inProblems && line.startsWith('・')) {
+      problems.push(line.slice(1));
+      details.push({ problem: line.slice(1), keys: [] });
+    } else if (inProblems && line.startsWith('　└ ') && details.length > 0) {
+      const where = line.slice(3);
+      details.at(-1).keys = where === 'すべての打ち方' ? ['すべての打ち方'] : [...where.matchAll(/`([^`]*)`/g)].map(m => m[1]);
+    }
   }
-  return { expected, ok: Number(count[1]), total: Number(count[2]), marks, problems, url: embed.url || fallbackUrl };
+  return {
+    expected, ok: Number(count[1]), total: Number(count[2]), marks, problems, url: embed.url || fallbackUrl,
+    reading: header?.[1] ?? '', engine: header?.[2] ?? '', results, details,
+    listShortened: description.includes('…(打ち方の一覧は省略)'),
+  };
 }
 
 /**
@@ -129,10 +147,21 @@ function line(entry, mark) {
   return `${mark} 「${shorten(entry.expected, 40)}」 ${entry.ok}/${entry.total}${link}` + (note ? `\n　└ ${shorten(note, 100)}${more}` : '');
 }
 
-/** JSON のファイルにする内容 (すべての結果。問題の無いものは文だけ)。 */
+/**
+ * JSON のファイルにする内容 (すべての結果。問題の無いものは文だけ)。
+ * Discord へのリンクではなく、結果そのもの (読み・打ち方ごとの Space / Enter の結果・問題と起きた打ち方) を入れる。
+ */
 export function summaryJson(summary, channelIds) {
   const { groups } = summary;
-  const item = e => ({ expected: e.expected, ok: e.ok, total: e.total, marks: e.marks, problems: e.problems, url: e.url });
+  const item = e => ({
+    expected: e.expected,
+    reading: e.reading,
+    engine: e.engine,
+    firstOk: `${e.ok} / ${e.total}`,
+    results: e.results ?? [],
+    ...(e.listShortened ? { resultsShortened: true } : {}),
+    problems: e.details?.length ? e.details : e.problems.map(problem => ({ problem, keys: [] })),
+  });
   return {
     channels: channelIds,
     total: summary.total,
@@ -163,7 +192,7 @@ export function formatSummary(summary, channelIds, fileName = 'summary.json') {
     `除外 ${groups.ambiguous.length} 件 (英単語でもローマ字でも読める語 (tomato など) だけの違いで、どちらにすべきか決められないもの)`,
     `問題の種類: ${ProblemKinds.filter(([key]) => kinds[key] > 0).map(([key, label]) => `${label} ${kinds[key]}`).join('・') || 'なし'}`,
   ];
-  const footer = `\n📎 全体 (すべての結果・問題・リンク) は ${fileName} にあります。`;
+  const footer = `\n📎 全体 (すべての文の、打ち方ごとの変換結果と問題) は ${fileName} にあります。`;
   let text = head.join('\n');
   let shown = 0;
   const listed = groups.split.length + groups.none.length;
