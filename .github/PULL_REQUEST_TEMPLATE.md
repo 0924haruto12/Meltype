@@ -19,7 +19,7 @@
 - [ ] 判定・変換を変えたときは、報告された例をテストに足した
 - [ ] 辞書だけの変更
 - [ ] 実際に打って確かめた (OS とアプリ: )
-- [ ] AI を使った (使った部分: ) — 中身を理解し、自分で確かめた ([AI の利用について](https://github.com/yksr-melt/Meltype/blob/main/CONTRIBUTING.md#ai-の利用について))
+- [ ] AI を使った (使った部分: ) — 中身を理解し、自分で確かめた。**使ったら必ずチェックしてください** (書かずに AI で作ったものに見える場合はクローズすることがあります) ([AI の利用について](https://github.com/yksr-melt/Meltype/blob/main/CONTRIBUTING.md#ai-の利用について))
 
 ## 貢献者ライセンス同意 (CLA)
 
