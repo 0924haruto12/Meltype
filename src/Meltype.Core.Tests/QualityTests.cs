@@ -274,8 +274,11 @@ internal static class Quality
         "morning", "tonight", "tomorrow", "yesterday", "weekend", "holiday", "birthday", "friend", "family", "school", "office",
     ];
 
+    /// <summary>1 つの例の結果。Key は「[分類] 入力」(版をまたいで同じ例を比べるのに使う)。</summary>
+    public sealed record Case(string Key, bool Ok, string Detail);
+
     public sealed record Result(
-Dictionary<string, (int Pass, int Total)> ByCategory, List<string> Failures)
+Dictionary<string, (int Pass, int Total)> ByCategory, List<string> Failures, List<Case> Cases)
     {
         public int Pass => ByCategory.Values.Sum(v => v.Pass);
         public int Total => ByCategory.Values.Sum(v => v.Total);
@@ -286,8 +289,11 @@ Dictionary<string, (int Pass, int Total)> ByCategory, List<string> Failures)
     {
         var categories = new Dictionary<string, (int Pass, int Total)>();
         var failures = new List<string>();
+        var cases = new List<Case>();
         void Score(string category, bool ok, string detail)
         {
+            var arrow = detail.IndexOf(" → ", StringComparison.Ordinal);
+            cases.Add(new Case($"[{category}] {(arrow >= 0 ? detail[..arrow] : detail)}", ok, detail));
             var (pass, total) = categories.GetValueOrDefault(category);
             categories[category] = (pass + (ok ? 1 : 0), total + 1);
             if (!ok) failures.Add($"[{category}] {detail}");
@@ -375,7 +381,7 @@ Dictionary<string, (int Pass, int Total)> ByCategory, List<string> Failures)
             Score("もしかして", actual == expected, $"{reading} → {actual ?? "(なし)"} (期待: {expected ?? "(なし)"})");
         }
 
-        return new Result(categories, failures);
+        return new Result(categories, failures, cases);
     }
 
     public static void Print(Result result)

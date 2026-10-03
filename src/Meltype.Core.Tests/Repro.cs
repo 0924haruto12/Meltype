@@ -42,3 +42,58 @@ internal static class Repro
         }, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping }));
     }
 }
+
+/// <summary>Pull Request のチェック (.github/workflows/pr-checks.yml) で使う結果の出力。</summary>
+internal static class Checks
+{
+    private static readonly JsonSerializerOptions Json = new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping, WriteIndented = true };
+
+    /// <summary>品質テストの例ごとの結果を JSON で出す (main と Pull Request の結果を比べて、新しく外れた例を見つける)。</summary>
+    public static void EvalJson(string path)
+    {
+        var result = Quality.Run();
+        File.WriteAllText(path, JsonSerializer.Serialize(new
+        {
+            pass = result.Pass,
+            total = result.Total,
+            cases = result.Cases.Select(c => new { key = c.Key, ok = c.Ok, detail = c.Detail }),
+        }, Json));
+    }
+
+    /// <summary>
+    /// 「入力 → 期待」の一覧 (1 行に「入力<Tab>期待」) を確かめて JSON で出す。
+    ///   入力がかな (しゃおみ) … 変換の候補に期待した語 (Xiaomi) が出るか
+    ///   入力が英字 (nihongowohanasu) … 打って Enter した結果が期待どおりか。期待に漢字が入っていれば、日本語 / 英語の分かれ方だけを比べる
+    ///   (テストでは変換エンジンを使わず漢字にしないため)。
+    /// </summary>
+    public static void Expect(string input, string output)
+    {
+        var candidates = Composition.CandidateDictionary.Load(null);
+        var results = new List<object>();
+        foreach (var line in File.ReadAllLines(input))
+        {
+            var parts = line.Split('\t');
+            if (parts.Length != 2) continue;
+            var (typed, expected) = (parts[0].Trim(), parts[1].Trim());
+            if (typed.Length == 0 || expected.Length == 0) continue;
+            if (typed.All(c => c is >= 'ぁ' and <= 'ゖ' or 'ー' or >= 'ァ' and <= 'ヺ'))
+            {
+                var reading = new string(typed.Select(c => c is >= 'ァ' and <= 'ヶ' ? (char)(c - 0x60) : c).ToArray());
+                var list = candidates.Lookup(reading);
+                results.Add(new { typed, expected, kind = "候補", actual = string.Join(" ", list.Take(12)), ok = list.Contains(expected) });
+                continue;
+            }
+            var k = new CompositionTests.Keyboard();
+            k.Type(new string(typed.Where(c => c is >= ' ' and <= '~').Take(300).ToArray()) + "\n");
+            var actual = k.Host.Document;
+            var kanji = expected.Any(c => c is >= '㐀' and <= '鿿');
+            var ok = kanji ? Words(actual) == Words(expected) : actual == expected;
+            results.Add(new { typed, expected, kind = kanji ? "判定 (英字の部分だけ比べる)" : "入力", actual, ok });
+        }
+        File.WriteAllText(output, JsonSerializer.Serialize(results, Json));
+    }
+
+    /// <summary>英字の語だけを取り出す (日本語 / 英語の分かれ方を比べる)。</summary>
+    private static string Words(string text) =>
+        string.Join(" ", System.Text.RegularExpressions.Regex.Matches(text, "[A-Za-z][A-Za-z'’-]*").Select(m => m.Value.ToLowerInvariant()));
+}
