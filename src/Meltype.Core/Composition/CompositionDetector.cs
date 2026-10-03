@@ -97,7 +97,7 @@ public sealed class CompositionDetector
             var found = -1;
             // 英文の中の記号 (, . ! ? -) は読点・句点にせず半角のまま。日本語の文の中の英単語の後 (今日はgoogle、) は日本語の記号。
             // (かな入力では 、。 も かなのキーなので対象外)
-            if (!kanaInput && IsAsciiSymbol(units[i]) && PrecededByEnglish(i) == true && segments.All(s => s.IsEnglish)) found = i + 1;
+            if (!kanaInput && IsAsciiSymbol(units[i]) && PrecededByEnglish(i) == true && segments.All(s => s.IsEnglish || !s.Raw.Any(char.IsAsciiLetter))) found = i + 1;
             if (!kanaInput && found < 0 && level != DetectionLevel.Manual) found = CapitalizedWordEnd(units, i, pending, final);
             if (!kanaInput && found < 0 && level != DetectionLevel.Manual) found = HyphenatedWordEnd(units, i, pending);
             for (var j = n; j > i && found < 0; j--)
@@ -145,6 +145,12 @@ public sealed class CompositionDetector
             if (found == n) return segments;
         }
 
+        // 打ちかけの 1 文字だけ (how r u の r): 1 文字の語の決まり (前が英語なら r・u は英字) で見る。
+        if (n == 0 && !kanaInput && pending.Length == 1 && char.IsAsciiLetterLower(pending[0]) &&
+            IsEnglishSpan(pending, atEnd: true, BeforeScore(0), followingEnglish, startOfInput: true, level, final))
+        {
+            return [new CompositionSegment(true, "", pending)];
+        }
         // Shift を押して打った入力途中の子音 (W, K) は大文字のまま英字で見せる (かなの読み途中として小文字にしない)。
         if (pending.Length > 0 && char.IsAsciiLetterUpper(pending[0]))
         {
@@ -255,7 +261,8 @@ public sealed class CompositionDetector
 
         // 大文字で始まる語 (Shift を押して打った) は固有名詞や英文。1 文字 (I) でも、末尾まで打っている途中でも英語。
         // 手動でもこれだけは英語にする (Shift を押したのはユーザーの明示的な指定)。
-        if (char.IsAsciiLetterUpper(span[0]) && (exact || prefix || atEnd)) return true;
+        // 大文字で始まる語の後ろに記号が続く (Ah! Ooh, Wow.) なら、その語で終わっている: スペルチェッカーの語でも英語。
+        if (char.IsAsciiLetterUpper(span[0]) && (exact || prefix || atEnd || (spellWord && next is [var symbol, ..] && !char.IsAsciiLetterOrDigit(symbol)))) return true;
         if (level == DetectionLevel.Manual) return false;
         // ユーザーが英字 / かなに直して覚えた語。ただし短くてローマ字として読める語 (go、no) は、日本語のすぐ後ろ
         // (nihon|go) では使わない (一度 go を英字で確定しただけで、日本語 が にほんgo になっていた)。
@@ -286,12 +293,20 @@ public sealed class CompositionDetector
             }
         }
         // 1 文字は英文の中の a / i だけ。
-        if (span.Length < 2 && !(lower is "a" or "i" && before >= 2)) return false;
+        // 1 文字は英文の中の a / i と、チャットの略し方の u (you)・r (are) だけ。前が英語の語なら英字 (A fool a fool a, for u / how r u)。
+        if (span.Length < 2) return lower is "a" or "i" or "u" or "r" && before >= 1;
 
         // 英語の固有名詞 (amazon, adobe, netflix) は、ローマ字として読めても英語。日本語の語と同じ綴りなら除く。
         // 短い名前 (ben, tom) の偶然の一致 (にほんごの|ben|きょう) を避けるため 4 文字以上。文の途中の区間なら
         // 5 文字以上 (きょうは|amazon|で) か、ローマ字として読めないもの。末尾の 4 文字の語は、日本語のすぐ後ろでなければ
         // (ある程度は の teido|ha を tei|doha = Doha にしない)。慎重なら、ローマ字として読めないものだけ。
+        // ただし、ローマ字として最後まで読める固有名詞 (korea = これあ) の後ろに、助詞でない日本語が続くなら、日本語の語の途中
+        // (korea|reka → これあれか。Korea|reka にしない)。助詞が続くなら固有名詞 (korea|de → Koreaで)。
+        if (lower.Length >= 4 && _proper.Contains(lower) && next is { Length: > 0 } && char.IsAsciiLetter(next[0]) &&
+            _romaji.Analyze(lower) is { IsValid: true, Partial: "" } && Detection.DictionaryDetector.StartsWithParticle(next.ToLowerInvariant()) is null)
+        {
+            return false;
+        }
         if (lower.Length >= 4 && _proper.Contains(lower) && !_japanese.Words.ContainsWord(lower) &&
             (conservative ? !_romaji.Analyze(lower).IsValid : (atEnd && before >= 0) || lower.Length >= 5 || !_romaji.Analyze(lower).IsValid))
         {
@@ -456,6 +471,8 @@ public sealed class CompositionDetector
         if (apostrophe <= 0 || apostrophe != span.LastIndexOf('\'')) return false;
         var stem = span[..apostrophe].ToLowerInvariant();
         var suffix = span[(apostrophe + 1)..].ToLowerInvariant();
+        // 語の最後の g を ' にした書き方 (swingin' = swinging、rockin'): stem + g が英単語なら英語
+        if (suffix.Length == 0 && stem.Length >= 3 && stem.EndsWith("in", StringComparison.Ordinal) && stem.All(char.IsAsciiLetterLower)) return IsKnownEnglishWord(stem + "g");
         if (!stem.All(char.IsAsciiLetterLower) || suffix is not ("t" or "s" or "re" or "ve" or "ll" or "d" or "m")) return false;
         if (suffix == "t") return stem.Length >= 2 && stem[^1] == 'n';
         return stem == "i" || _english.Words.ContainsWord(stem) || _proper.Contains(stem);

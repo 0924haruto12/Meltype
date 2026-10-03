@@ -453,6 +453,35 @@ internal static class LanguageLearningTests
         }
     }
 
+
+    [Test]
+    public static void TesterReports_20261003()
+    {
+        // テスターの報告 (2026-10-03): これあれか、開きの記号の全角、Ah!、swingin'、a / u / r
+        CompositionTests.Detector.SpellChecker = TestSupport.WordChecker is { IsAvailable: true } checker ? checker : Detection.BuiltInWordChecker.Shared;
+        try
+        {
+            foreach (var (typed, expected) in new[]
+            {
+                ("koreareka", "これあれか"), ("koreade", "koreaで"),
+                ("\"uchiagebanashihaGo Through!\"", "\"うちあげばなしはGo Through!\""), ("(Ooh Let's Think wow...) ", "(Ooh Let's Think wow...) "),
+                ("(chuui)", "（ちゅうい）"), ("\"kyouhaGo!\"tteitta", "\"きょうはGo!\"っていった"),
+                ("1. Ah! Ah!", "1. Ah! Ah!"), ("ahoka", "あほか"),
+                ("Swingin'", "Swingin'"), ("rockin' and rollin'", "rockin' and rollin'"),
+                ("A fool a fool a, for u", "A fool a fool a, for u"), ("how r u", "how r u"), ("kyouhau", "きょうはう"),
+            })
+            {
+                var k = new CompositionTests.Keyboard();
+                k.Type(typed + "\n");
+                Assert.Equal(expected, k.Host.Document, typed);
+            }
+        }
+        finally
+        {
+            CompositionTests.Detector.SpellChecker = null;
+        }
+    }
+
     [Test]
     public static void ShortWord_ChosenFromCandidates_IsLearnedOnSecondTime()
     {

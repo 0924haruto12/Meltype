@@ -323,7 +323,60 @@ public sealed class CompositionText
 
     /// <summary>自動判定の区間分け (Mode が Auto のときに使う)。</summary>
     /// <param name="final">打ち終わった (Space・Enter で確定・変換する) ときは true。英単語の打ちかけ (amaz → amazon) を英語の根拠にしない。</param>
-    public IReadOnlyList<CompositionSegment> Segments(bool final = false) => _detector.Segment(_units, Pending, PrecedingEnglish, FollowingEnglish, EffectiveLevel, PrecedingEnglishSentence, KanaInput, final);
+    public IReadOnlyList<CompositionSegment> Segments(bool final = false)
+    {
+        var segments = _detector.Segment(_units, Pending, PrecedingEnglish, FollowingEnglish, EffectiveLevel, PrecedingEnglishSentence, KanaInput, final);
+        return HalfWidthOpeners(segments) is { } adjusted
+            ? _detector.Segment(adjusted, Pending, PrecedingEnglish, FollowingEnglish, EffectiveLevel, PrecedingEnglishSentence, KanaInput, final)
+            : segments;
+    }
+
+    /// <summary>英数字以外の半角の記号 1 文字か (! . , ? など)。</summary>
+    private static bool IsAsciiSymbol(string raw) => raw is [var c] && c is >= '!' and <= '~' && !char.IsAsciiLetterOrDigit(c);
+
+    /// <summary>開きの記号と、その閉じの記号。</summary>
+    private static readonly Dictionary<string, string> Openers = new() { ["("] = ")", ["["] = "]", ["{"] = "}", ["\""] = "\"", ["'"] = "'" };
+
+    /// <summary>
+    /// 開きの記号 (「(」「"」) は打った時点ではまだ後ろが分からないので全角になる。後ろが分かったら、
+    /// すぐ後ろが英語 ((Ooh) か、対になる閉じの記号が半角 ("…Go Through!") なら、開きの記号も半角にした単位の並びを返す。変えなければ null。
+    /// ("打ち上げ話はGo Through!" の最初の " だけ全角 ” になっていた、(Ooh … wow…) の ( だけ全角 （ になっていた)
+    /// </summary>
+    private List<CompositionUnit>? HalfWidthOpeners(IReadOnlyList<CompositionSegment> segments)
+    {
+        if (KanaInput || !_units.Any(u => Openers.ContainsKey(u.Raw) && u.Kana != u.Raw)) return null;
+        // 打った英字の 1 文字ずつが英語の区間か
+        var english = new List<bool>();
+        foreach (var segment in segments) foreach (var _ in segment.Raw) english.Add(segment.IsEnglish);
+        var offsets = new int[_units.Count];
+        for (int i = 0, offset = 0; i < _units.Count; offset += _units[i].Raw.Length, i++) offsets[i] = offset;
+        bool IsHalf(int i) => _units[i].Kana == _units[i].Raw || (offsets[i] < english.Count && english[offsets[i]]);
+
+        List<CompositionUnit>? adjusted = null;
+        for (var i = 0; i < _units.Count; i++)
+        {
+            if (!Openers.TryGetValue(_units[i].Raw, out var closer) || _units[i].Kana == _units[i].Raw) continue;
+            var nextIsEnglish = i + 1 < _units.Count ? offsets[i + 1] < english.Count && english[offsets[i + 1]] && char.IsAsciiLetter(_units[i + 1].Raw[0])
+                : Pending.Length > 0 && segments.Count > 0 && segments[^1].IsEnglish;
+            var closing = Enumerable.Range(i + 1, _units.Count - i - 1).FirstOrDefault(k => _units[k].Raw == closer, -1);
+            // 閉じの記号が英語の語のすぐ後ろ (間の記号 ! . は飛ばす: …Through!") なら、閉じも、間の記号も半角にする
+            var afterEnglish = -1;
+            if (closing > i)
+            {
+                var k = closing - 1;
+                while (k > i && IsAsciiSymbol(_units[k].Raw)) k--;
+                if (k > i && offsets[k] < english.Count && english[offsets[k]] && char.IsAsciiLetter(_units[k].Raw[^1])) afterEnglish = k;
+            }
+            // まだ閉じていない開きの記号の後ろに英語の語がある ("打ち上げ話はGo + Space で確定するとき) も半角 (英語の文を続けて打っている)
+            var unclosedBeforeEnglish = closing < 0 && Enumerable.Range(i + 1, _units.Count - i - 1)
+                .Any(k => offsets[k] < english.Count && english[offsets[k]] && char.IsAsciiLetter(_units[k].Raw[0]));
+            if (!nextIsEnglish && !(closing >= 0 && IsHalf(closing)) && afterEnglish < 0 && !unclosedBeforeEnglish) continue;
+            adjusted ??= [.. _units];
+            adjusted[i] = _units[i] with { Kana = _units[i].Raw };
+            for (var k = afterEnglish + 1; afterEnglish >= 0 && k <= closing; k++) adjusted[k] = _units[k] with { Kana = _units[k].Raw };
+        }
+        return adjusted;
+    }
 
     /// <summary>判定の強さが「手動」のとき、標準の判定なら英字にする部分 (提案)。無ければ null。</summary>
     public string? Suggestion()

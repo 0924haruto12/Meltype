@@ -197,3 +197,5 @@ token tokens prompt prompts model models agent agents tool tools server servers 
 
 # --- 話し言葉の英語 (歌詞・チャット) ---
 outta gonna wanna gotta kinda sorta lotta dunno gimme lemme ya yeah nope yep hey oh baby tonight
+# --- 感動詞 (Ah! Ooh, Wow) ---
+ah ooh wow oops yay huh ugh aww hmm whoa
