@@ -13,10 +13,4 @@
 
 ## 貢献者ライセンス同意 (CLA)
 
-Meltype は GNU GPL v3 と商用ライセンスのデュアルライセンスです。詳しくは [CONTRIBUTING.md](https://github.com/yksr-melt/Meltype/blob/main/CONTRIBUTING.md) を読んでください。
-同意できる場合は、下の [ ] に x を付けてください。同意がない Pull Request は取り込めません。
-
-- [ ] 私は、この Pull Request で提供する貢献 (コード・辞書・文書など) について、次のことに同意します。
-  1. 貢献は私自身が作成したもので、私にはそれを提供する権利がある。
-  2. 私は Meltype の作者に対し、貢献を複製・改変・配布・サブライセンスする、無償で取り消し不能な、世界的・非独占的な権利を許諾する。これには、GNU GPL v3 以外のライセンス (商用ライセンスを含む) で配布することを含む。
-  3. 貢献の著作権は私に残り、私は自分の貢献を自由に利用できる。
+初めての方には、bot が CLA の文面をコメントします。同意していただける場合は、その Pull Request に「CLA に同意します」と 1 行だけコメントしてください。一度同意すれば次からは不要です。詳しくは https://github.com/yksr-melt/Meltype/blob/main/CONTRIBUTING.md
