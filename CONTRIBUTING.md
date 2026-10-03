@@ -4,7 +4,9 @@
 
 ## 不具合の報告
 
-Issue に次の 3 つを書いてください。
+[Issue](https://github.com/yksr-melt/Meltype/issues/new/choose) のひな形 (不具合 / 変換・判定の間違い / 辞書 / 提案) から選んで書いてください。
+Mac 版・Linux 版はプレビュー版です。気づいたことは小さなことでも報告してもらえると助かります。
+どのひな形でも、大事なのは次の 3 つです。
 
 1. どのアプリで (メモ帳 / Chrome / Discord など)
 2. 何と打って (例: `kyouhagoogle` と打って Enter)
