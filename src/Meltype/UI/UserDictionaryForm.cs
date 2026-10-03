@@ -57,7 +57,12 @@ internal sealed class UserDictionaryForm : Form
         var close = new Button { Text = "閉じる", AutoSize = true, DialogResult = DialogResult.Cancel };
         close.Click += (_, _) => Close();
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Padding = new Padding(6) };
-        buttons.Controls.AddRange([close, remove]);
+        // ほかの日本語入力 (Microsoft IME・Google 日本語入力) の辞書の取り込みと、Microsoft IME の形式での書き出し
+        var import = new Button { Text = "取り込む...", AutoSize = true };
+        import.Click += (_, _) => Import();
+        var export = new Button { Text = "書き出す...", AutoSize = true };
+        export.Click += (_, _) => Export();
+        buttons.Controls.AddRange([close, remove, export, import]);
 
         _grid.Columns.Add("reading", "読み");
         _grid.Columns.Add("word", "単語");
@@ -126,6 +131,52 @@ internal sealed class UserDictionaryForm : Form
         _word.Items.Clear();
         Reload();
         _reading.Focus();
+    }
+
+    private void Import()
+    {
+        using var dialog = new OpenFileDialog
+        {
+            Title = "ユーザー辞書を取り込む",
+            Filter = "辞書のテキストファイル (*.txt)|*.txt|すべてのファイル (*.*)|*.*",
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            var result = UserDictionaryFile.Parse(File.ReadAllBytes(dialog.FileName));
+            var added = _service.UserDictionary.AddRange(result.Words);
+            Reload();
+            Diagnostics.Log.Info($"ユーザー辞書を取り込みました: {added} 語 ({result.Encoding})");
+            var skipped = result.Skipped > 0 ? $"\n読みがかなでない・短すぎるなどで飛ばした行: {result.Skipped}" : "";
+            var duplicates = result.Words.Count - added;
+            MessageBox.Show(this, $"{added} 語を登録しました。{(duplicates > 0 ? $"\n登録済みの語: {duplicates}" : "")}{skipped}", "ユーザー辞書の取り込み",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"取り込めませんでした。\n\n{ex.Message}", "ユーザー辞書の取り込み", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private void Export()
+    {
+        using var dialog = new SaveFileDialog
+        {
+            Title = "ユーザー辞書を書き出す",
+            Filter = "辞書のテキストファイル (*.txt)|*.txt",
+            FileName = $"Meltype-ユーザー辞書-{DateTime.Now:yyyyMMdd}.txt",
+        };
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+        try
+        {
+            File.WriteAllBytes(dialog.FileName, UserDictionaryFile.Export(_service.UserDictionary.Words));
+            MessageBox.Show(this, $"{_service.UserDictionary.Count} 語を書き出しました。\nMicrosoft IME・Google 日本語入力・ATOK の辞書ツールで取り込めます。", "ユーザー辞書の書き出し",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"書き出せませんでした。\n\n{ex.Message}", "ユーザー辞書の書き出し", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
     }
 
     private void RemoveSelected()

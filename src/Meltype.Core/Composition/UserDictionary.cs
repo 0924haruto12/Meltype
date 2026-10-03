@@ -75,6 +75,21 @@ public sealed class UserDictionary
         return null;
     }
 
+    /// <summary>まとめて登録する (取り込み)。読みと単語が同じものが既にあれば飛ばす。登録した数を返す。</summary>
+    public int AddRange(IEnumerable<UserWord> words)
+    {
+        var added = 0;
+        foreach (var word in words)
+        {
+            if (word.Reading.Length < MinReadingLength || word.Word.Length == 0 || word.Reading.Contains('\t') || word.Word.Contains('\t')) continue;
+            if (_words.Any(w => w.Reading == word.Reading && w.Word == word.Word)) continue;
+            _words.Add(word);
+            added++;
+        }
+        if (added > 0) Changed();
+        return added;
+    }
+
     public void Remove(UserWord word)
     {
         if (_words.Remove(word)) Changed();
