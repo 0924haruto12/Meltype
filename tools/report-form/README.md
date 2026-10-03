@@ -68,7 +68,7 @@ GitHub → Settings → Developer settings → Fine-grained personal access toke
 
 フォームの「︙」→「事前入力した URL を取得」で、OS に「Windows 11」、Meltype の版に「0.0.0」、実行環境に「ENV」を入れて「リンクを取得」。
 できた URL (`https://docs.google.com/forms/d/e/…/viewform?usp=pp_url&entry.111=Windows+11&entry.222=0.0.0&entry.333=ENV` のような形) を、
-`src/Meltype/AppInfo.cs` の `ReportForm` に書きます。Meltype が `Windows 11`・`0.0.0`・`ENV` を実際の OS・版・実行環境に置き換えて開きます。
+`src/Meltype.Core/Config/ProjectInfo.cs` の `ReportForm` に書きます (Windows・Mac・Linux 共通)。Meltype が `Windows 11`・`0.0.0`・`ENV` を実際の OS・版・実行環境に置き換えて開きます。
 
 ログは URL には入れません (ブラウザーの履歴に残り、長さの上限もあるため)。「不具合の報告・提案...」の画面に実行環境と最近のログが出るので、ログは中身を確かめて (消したい部分は消して)「ログをコピー」を押し、フォームの「ログ」の欄に貼り付けてもらいます。
 入力した文字は、設定「ログに入力した文字を残す」が OFF (既定) なら文字数だけになっています。ただし判定の理由には、判定した語の先頭の数文字が残ります。

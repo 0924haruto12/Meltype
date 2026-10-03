@@ -23,6 +23,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      # IBus のエンジン (Python) の書き間違いを、時間のかかるビルドの前に見つける
+      - name: Check Python
+        run: python3 -m py_compile linux/ibus-engine-meltype
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x

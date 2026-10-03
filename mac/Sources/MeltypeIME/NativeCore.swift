@@ -17,6 +17,7 @@ private typealias CommitFunction = @convention(c) (UnsafeMutableRawPointer?) -> 
 private typealias SelectFunction = @convention(c) (UnsafeMutableRawPointer?, Int32) -> UnsafeMutablePointer<CChar>?
 private typealias SetDirectFunction = @convention(c) (UnsafeMutableRawPointer?, Int32) -> Void
 private typealias DataDirectoryFunction = @convention(c) () -> UnsafeMutablePointer<CChar>?
+private typealias ReportUrlFunction = @convention(c) (UnsafePointer<CChar>?) -> UnsafeMutablePointer<CChar>?
 private typealias FreeFunction = @convention(c) (UnsafeMutableRawPointer?) -> Void
 
 // ---- 本体から呼ばれる関数 (文字列は strdup したものを返し、本体が free する) ----
@@ -64,6 +65,8 @@ struct CompositionView: Decodable {
     let hint: String
     let candidates: [String]
     let clauses: [String]
+    /// 選んでいる候補の意味 (無ければ nil)。候補で少し止まったら注釈に出す。
+    let meaning: String?
 }
 
 /// libMeltypeNative.dylib を読み込んで呼ぶ。Meltype.app/Contents/Frameworks に置く (build.sh)。
@@ -79,6 +82,7 @@ final class NativeCore {
     private let selectFunction: SelectFunction?
     private let setDirectFunction: SetDirectFunction?
     private let dataDirectoryFunction: DataDirectoryFunction?
+    private let reportUrlFunction: ReportUrlFunction?
     private let freeFunction: FreeFunction?
 
     private init() {
@@ -101,6 +105,7 @@ final class NativeCore {
         selectFunction = symbol("meltype_select_candidate", as: SelectFunction.self)
         setDirectFunction = symbol("meltype_set_direct", as: SetDirectFunction.self)
         dataDirectoryFunction = symbol("meltype_data_directory", as: DataDirectoryFunction.self)
+        reportUrlFunction = symbol("meltype_report_url", as: ReportUrlFunction.self)
         freeFunction = symbol("meltype_free", as: FreeFunction.self)
     }
 
@@ -140,6 +145,13 @@ final class NativeCore {
         guard let pointer = dataDirectoryFunction?() else { return nil }
         defer { freeFunction?(pointer) }
         return String(cString: pointer)
+    }
+
+    /// 不具合報告を開く URL (OS・版・実行環境を入れたもの)。
+    var reportUrl: URL? {
+        guard let pointer = "Mac".withCString({ reportUrlFunction?($0) }) else { return nil }
+        defer { freeFunction?(pointer) }
+        return URL(string: String(cString: pointer))
     }
 
     private func decode(_ pointer: UnsafeMutablePointer<CChar>?) -> SessionResult? {

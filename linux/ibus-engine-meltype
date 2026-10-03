@@ -9,6 +9,7 @@
 import ctypes
 import json
 import os
+import subprocess
 import sys
 
 import gi
@@ -33,6 +34,19 @@ _lib.meltype_select_candidate.argtypes = [ctypes.c_void_p, ctypes.c_int]
 _lib.meltype_select_candidate.restype = ctypes.c_void_p
 _lib.meltype_set_direct.argtypes = [ctypes.c_void_p, ctypes.c_int]
 _lib.meltype_free.argtypes = [ctypes.c_void_p]
+_lib.meltype_report_url.argtypes = [ctypes.c_char_p]
+_lib.meltype_report_url.restype = ctypes.c_void_p
+
+
+def _report_url():
+    """不具合報告を開く URL (OS・版・実行環境を入れたもの)。"""
+    pointer = _lib.meltype_report_url(b"Linux")
+    if not pointer:
+        return "https://github.com/yksr-melt/Meltype/issues/new/choose"
+    try:
+        return ctypes.string_at(pointer).decode("utf-8")
+    finally:
+        _lib.meltype_free(pointer)
 
 if not _lib.meltype_init_mozc(os.path.join(HERE, "mozc", "meltype_mozc_helper").encode(), None):
     print("Meltype: Mozc を使えません (漢字変換はひらがなのままになります)", file=sys.stderr)
@@ -92,6 +106,12 @@ class MeltypeEngine(IBus.Engine):
         self._lookup = IBus.LookupTable.new(9, 0, True, True)
         self._lookup.set_orientation(IBus.Orientation.VERTICAL)
         self._candidates = []
+        # 候補で少し (1.5 秒) 止まったら、その候補の意味を補助テキストに出す (Windows 版と同じ)
+        self._meaning_key = None
+        # 入力メソッドのメニュー (GNOME の入力ソースのメニューなど) に出す項目
+        self._properties = IBus.PropList()
+        self._properties.append(IBus.Property(key="report", label=IBus.Text.new_from_string("不具合の報告・提案… (Linux 版はプレビュー版です)"),
+                                              type=IBus.PropType.NORMAL, sensitive=True, visible=True))
 
     # IBus からの呼び出し
 
@@ -131,6 +151,16 @@ class MeltypeEngine(IBus.Engine):
         # 別の入力欄・アプリに移るときは、未確定の内容をそのまま確定する。
         if self._session:
             self._apply(_result(_lib.meltype_commit(self._session)))
+
+    def do_focus_in(self):
+        self.register_properties(self._properties)
+
+    def do_property_activate(self, prop_name, state):
+        if prop_name == "report":
+            try:
+                subprocess.Popen(["xdg-open", _report_url()])
+            except OSError as error:
+                print(f"Meltype: 報告の画面を開けませんでした: {error}", file=sys.stderr)
 
     def do_reset(self):
         self.do_focus_out()
@@ -218,8 +248,27 @@ class MeltypeEngine(IBus.Engine):
         if 0 <= selected < len(candidates):
             self._lookup.set_cursor_pos(selected)
         self.update_lookup_table(self._lookup, True)
+        self._schedule_meaning(view)
+
+    def _schedule_meaning(self, view):
+        meaning = view.get("meaning")
+        key = f"{view.get('selectedIndex')}
+{meaning}" if meaning else None
+        if key == self._meaning_key:
+            return
+        self._meaning_key = key
+        if key is None:
+            return
+
+        def show():
+            if self._meaning_key == key and self._candidates:
+                self.update_auxiliary_text(IBus.Text.new_from_string(meaning), True)
+            return False
+
+        GLib.timeout_add(1500, show)
 
     def _hide_candidates(self):
+        self._meaning_key = None
         if self._candidates:
             self._lookup.clear()
             self._candidates = []

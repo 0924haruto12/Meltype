@@ -91,7 +91,13 @@ final class MeltypeInputController: IMKInputController {
     override func menu() -> NSMenu! {
         let menu = NSMenu()
         menu.addItem(withTitle: "Meltype のデータフォルダを開く (設定・ユーザー辞書)", action: #selector(openDataFolder(_:)), keyEquivalent: "")
+        menu.addItem(withTitle: "不具合の報告・提案… (Mac 版はプレビュー版です)", action: #selector(openReport(_:)), keyEquivalent: "")
         return menu
+    }
+
+    @objc private func openReport(_ sender: Any?) {
+        guard let url = NativeCore.shared.reportUrl else { return }
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func openDataFolder(_ sender: Any?) {
@@ -167,6 +173,21 @@ final class MeltypeInputController: IMKInputController {
         text.addAttributes(attributes, range: range)
     }
 
+    /// 候補で少し (1.5 秒) 止まったら、その候補の意味を候補ウィンドウの注釈に出す (Windows 版と同じ)。
+    private var meaningKey: String?
+
+    private func scheduleMeaning(_ view: CompositionView) {
+        let key = view.meaning.map { "(view.selectedIndex)
+($0)" }
+        guard key != meaningKey else { return }
+        meaningKey = key
+        guard let key, let meaning = view.meaning else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            guard let self, self.meaningKey == key, let window = candidatesWindow, window.isVisible() else { return }
+            window.showAnnotation(NSAttributedString(string: meaning))
+        }
+    }
+
     private func updateCandidates(_ view: CompositionView) {
         guard let window = candidatesWindow else { return }
         if view.converting && view.candidates.count > 1 {
@@ -176,7 +197,9 @@ final class MeltypeInputController: IMKInputController {
             if view.selectedIndex >= 0 && view.selectedIndex < view.candidates.count {
                 window.selectCandidate(withIdentifier: window.candidateIdentifier(atLineNumber: view.selectedIndex))
             }
+            scheduleMeaning(view)
         } else {
+            meaningKey = nil
             candidateList = []
             window.hide()
         }

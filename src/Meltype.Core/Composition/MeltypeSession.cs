@@ -46,6 +46,10 @@ public sealed record SessionResult(bool Consumed, IReadOnlyList<TextEdit> Commit
         AppendArray(builder, view.Candidates);
         builder.Append(",\"clauses\":");
         AppendArray(builder, view.Clauses ?? []);
+        // 選んでいる候補の意味 (無ければ null)。少し止まってから出すのは Swift・Python 側
+        builder.Append(",\"meaning\":");
+        if (view.Meaning is { } meaning) AppendString(builder, meaning);
+        else builder.Append("null");
         builder.Append("}}");
         return builder.ToString();
     }
@@ -137,6 +141,8 @@ public sealed class MeltypeSession
             Languages = languages,
             Translations = TranslationDictionary.Load(),
             TranslationCandidates = () => settings.TranslationCandidates,
+            Meanings = MeaningDictionary.Load(),
+            CandidateMeanings = () => settings.ShowCandidateMeanings,
             RomajiTypos = RomajiTypoCorrector.Load(detector.Romaji),
             CorrectTypos = () => settings.CorrectTypos,
             TranslationHistory = new TranslationHistory(AppPaths.TranslationHistoryFile),

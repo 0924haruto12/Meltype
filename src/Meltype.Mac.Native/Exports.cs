@@ -120,6 +120,25 @@ public static unsafe class Exports
     [UnmanagedCallersOnly(EntryPoint = "meltype_data_directory")]
     public static byte* DataDirectory() => ToUtf8(Config.AppPaths.DataDirectory);
 
+    /// <summary>
+    /// 不具合報告を開く URL (OS・版・実行環境を入れたもの)。platform は "Mac" か "Linux"。meltype_free で解放する。
+    /// </summary>
+    [UnmanagedCallersOnly(EntryPoint = "meltype_report_url")]
+    public static byte* ReportUrl(byte* platform)
+    {
+        try
+        {
+            var name = FromUtf8(platform) ?? "Mac";
+            var settings = Config.Settings.Load(Config.AppPaths.ConfigFile);
+            return ToUtf8(Config.ProjectInfo.ReportUrl($"{name} (プレビュー版)", Config.ProjectInfo.CoreVersion, Config.ProjectInfo.Environment(settings, name)));
+        }
+        catch (Exception ex)
+        {
+            Diagnostics.Log.Error($"報告の URL を作れませんでした: {ex}");
+            return ToUtf8($"{Config.ProjectInfo.SourceUrl}/issues/new/choose");
+        }
+    }
+
     [UnmanagedCallersOnly(EntryPoint = "meltype_free")]
     public static void Free(byte* text) => NativeMemory.Free(text);
 

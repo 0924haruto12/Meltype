@@ -44,7 +44,7 @@ Apple Developer Program (年 99 ドル) に入り、「Developer ID Application�
 - Settings → Security → **Private vulnerability reporting** を ON (SECURITY.md の報告先)。
 - Settings → Branches → main のブランチ保護: 必須のチェックに **CLA**・**build**・**精度の比較**・**辞書の形式** を入れる。
 - (任意) bot の名前を変える: GitHub App を作り、変数 `BOT_APP_ID` と秘密 `BOT_APP_PRIVATE_KEY` を登録 (CONTRIBUTING.md の bot の項)。
-- 不具合報告のフォーム: [tools/report-form/README.md](../tools/report-form/README.md) の手順で作り、`src/Meltype/AppInfo.cs` の `ReportForm` に URL を書く。
+- 不具合報告のフォーム: [tools/report-form/README.md](../tools/report-form/README.md) の手順で作り、`src/Meltype.Core/Config/ProjectInfo.cs` の `ReportForm` に URL を書く。
 
 ## パッケージマネージャー (公開版)
 

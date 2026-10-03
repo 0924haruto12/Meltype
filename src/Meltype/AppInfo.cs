@@ -8,38 +8,18 @@ namespace Meltype;
 /// <summary>バージョン・著作権・ライセンスの表示 (トレイの「Meltype について...」)。</summary>
 internal static class AppInfo
 {
-    public const string SourceUrl = "https://github.com/yksr-melt/Meltype";
-
-    /// <summary>
-    /// 不具合報告のフォーム (Google フォームの「事前入力した URL」。OS に Windows 11、版に 0.0.0、実行環境に ENV を入れて作ったもの)。
-    /// 空なら GitHub の Issue の画面を開く。作り方は tools/report-form/README.md。
-    /// </summary>
-    public const string ReportForm = "";
+    public const string SourceUrl = Config.ProjectInfo.SourceUrl;
 
     /// <summary>公開した版 (1.0.0 以降) か。それまではリポジトリが非公開なので、GitHub で報告する道は出さない。</summary>
-    public static bool IsPublicRelease => System.Version.TryParse(Version, out var version) && version.Major >= 1;
+    public static bool IsPublicRelease => Config.ProjectInfo.IsPublicRelease(Version);
 
-    /// <summary>
-    /// GitHub の Issue の作成画面を、OS・版・実行環境を入れた状態で開く URL。
-    /// template は .github/ISSUE_TEMPLATE のファイル名 (1-bug.yml / 2-misdetection.yml)。欄は id で入れる。
-    /// </summary>
-    public static string GitHubReportUrl(string template, string environment)
-    {
+    /// <summary>GitHub の Issue の作成画面を、OS・版・実行環境を入れた状態で開く URL (template は 1-bug.yml など)。</summary>
+    public static string GitHubReportUrl(string template, string environment) =>
         // OS の選択肢は雛形ごとに違う (不具合は Windows 11 / 10、誤判定は Windows)
-        var os = template.StartsWith("1-", StringComparison.Ordinal) ? Diagnostics.ReportInfo.OsName : "Windows";
-        return $"{SourceUrl}/issues/new?template={Uri.EscapeDataString(template)}&os={Uri.EscapeDataString(os)}" +
-            $"&version={Uri.EscapeDataString(Version)}&environment={Uri.EscapeDataString(environment)}";
-    }
+        Config.ProjectInfo.GitHubReportUrl(template, template.StartsWith("1-", StringComparison.Ordinal) ? Diagnostics.ReportInfo.OsName : "Windows", Version, environment);
 
     /// <summary>不具合報告を開く URL (OS・版・実行環境は今のものを入れる)。</summary>
-    public static string ReportUrl(string environment)
-    {
-        if (ReportForm.Length == 0) return $"{SourceUrl}/issues/new/choose";
-        return ReportForm
-            .Replace("=Windows+11", "=" + Uri.EscapeDataString(Diagnostics.ReportInfo.OsName))
-            .Replace("=0.0.0", "=" + Uri.EscapeDataString(Version))
-            .Replace("=ENV", "=" + Uri.EscapeDataString(environment));
-    }
+    public static string ReportUrl(string environment) => Config.ProjectInfo.ReportUrl(Diagnostics.ReportInfo.OsName, Version, environment);
 
     /// <summary>自動更新で最新のリリースを見に行く GitHub のリポジトリ (公開されている必要がある)。</summary>
     public const string UpdateRepository = "yksr-melt/Meltype";
