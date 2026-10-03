@@ -61,7 +61,7 @@ test('使い方は実際の bot のメンションで書く', async () => {
 });
 
 test('jht の結果の表示', async () => {
-  const { formatJht, jhtMark } = await import('../commands.mjs');
+  const { formatJht, jhtMark } = await import('../jht-format.mjs');
   const r = {
     expected: 'eBayで売る', reading: 'でうる', engine: 'Mozc',
     results: [
@@ -72,6 +72,7 @@ test('jht の結果の表示', async () => {
   assert.equal(jhtMark(r.results[0]), '🟠');
   const text = formatJht(r);
   assert.ok(text.includes('最初の変換で出た: 1 / 2'));
-  assert.ok(text.includes('Space で変換: eBay出うる'));
+  assert.ok(text.includes('Space: eBay出うる'));
+  assert.ok(text.indexOf('**問題 (1)**') > text.indexOf('eBaydeuru'), '問題は最後にまとめて出す');
   assert.ok(text.includes('・2 番目の文節'));
 });

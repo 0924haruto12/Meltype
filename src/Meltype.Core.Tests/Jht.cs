@@ -46,6 +46,8 @@ internal static class Jht
         Add("ぁ", "xa", "la"); Add("ぃ", "xi", "li"); Add("ぅ", "xu", "lu"); Add("ぇ", "xe", "le"); Add("ぉ", "xo", "lo");
         Add("ゃ", "xya", "lya"); Add("ゅ", "xyu", "lyu"); Add("ょ", "xyo", "lyo");
         Add("ー", "-");
+        // 記号 (日本語入力で打つと全角になるキー)
+        Add("、", ","); Add("。", "."); Add("！", "!"); Add("？", "?"); Add("「", "["); Add("」", "]"); Add("・", "/"); Add("～", "~"); Add("　", " ");
         return table;
     }
 
@@ -213,20 +215,43 @@ internal static class Jht
             if (k.Host.View is { Converting: true, Clauses: { } clauses } view)
             {
                 first = string.Concat(clauses);
-                var remaining = expected;
+                // 文節ごとの候補を先に集める (→ で文節を選ぶと、その文節の候補の一覧が出る)
+                var all = new List<List<string>>();
                 for (var c = 0; c < clauses.Count; c++)
                 {
                     if (c > 0) k.Press(VirtualKeys.Right);
-                    var candidates = k.Host.View!.Candidates.ToList();
-                    var found = candidates.FindIndex(x => x.Length > 0 && remaining.StartsWith(x, StringComparison.Ordinal));
-                    if (found < 0)
-                    {
-                        notes.Add($"{c + 1} 番目の文節「{clauses[c]}」: 出てほしい「{Trim(remaining, 8)}」の頭が候補に無い (区切りが違うか、候補に無い)");
-                        break;
-                    }
-                    if (found > 0) notes.Add($"{c + 1} 番目の文節「{clauses[c]}」: 「{candidates[found]}」は候補の {found + 1} 番目");
-                    remaining = remaining[candidates[found].Length..];
+                    all.Add(k.Host.View!.Candidates.ToList());
                 }
+                // 出てほしい文の頭から順に、文節の候補と突き合わせる。候補に無い文節があっても最後まで見る
+                // (その文節の分は、次の文節の候補が合う所まで、とみなして続ける)。
+                var remaining = expected;
+                for (var c = 0; c < clauses.Count; c++)
+                {
+                    if (remaining.Length == 0)
+                    {
+                        notes.Add($"{c + 1} 番目の文節「{clauses[c]}」: 出てほしい文より文節が多い (余分)");
+                        continue;
+                    }
+                    var candidates = all[c];
+                    var found = candidates.FindIndex(x => x.Length > 0 && remaining.StartsWith(x, StringComparison.Ordinal));
+                    if (found >= 0)
+                    {
+                        if (found > 0) notes.Add($"{c + 1} 番目の文節「{clauses[c]}」: 「{candidates[found]}」は候補の {found + 1} 番目 (最初の変換では出ない)");
+                        remaining = remaining[candidates[found].Length..];
+                        continue;
+                    }
+                    // この文節の分 (次の文節の候補が合う所まで。最後の文節なら残り全部)
+                    var length = remaining.Length;
+                    if (c + 1 < clauses.Count)
+                    {
+                        var next = all[c + 1];
+                        length = Enumerable.Range(1, remaining.Length - 1)
+                            .FirstOrDefault(p => next.Any(x => x.Length > 0 && remaining[p..].StartsWith(x, StringComparison.Ordinal)), Math.Min(clauses[c].Length, remaining.Length));
+                    }
+                    notes.Add($"{c + 1} 番目の文節「{clauses[c]}」: 出てほしい「{remaining[..length]}」が候補に無い (区切りが違うか、候補に無い)");
+                    remaining = remaining[length..];
+                }
+                if (remaining.Length > 0) notes.Add($"最後の「{remaining}」が出ていない (文節が足りない)");
             }
             else
             {

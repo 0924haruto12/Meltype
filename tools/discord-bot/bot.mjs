@@ -8,7 +8,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client, EmbedBuilder, Events, GatewayIntentBits, PermissionFlagsBits } from 'discord.js';
-import { code, formatJht, helpText, parseCommand, parseNumber, shorten } from './commands.mjs';
+import { code, helpText, parseCommand, parseNumber, shorten } from './commands.mjs';
+import { formatJht } from './jht-format.mjs';
 import { runHenkan, runJht, sanitizeKeys } from './henkan.mjs';
 import { Kinds, ListStore, Status } from './store.mjs';
 
