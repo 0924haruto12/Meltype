@@ -113,3 +113,40 @@ test('chjht: 問題があったものを送り、順番待ちのチャンネル�
   assert.ok(order.indexOf('問題その2') > order.indexOf('問題のある文'), '1 つ目のチャンネルが終わってから 2 つ目');
   assert.ok(sent.some(s => s.includes('<#1> のチェックが終わりました') && s.includes('**1 件**') && s.includes('試せなかったもの 1 件')), '最後にまとめ');
 });
+
+test('summary: チャンネルの指定・結果の読み取り・重複の無視・2000 文字の上限', async () => {
+  const { parseChannelIds } = await import('../commands.mjs');
+  const { formatJht } = await import('../jht-format.mjs');
+  const { chunkLines, formatSummary, MessageLimit, parseJhtEmbed, summarize } = await import('../summary.mjs');
+  assert.deepEqual(parseChannelIds('<#111111111111111111> 222222222222222222,<#111111111111111111>'), ['111111111111111111', '222222222222222222'], 'いくつでも・重複は 1 つに');
+  assert.deepEqual(parseChannelIds('<@333333333333333333>'), [], 'ユーザーのメンションはチャンネルではない');
+
+  const result = (expected, first, splitOk, notes) => ({
+    expected, reading: 'x', engine: 'Mozc',
+    results: [{ keys: 'a', entered: first, first, liveOk: false, firstOk: first === expected, splitOk, notes }, { keys: 'b', entered: expected, first: expected, liveOk: true, firstOk: true, splitOk: true, notes: [] }],
+  });
+  const embed = (r, url) => ({ title: `「${r.expected}」`, url, description: formatJht(r) });
+  const split = parseJhtEmbed(embed(result('私はgoogle', '私はごおgle', false, ['日本語 / 英語の分かれ方が違う (英字: なし、出てほしいのは google)']), 'https://x/1'));
+  assert.equal(split.expected, '私はgoogle');
+  assert.equal(split.ok, 1);
+  assert.equal(split.total, 2);
+  assert.equal(split.marks['❌'], 1);
+  assert.deepEqual(split.problems, ['日本語 / 英語の分かれ方が違う (英字: なし、出てほしいのは google)']);
+  assert.equal(parseJhtEmbed({ title: 'リスト', description: '一覧' }), null, 'jht の結果でない埋め込みは読まない');
+
+  const width = parseJhtEmbed(embed(result('A：B', 'A:B', true, ['記号の全角 / 半角だけが違う: 「:」→「：」']), 'https://x/2'));
+  const old = { ...split, at: 1, ok: 0 };
+  const summary = summarize([old, { ...split, at: 2 }, { ...width, at: 3 }]);
+  assert.equal(summary.unique, 2, '同じ文は 1 つ');
+  assert.equal(summary.duplicates, 1);
+  assert.equal(summary.groups.split[0].ok, 1, '新しい結果を使う');
+  assert.equal(summary.groups.width.length, 1, '全角 / 半角だけのものは分ける');
+
+  // たくさんあっても 1 メッセージ 2000 文字を超えない
+  const many = Array.from({ length: 300 }, (_, i) => ({ ...split, expected: `文${i}`.repeat(10), at: i }));
+  const messages = formatSummary(summarize(many), ['111111111111111111']);
+  assert.ok(messages.length > 1);
+  assert.ok(messages.every(m => m.length <= 2000));
+  assert.match(messages.at(-1), /ほか \d+ 件/, '上限を超えた分は件数だけ');
+  assert.ok(chunkLines(['x'.repeat(5000)]).every(m => m.length <= MessageLimit), '1 行が長すぎても切る');
+});

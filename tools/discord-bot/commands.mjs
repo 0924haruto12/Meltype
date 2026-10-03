@@ -10,6 +10,7 @@ export const Commands = {
   jht: { aliases: ['japanese-henkan-test', 'jht'] },
   chjht: { aliases: ['chjht', 'channel-jht'] },
   chjhtStop: { aliases: ['chjht-stop'] },
+  summary: { aliases: ['summary', 'sum'] },
   add: { aliases: ['add-list', 'al'] },
   list: { aliases: ['list', 'ls'] },
   close: { aliases: ['close-list', 'cl'] },
@@ -34,6 +35,11 @@ export function parseNumber(text) {
   return match ? Number(match[1]) : null;
 }
 
+/** チャンネルの指定 (<#id> か ID、空白・カンマ区切りでいくつでも) を読む。重複は 1 つに。 */
+export function parseChannelIds(text) {
+  return [...new Set([...(text ?? '').matchAll(/<#(\d+)>|(?<![\d@&#])(\d{15,})(?!\d)/g)].map(m => m[1] ?? m[2]))];
+}
+
 /** 長い文を切る (Discord の表示用)。 */
 export function shorten(text, max) {
   const flat = (text ?? '').replace(/\s+/g, ' ').trim();
@@ -55,6 +61,7 @@ export function helpText(mention) {
     `${m} ${code('japanese-henkan-test <出てほしい文>')} (${code('jht')}) … その文を、考えられるローマ字の打ち方ですべて打ってみて、ちゃんと出るかを確かめる`,
     `　例: ${m} ${code('jht 私はgoogleが好きです')}　読みが違うときは ${code('jht 私はgoogleが好きです / わたしはgoogleがすきです')}`,
     `${m} ${code('chjht <#チャンネル か ID>')} … そのチャンネルのメッセージを最初からすべて jht して、問題があったものをここに送る (80 文字を超えるものは飛ばす。管理する人だけ。順番待ちあり、${code('chjht-stop')} で止める)`,
+    `${m} ${code('summary <#チャンネル …>')} (${code('sum')}) … chjht・jht の結果が流れたチャンネル (いくつでも) を読み、特に問題となるものをまとめてここに送る (同じ文の重複は無視。管理する人だけ)`,
     `${m} ${code('list [誤変換|バグ|提案|解決済み|クローズ|すべて]')} … リストの一覧 (省略すると未解決のもの)`,
     '',
     '誤変換・バグ報告・機能提案のチャンネルで:',

@@ -2,15 +2,16 @@
 // Copyright (C) 2026 Yukishiro
 //
 // Meltype のテスター用 Discord bot。
-//   @Meltype help / henkan-test (ht) / add-list (al) / list / close-list (cl) / submit-list (sl)
+//   @Meltype help / henkan-test (ht) / jht / chjht / summary / add-list (al) / list / close-list (cl) / submit-list (sl)
 // 設定は .env (.env.example を参照)。起動: npm start
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client, EmbedBuilder, Events, GatewayIntentBits, PermissionFlagsBits } from 'discord.js';
-import { code, helpText, parseCommand, parseNumber, shorten } from './commands.mjs';
+import { code, helpText, parseChannelIds, parseCommand, parseNumber, shorten } from './commands.mjs';
 import { formatJht } from './jht-format.mjs';
-import { ChannelCheckQueue } from './channel-check.mjs';
+import { ChannelCheckQueue, readAllMessages } from './channel-check.mjs';
+import { formatSummary, parseJhtEmbed, summarize } from './summary.mjs';
 import { runHenkan, runJht, sanitizeKeys } from './henkan.mjs';
 import { Kinds, ListStore, Status } from './store.mjs';
 
@@ -95,6 +96,36 @@ async function handleChannelJhtStop(message) {
   if (!await isManager(message)) return message.reply('管理する人だけが使えます。');
   const count = channelQueue.stop();
   await message.reply(count === 0 ? '動いているチェックはありません。' : `チェックを止めて、順番待ちを取り消しました (${count} チャンネル)。`);
+}
+
+async function handleSummary(message, rest) {
+  if (!await isManager(message)) return message.reply('`summary` はチャンネルを全部読むので、管理する人だけが使えます。');
+  const ids = parseChannelIds(rest);
+  if (ids.length === 0) return message.reply(`chjht の結果が流れたチャンネルを指定してください (例: ${me()} ${code('summary #チャンネル1 #チャンネル2')})。`);
+  const channels = [];
+  for (const id of ids) {
+    const channel = await client.channels.fetch(id).catch(() => null);
+    if (!channel || channel.guildId !== message.guildId || !channel.isTextBased?.() || !channel.messages) {
+      return message.reply(`<#${id}> が見つからないか、読めません (このサーバーのテキストのチャンネルで、bot が読めるもの)。`);
+    }
+    channels.push(channel);
+  }
+  const waiting = await message.reply(`⏳ ${channels.map(c => `<#${c.id}>`).join(' ')} の結果を読んでいます…`);
+  const entries = [];
+  for (const channel of channels) {
+    for (const m of await readAllMessages(channel)) {
+      if (m.author.id !== client.user.id) continue;
+      for (const embed of m.embeds) {
+        const entry = parseJhtEmbed(embed, m.url);
+        if (entry) entries.push({ ...entry, at: m.createdTimestamp });
+      }
+    }
+  }
+  if (entries.length === 0) return waiting.edit('指定したチャンネルに jht の結果が見つかりませんでした。');
+  const [first, ...more] = formatSummary(summarize(entries), channels.map(c => c.id));
+  await waiting.edit(first);
+  // 続き (2000 文字を超えた分) は順に送る
+  for (const text of more) await message.channel.send(text);
 }
 
 async function handleHenkan(message, rest) {
@@ -212,6 +243,7 @@ client.on(Events.MessageCreate, async message => {
       case 'jht': return await handleJht(message, parsed.rest);
       case 'chjht': return await handleChannelJht(message, parsed.rest);
       case 'chjhtStop': return await handleChannelJhtStop(message);
+      case 'summary': return await handleSummary(message, parsed.rest);
       case 'henkan': return await handleHenkan(message, parsed.rest);
       case 'add': return await handleAdd(message, parsed.rest);
       case 'list': return await handleList(message, parsed.rest);

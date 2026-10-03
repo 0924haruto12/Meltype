@@ -38,6 +38,21 @@ async function runPool(items, concurrency, worker, isCancelled) {
   await Promise.all(runners);
 }
 
+/** チャンネルのメッセージを古い順にすべて読む。 */
+export async function readAllMessages(channel, isCancelled = () => false) {
+  const messages = [];
+  let after = '0';
+  while (!isCancelled()) {
+    const page = await channel.messages.fetch({ after, limit: 100 });
+    if (page.size === 0) break;
+    const sorted = [...page.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+    messages.push(...sorted);
+    after = sorted.at(-1).id;
+    if (page.size < 100) break;
+  }
+  return messages;
+}
+
 export class ChannelCheckQueue {
   #jobs = [];
   #current = null;
@@ -86,27 +101,12 @@ export class ChannelCheckQueue {
     void this.#runNext();
   }
 
-  /** チャンネルのメッセージを古い順にすべて読む。 */
-  async #readAll(channel, isCancelled) {
-    const messages = [];
-    let after = '0';
-    while (!isCancelled()) {
-      const page = await channel.messages.fetch({ after, limit: 100 });
-      if (page.size === 0) break;
-      const sorted = [...page.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
-      messages.push(...sorted);
-      after = sorted.at(-1).id;
-      if (page.size < 100) break;
-    }
-    return messages;
-  }
-
   async #check(job) {
     const { target, report, botId } = job;
     const isCancelled = () => job.cancelled;
     const started = Date.now();
     await report.send(`🔍 <#${target.id}> のメッセージを読んでいます…`);
-    const messages = await this.#readAll(target, isCancelled);
+    const messages = await readAllMessages(target, isCancelled);
 
     const stats = { total: messages.length, checked: 0, problems: 0, long: 0, other: 0, failed: 0 };
     const items = [];
