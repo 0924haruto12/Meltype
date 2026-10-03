@@ -47,6 +47,9 @@ public sealed record SessionResult(bool Consumed, IReadOnlyList<TextEdit> Commit
         builder.Append(",\"clauses\":");
         AppendArray(builder, view.Clauses ?? []);
         // 選んでいる候補の意味 (無ければ null)。少し止まってから出すのは Swift・Python 側
+        builder.Append(",\"suggestion\":");
+        if (view.Suggestion is { } suggestion) AppendString(builder, suggestion);
+        else builder.Append("null");
         builder.Append(",\"meaning\":");
         if (view.Meaning is { } meaning) AppendString(builder, meaning);
         else builder.Append("null");

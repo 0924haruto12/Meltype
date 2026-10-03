@@ -196,7 +196,8 @@ internal static class MisspellingTests
         var k = new CompositionTests.Keyboard();
         k.Type("buresureddo");
         Assert.Equal("ぶれすれっど", k.Showing);
-        Assert.True(k.Host.View!.Hint.Contains("もしかして: ブレスレット"), k.Host.View.Hint);
+        Assert.Equal("もしかして: ブレスレット　<Tab>で修正", k.Host.View!.Suggestion, "変換ボックスの「もしかして」の行");
+        Assert.True(!k.Host.View.Hint.Contains("もしかして"), "案内の行には出さない");
         k.Press(VirtualKeys.Tab);
         Assert.Equal("ぶれすれっと", k.Showing, "Tab で正しい読みに直す");
         Assert.True(!k.Host.View!.Hint.Contains("もしかして"), "直した後は出ない");
@@ -220,9 +221,9 @@ internal static class MisspellingTests
         {
             var k = new CompositionTests.Keyboard();
             k.Type(typed);
-            var hint = k.Host.View!.Hint;
-            if (right is null) Assert.True(!hint.Contains("もしかして"), $"{typed}: 誤りではない ({hint})");
-            else Assert.True(hint.Contains($"もしかして: {right}"), $"{typed}: {hint}");
+            var suggestion = k.Host.View!.Suggestion ?? "";
+            if (right is null) Assert.True(suggestion.Length == 0, $"{typed}: 誤りではない ({suggestion})");
+            else Assert.True(suggestion.Contains($"もしかして: {right}"), $"{typed}: {suggestion}");
         }
     }
 
@@ -232,7 +233,7 @@ internal static class MisspellingTests
         var k = new CompositionTests.Keyboard();
         k.Type("buresureddo ");
         Assert.True(k.Host.View!.Converting, "Space で変換中");
-        Assert.True(k.Host.View.Hint.Contains("もしかして: ブレスレット"), k.Host.View.Hint);
+        Assert.True(k.Host.View.Suggestion?.Contains("もしかして: ブレスレット") == true, k.Host.View.Suggestion ?? "");
         k.Press(VirtualKeys.Tab);
         Assert.True(k.Host.View!.Converting, "直して変換し直す");
         Assert.Equal("ぶれすれっと", k.Showing);

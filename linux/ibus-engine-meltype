@@ -223,6 +223,9 @@ class MeltypeEngine(IBus.Engine):
         self._preedit_visible = bool(text)
         # 案内 (Space で変換 など) は補助テキストに出す
         hint = view.get("hint") or ""
+        # もしかして (書き間違い) は案内の先頭に出す (Tab で直せる)
+        if view.get("suggestion"):
+            hint = view["suggestion"] + "　" + hint
         if hint:
             self.update_auxiliary_text(IBus.Text.new_from_string(hint), True)
         else:
@@ -302,7 +305,7 @@ def main():
         bus.request_name("org.freedesktop.IBus.Meltype", 0)
     else:
         # 手で起動したとき (試すとき): コンポーネントを登録する
-        component = IBus.Component.new("org.freedesktop.IBus.Meltype", "Meltype", "0.2.0", "GPL-3.0-or-later", "Yukishiro", "https://github.com/yksr-melt/Meltype", "", "")
+        component = IBus.Component.new("org.freedesktop.IBus.Meltype", "Meltype", "0.2.1", "GPL-3.0-or-later", "Yukishiro", "https://github.com/yksr-melt/Meltype", "", "")
         component.add_engine(IBus.EngineDesc.new("meltype", "Meltype", "Meltype", "ja", "GPL-3.0-or-later", "Yukishiro", "", "default"))
         bus.register_component(component)
     loop.run()

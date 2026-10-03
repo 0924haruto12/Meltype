@@ -111,7 +111,7 @@ internal static class TestRunner
             service.UserDictionary.Add("きごうとう", "記号等");
             var composition = new Composition.CompositionWindow();
             // 候補が 9 個より多いとき (ページに分けて出す) の見た目。2 ページ目の候補を選んでいる。
-            composition.ShowView(new Composition.CompositionView("えがお", ["笑顔", "😊", "😄", "☺️", "(^^)", "(*^^*)", "(´▽｀)", "えがお", "エガオ", "smile", "smiling face", "egao", "ｅｇａｏ"], 10, true, "Space/↓ 候補", Notes: [null, null, null, null, null, null, null, null, null, "英訳", "英訳"]), new Point(-5000, -5000));
+            composition.ShowView(new Composition.CompositionView("ぶれすれっど", ["ブレスレッド", "ぶれすれっど", "buresureddo"], 0, true, "Space/↓ 候補", Suggestion: "もしかして: ブレスレット　<Tab>で修正"), new Point(-5000, -5000));
             var indicator = new Composition.ModeIndicatorWindow();
             indicator.Flash(true, new Point(-5000, -5000));
             foreach (var form in new Form[] { new UI.SettingsForm(engine), new UI.UserDictionaryForm(service), new UI.ReportDialog(new Config.Settings()), new UI.LearnedWordsForm(LearnedSample(), new Composition.ConversionHistory(null)), new UI.WelcomeForm(), indicator, composition })

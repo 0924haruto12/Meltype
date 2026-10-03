@@ -89,6 +89,9 @@ internal sealed class CompositionWindow : Form
         UpdateMeaning(view);
     }
 
+    /// <summary>「もしかして」の行の高さ。</summary>
+    private int SuggestionHeight => _candidateFont.Height + 10;
+
     /// <summary>候補の一覧に一度に出す数 (Microsoft IME と同じく 9 個)。</summary>
     private const int PageSize = 9;
 
@@ -128,7 +131,7 @@ internal sealed class CompositionWindow : Form
     {
         if (_meaningPopup is null) return;
         var row = Math.Max(0, view.SelectedIndex) % PageSize;
-        var y = Top + 8 + _textFont.Height + 8 + row * (_candidateFont.Height + 4) - 4;
+        var y = Top + 8 + _textFont.Height + 8 + (view.Suggestion is null ? 0 : SuggestionHeight) + row * (_candidateFont.Height + 4) - 4;
         var size = _meaningPopup.Size;
         var screen = Screen.FromControl(this).WorkingArea;
         var x = Right + 4;
@@ -202,6 +205,11 @@ internal sealed class CompositionWindow : Form
             width = Math.Max(width, clausesWidth + 20);
         }
         var height = _textFont.Height + 16;
+        if (view.Suggestion is { } suggestion)
+        {
+            width = Math.Max(width, TextRenderer.MeasureText(g, suggestion, _candidateFont).Width + 32);
+            height += SuggestionHeight;
+        }
         if (view.Converting)
         {
             for (var i = 0; i < view.Candidates.Count; i++)
@@ -261,6 +269,16 @@ internal sealed class CompositionWindow : Form
                 g.DrawLine(underline, 12, y, 10 + textWidth - 4, y);
             }
             y += 8;
+        }
+
+        if (view.Suggestion is { } suggestion)
+        {
+            // もしかして: 打った文字のすぐ下に目立つように (Tab で直せる)
+            var box = new Rectangle(6, y - 2, Width - 12, SuggestionHeight - 4);
+            using (var fill = new SolidBrush(Color.FromArgb(70, 255, 196, 0))) g.FillRectangle(fill, box);
+            using (var edge = new Pen(Color.FromArgb(255, 196, 0))) g.DrawRectangle(edge, box);
+            TextRenderer.DrawText(g, suggestion, _candidateFont, new Point(12, y + 1), Color.FromArgb(255, 220, 120), TextFormatFlags.NoPrefix);
+            y += SuggestionHeight;
         }
 
         if (view.Converting)

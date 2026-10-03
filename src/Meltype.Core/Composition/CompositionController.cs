@@ -20,7 +20,8 @@ public sealed record CompositionView(
     IReadOnlyList<string>? Clauses = null,
     int SelectedClause = -1,
     IReadOnlyList<string?>? Notes = null,
-    string? Meaning = null);
+    string? Meaning = null,
+    string? Suggestion = null);
 
 /// <summary>CompositionController が外界とやり取りする口。テストでは偽物に差し替える。</summary>
 public interface ICompositionHost
@@ -754,8 +755,8 @@ public sealed class CompositionController
         _text.ReplaceReading(typo.Start, typo.End, typo.Misspelling.Right);
     }
 
-    /// <summary>「もしかして」の案内 (書き間違いが無ければ空)。</summary>
-    private string MisspellingHint() => FindMisspelling() is { } typo ? $"もしかして: {typo.Misspelling.Right} (Tab)　" : "";
+    /// <summary>「もしかして」の案内。変換ボックスの、打った文字のすぐ下に出す (書き間違いが無ければ null)。</summary>
+    private string? MisspellingSuggestion() => FindMisspelling() is { } typo ? $"もしかして: {typo.Misspelling.Right}　<Tab>で修正" : null;
 
     /// <summary>変換前に矢印キーを押したとき: 文節に区切って、← なら最後の文節、→ なら最初の文節を選ぶ。</summary>
     private void EnterClauseSelection(int vk)
@@ -1439,18 +1440,18 @@ public sealed class CompositionController
                 selected.Candidates,
                 selected.Index,
                 true,
-                MisspellingHint() + "←→ 文節　Space/↓ 候補　Shift+←→ 区切り　Enter 確定　Esc 戻る",
+                "←→ 文節　Space/↓ 候補　Shift+←→ 区切り　Enter 確定　Esc 戻る",
                 _clauses.Select(c => c.Text).ToList(),
                 _selectedClause,
                 selected.Translations.Count == 0 ? null : selected.Candidates.Select(c => selected.Translations.Contains(c) ? "英訳" : null).ToList(),
-                _options.CandidateMeanings() ? CandidateMeaning(selected) : null));
+                _options.CandidateMeanings() ? CandidateMeaning(selected) : null,
+                MisspellingSuggestion()));
         }
         else
         {
             var hint = _text.IsAlphanumeric ? "Enter 確定　Space 確定+空白　Shift+Space 日本語で変換　半角/全角 日本語に" : "Space 変換　←→ 文節　Enter 確定　F7 カタカナ　F10 英字";
             if (_text.Suggestion() is { } suggestion) hint = $"Tab → {suggestion} (英字に)　" + hint;
-            hint = MisspellingHint() + hint;
-            _host.Show(new CompositionView(CurrentDisplay(final: false), [], -1, false, hint));
+            _host.Show(new CompositionView(CurrentDisplay(final: false), [], -1, false, hint, Suggestion: MisspellingSuggestion()));
         }
     }
 
