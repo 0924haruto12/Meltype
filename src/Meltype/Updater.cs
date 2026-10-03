@@ -105,11 +105,14 @@ internal sealed class Updater : IDisposable
     }
 
     /// <summary>今すぐ確認する (トレイの「更新を確認」)。結果は Ready か戻り値の文言で返す。</summary>
-    public Task<string> CheckNowAsync() => Task.Run(() => Run() ?? "更新を確認できませんでした。");
+    public Task<string> CheckNowAsync() => AppInfo.IsPublicRelease
+        ? Task.Run(() => Run() ?? "更新を確認できませんでした。")
+        : Task.FromResult($"Meltype {AppInfo.Version} はテスト版です。自動更新は公開版 (1.0.0) から使えます。新しいテスト版は配布元から受け取ってください。");
 
     private void Check()
     {
-        if (!_enabled()) return;
+        // 公開 (1.0.0) まではリポジトリが非公開で、確認しても見つからない (ログに 404 が残るだけ) ので確認しない
+        if (!_enabled() || !AppInfo.IsPublicRelease) return;
         Run();
     }
 
