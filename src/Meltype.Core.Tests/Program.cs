@@ -35,6 +35,14 @@ internal static class Program
             case "--henkan":
                 Henkan.Run(string.Join(" ", args.Skip(1)));
                 return 0;
+            case "--jht":
+                // --jht 出てほしい文 [/ 読み] (Discord の bot の japanese-henkan-test)
+                {
+                    var text = string.Join(" ", args.Skip(1));
+                    var slash = text.IndexOf(" / ", StringComparison.Ordinal);
+                    Jht.Run(slash >= 0 ? text[..slash] : text, slash >= 0 ? text[(slash + 3)..] : null, null, Henkan.Keyboard, Henkan.EngineName);
+                }
+                return 0;
             case "--explain":
                 if (Environment.GetEnvironmentVariable("MELTYPE_UTF8") == "1") Console.OutputEncoding = new System.Text.UTF8Encoding(false);
                 TestHost.Explain(args.Skip(1));

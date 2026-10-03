@@ -50,3 +50,28 @@ test('誤変換・バグ・提案で共通の番号を振り、閉じられる',
   const next = await reloaded.add({ kind: 'bug', content: 'x', author: 'D', link: 'w', addedById: '4' });
   assert.equal(next.id, 5, '読み直しても番号は続きから');
 });
+
+test('使い方は実際の bot のメンションで書く', async () => {
+  const { helpText } = await import('../commands.mjs');
+  const text = helpText('<@42>');
+  assert.ok(text.includes('<@42> `ht kyouhagoogledekensaku`'));
+  assert.ok(!text.includes('@Meltype'), 'bot の名前を決め打ちしない');
+  assert.equal(parseCommand('<@42> jht 私はgoogleが好きです', '42').command, 'jht');
+  assert.equal(parseCommand('<@42> japanese-henkan-test 文', '42').command, 'jht');
+});
+
+test('jht の結果の表示', async () => {
+  const { formatJht, jhtMark } = await import('../commands.mjs');
+  const r = {
+    expected: 'eBayで売る', reading: 'でうる', engine: 'Mozc',
+    results: [
+      { keys: 'eBaydeuru', entered: 'eBayでうる', first: 'eBay出うる', liveOk: false, firstOk: false, splitOk: true, notes: ['2 番目の文節「出うる」: …'] },
+      { keys: 'ok', entered: 'eBayで売る', first: 'eBayで売る', liveOk: true, firstOk: true, splitOk: true, notes: [] },
+    ],
+  };
+  assert.equal(jhtMark(r.results[0]), '🟠');
+  const text = formatJht(r);
+  assert.ok(text.includes('最初の変換で出た: 1 / 2'));
+  assert.ok(text.includes('Space で変換: eBay出うる'));
+  assert.ok(text.includes('・2 番目の文節'));
+});

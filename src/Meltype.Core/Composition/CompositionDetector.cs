@@ -249,6 +249,9 @@ public sealed class CompositionDetector
         if (IsContraction(span)) return level != DetectionLevel.Manual || char.IsAsciiLetterUpper(span[0]);
         if (span.Length == 0 || !span.All(char.IsAsciiLetter)) return false;
         var lower = span.ToLowerInvariant();
+        // 小文字 1 文字 + 大文字 (iPC) は、固有名詞の書き方 (iPhone・eBay) でなければ、小文字は前の日本語の続き
+        // (atarashi|i|PC: あたらしい + PC。iPC = ipc を英単語にして 新シiPC になっていた)。
+        if (span.Length >= 2 && char.IsAsciiLetterLower(span[0]) && char.IsAsciiLetterUpper(span[1]) && _proper.Canonical(lower) != span) return false;
         var inDictionary = _english.Words.ContainsWord(lower);
         // Windows のスペルチェッカーの英単語 (meeting, name …)。ローマ字の語 (kore, sore) まで含む緩いものなので、
         // ローマ字として読めない語か、前後の文脈で英語と分かるときだけ使う (同梱の辞書の語より弱い)。

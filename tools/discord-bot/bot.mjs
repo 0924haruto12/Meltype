@@ -8,8 +8,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client, EmbedBuilder, Events, GatewayIntentBits, PermissionFlagsBits } from 'discord.js';
-import { HelpText, parseCommand, parseNumber, shorten } from './commands.mjs';
-import { runHenkan, sanitizeKeys } from './henkan.mjs';
+import { code, formatJht, helpText, parseCommand, parseNumber, shorten } from './commands.mjs';
+import { runHenkan, runJht, sanitizeKeys } from './henkan.mjs';
 import { Kinds, ListStore, Status } from './store.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -54,6 +54,8 @@ function kindOf(channel) {
 }
 
 const label = item => `${Kinds[item.kind].emoji} #${item.id}`;
+/** この bot のメンション (bot の名前はサーバーで変えられるので、名前ではなくメンションで案内する) */
+const me = () => `<@${client.user.id}>`;
 
 async function canClose(message, item) {
   const member = message.member ?? await message.guild.members.fetch(message.author.id);
@@ -63,7 +65,7 @@ async function canClose(message, item) {
 
 async function handleHenkan(message, rest) {
   const keys = sanitizeKeys(rest);
-  if (!keys) return message.reply('打つキーを英字で書いてください (例: `@Meltype ht kyouhagoogledekensaku`)。');
+  if (!keys) return message.reply(`打つキーを英字で書いてください (例: ${me()} ${code('ht kyouhagoogledekensaku')})。`);
   if (!fs.existsSync(config.dll)) return message.reply('変換のテストの準備ができていません (MELTYPE_DLL が見つかりません)。');
   const waiting = await message.reply('⏳ 打ってみています…');
   try {
@@ -83,6 +85,26 @@ async function handleHenkan(message, rest) {
   } catch (error) {
     console.error(error);
     await waiting.edit('変換のテストに失敗しました。時間をおいてもう一度試してください。');
+  }
+}
+
+async function handleJht(message, rest) {
+  const text = rest.trim();
+  if (!text) return message.reply(`出てほしい文を書いてください (例: ${me()} ${code('jht 私はgoogleが好きです')})。`);
+  if ([...text].length > 80) return message.reply('文が長すぎます (80 文字まで)。');
+  if (!fs.existsSync(config.dll)) return message.reply('変換のテストの準備ができていません (MELTYPE_DLL が見つかりません)。');
+  const waiting = await message.reply('⏳ いろいろな打ち方で打ってみています…');
+  try {
+    const r = await runJht(text, { dll: config.dll, mozc: fs.existsSync(config.mozc) ? config.mozc : '' });
+    const ok = r.results.filter(x => x.firstOk).length;
+    const embed = new EmbedBuilder()
+      .setColor(ok === r.results.length ? 0x2ecc71 : ok > 0 ? 0xf1c40f : 0xe74c3c)
+      .setTitle(`「${shorten(r.expected, 60)}」の変換テスト`)
+      .setDescription(formatJht(r));
+    await waiting.edit({ content: '', embeds: [embed] });
+  } catch (error) {
+    console.error(error);
+    await waiting.edit(`変換のテストに失敗しました。${error.userMessage ?? '時間をおいてもう一度試してください。'}`);
   }
 }
 
@@ -130,14 +152,14 @@ async function handleList(message, rest) {
     description += line + '\n';
   }
   const embed = new EmbedBuilder().setColor(0x4ca0ff).setTitle(title).setDescription(description);
-  if (items.length > 40) embed.setFooter({ text: `ほか ${items.length - 40} 件 (種類で絞り込めます: @Meltype list 誤変換)` });
+  if (items.length > 40) embed.setFooter({ text: `ほか ${items.length - 40} 件 (種類で絞り込めます: list 誤変換)` });
   await message.reply({ embeds: [embed] });
 }
 
 async function handleClose(message, rest, resolved) {
   const command = resolved ? 'submit-list' : 'close-list';
   const id = parseNumber(rest);
-  if (id === null) return message.reply(`番号を書いてください (例: \`@Meltype ${command} 12\`)。`);
+  if (id === null) return message.reply(`番号を書いてください (例: ${me()} ${code(`${command} 12`)})。`);
   const item = store.get(id);
   if (!item) return message.reply(`#${id} はリストにありません。`);
   if (!await canClose(message, item)) return message.reply('この操作は、管理する人 (またはリストに入れた本人) だけができます。');
@@ -152,13 +174,14 @@ client.on(Events.MessageCreate, async message => {
   if (!parsed) return;
   try {
     switch (parsed.command) {
-      case 'help': return await message.reply(HelpText);
+      case 'help': return await message.reply(helpText(me()));
+      case 'jht': return await handleJht(message, parsed.rest);
       case 'henkan': return await handleHenkan(message, parsed.rest);
       case 'add': return await handleAdd(message, parsed.rest);
       case 'list': return await handleList(message, parsed.rest);
       case 'close': return await handleClose(message, parsed.rest, false);
       case 'submit': return await handleClose(message, parsed.rest, true);
-      default: return await message.reply(`\`${parsed.name}\` というコマンドはありません。\`@Meltype help\` で一覧を見られます。`);
+      default: return await message.reply(`${code(parsed.name)} というコマンドはありません。${me()} ${code('help')} で一覧を見られます。`);
     }
   } catch (error) {
     console.error(error);

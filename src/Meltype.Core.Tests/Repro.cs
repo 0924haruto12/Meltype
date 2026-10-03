@@ -110,17 +110,31 @@ internal static class Henkan
 {
     private const int MaxKeys = 300;
 
+    private static readonly Lazy<Composition.MozcConverter?> Mozc = new(() =>
+        Environment.GetEnvironmentVariable("MELTYPE_MOZC") is { Length: > 0 } helper && File.Exists(helper)
+            ? new Composition.MozcConverter(helper, Path.Combine(Path.GetTempPath(), "meltype-henkan-mozc"))
+            : null);
+    private static readonly Lazy<Composition.TranslationDictionary> Translations = new(Composition.TranslationDictionary.Load);
+
+    /// <summary>Windows のテストランナーが Microsoft IME を変換エンジンにするとき (Mozc が無いとき) に入れる。</summary>
+    public static Composition.IKanjiConverter? FallbackConverter { get; set; }
+
+    public static string EngineName => Mozc.Value is not null ? "Mozc" : FallbackConverter is not null ? "Microsoft IME" : "なし (判定だけ)";
+
+    /// <summary>アプリと同じ設定の Meltype キーボード (ライブ変換 ON、Mozc があれば Mozc で変換)。</summary>
+    public static CompositionTests.Keyboard Keyboard()
+    {
+        CompositionTests.Detector.SpellChecker ??= Detection.BuiltInWordChecker.Shared;
+        var converter = (Composition.IKanjiConverter?)Mozc.Value ?? FallbackConverter;
+        return new(live: true, converter: converter, moreCandidates: Mozc.Value is { } mozc ? mozc.Candidates : null,
+            userDictionary: new Composition.UserDictionary(null), translations: Translations.Value);
+    }
+
     public static void Run(string keys)
     {
         Console.OutputEncoding = new System.Text.UTF8Encoding(false);
-        CompositionTests.Detector.SpellChecker ??= Detection.BuiltInWordChecker.Shared;
         var typed = new string(keys.Where(c => c is >= ' ' and <= '~').Take(MaxKeys).ToArray()).Trim();
-        using var mozc = Environment.GetEnvironmentVariable("MELTYPE_MOZC") is { Length: > 0 } helper && File.Exists(helper)
-            ? new Composition.MozcConverter(helper, Path.Combine(Path.GetTempPath(), "meltype-henkan-mozc"))
-            : null;
-        var translations = Composition.TranslationDictionary.Load();
-        CompositionTests.Keyboard Create() => new(live: true, converter: mozc, moreCandidates: mozc is null ? null : mozc.Candidates,
-            userDictionary: new Composition.UserDictionary(null), translations: translations);
+        CompositionTests.Keyboard Create() => Keyboard();
 
         // そのまま打った表示と、Enter で確定した結果
         var k = Create();
@@ -140,7 +154,7 @@ internal static class Henkan
         Console.WriteLine(JsonSerializer.Serialize(new
         {
             typed,
-            engine = mozc is not null ? "Mozc" : "なし (判定だけ)",
+            engine = EngineName,
             showing,
             entered,
             converted,
