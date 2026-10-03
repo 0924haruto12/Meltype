@@ -25,6 +25,7 @@ const Q = {
   result: 'どうなったか',
   detail: '内容',
   log: 'ログ (あれば)',
+  env: '実行環境 (自動で入ります)',
 };
 
 /** 報告の種類 → Issue のラベル・タイトルの頭。 */
@@ -60,10 +61,14 @@ function onFormSubmit(e) {
   } else {
     sections.push([Q.detail, get('detail')]);
   }
+  const block = text => '```text\n' + text.replace(/```/g, 'ˋˋˋ') + '\n```';
   const log = get('log');
+  const env = get('env');
   const body = [
     ...sections.map(([title, value]) => `### ${title}\n\n${value || '_No response_'}`),
-    `### ${Q.log}\n\n${log ? '```text\n' + log.replace(/```/g, 'ˋˋˋ') + '\n```' : '_No response_'}`,
+    `### ${Q.log}\n\n${log ? block(log) : '_No response_'}`,
+    // Meltype のメニューから開いたときに自動で入る実行環境 (Windows の版・モード・キーボードなど)。長いので畳んでおく。
+    `### 実行環境\n\n${env ? '<details><summary>開く</summary>\n\n' + block(env) + '\n</details>' : '_No response_'}`,
     '---\n<sub>Google フォームから送られた報告です (報告した人は GitHub のコメントを見られないことがあります)。</sub>',
   ].join('\n\n');
 

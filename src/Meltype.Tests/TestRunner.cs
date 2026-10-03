@@ -22,6 +22,8 @@ internal static class TestRunner
             foreach (var word in args.Skip(1)) Console.WriteLine($"{word} → {Detection.WindowsSpellChecker.Shared.AutoCorrection(word) ?? "(なし)"}");
             return 0;
         }
+        // 不具合報告のフォームに自動で入れる実行環境 (Meltype の「不具合を報告...」と同じもの)
+        if (args.FirstOrDefault() == "--report-info") { Console.WriteLine(Diagnostics.ReportInfo.Environment(Config.Settings.Load(Config.AppPaths.ConfigFile))); return 0; }
         if (args.FirstOrDefault() == "--repro")
         {
             // GitHub の bot 用: 報告された打鍵を打ってみて JSON で返す (Meltype.Core.Tests の --repro に、アプリと同じ Windows のスペルチェッカーを足したもの)。

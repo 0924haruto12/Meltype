@@ -28,6 +28,7 @@ Google フォームを新しく作り、次の質問を **このタイトルの�
 | どうなったか | 段落 | | 不具合のとき |
 | 内容 | 段落 | | 辞書・提案のとき (例: しゃおみ → Xiaomi) |
 | ログ (あれば) | 段落 | | 説明: トレイのアイコンを右クリック →「ログ / 判定理由...」→「コピー」。見られて困る部分は消してから |
+| 実行環境 (自動で入ります) | 段落 | | 説明: Meltype のメニューから開くと、Windows の版・設定・キーボードなどが自動で入ります (入力した文字は入りません)。そのままで大丈夫です |
 | 連絡先 (任意・公開しません) | 記述式 | | 返事がほしい人だけ。Issue には書き写さない |
 | 公開について | チェックボックス | ○ | 「報告の内容 (連絡先を除く) が GitHub で公開されることに同意します」 |
 
@@ -65,9 +66,12 @@ GitHub → Settings → Developer settings → Fine-grained personal access toke
 
 ## 6. Meltype のメニューにつなぐ
 
-フォームの「︙」→「事前入力した URL を取得」で、OS に「Windows 11」、Meltype の版に「0.0.0」を入れて「リンクを取得」。
-できた URL (`https://docs.google.com/forms/d/e/…/viewform?usp=pp_url&entry.111=Windows+11&entry.222=0.0.0` のような形) を、
-`src/Meltype/AppInfo.cs` の `ReportForm` に書きます。Meltype が `Windows 11` と `0.0.0` を実際の OS と版に置き換えて開きます。
+フォームの「︙」→「事前入力した URL を取得」で、OS に「Windows 11」、Meltype の版に「0.0.0」、実行環境に「ENV」を入れて「リンクを取得」。
+できた URL (`https://docs.google.com/forms/d/e/…/viewform?usp=pp_url&entry.111=Windows+11&entry.222=0.0.0&entry.333=ENV` のような形) を、
+`src/Meltype/AppInfo.cs` の `ReportForm` に書きます。Meltype が `Windows 11`・`0.0.0`・`ENV` を実際の OS・版・実行環境に置き換えて開きます。
+
+ログは URL には入れません (ブラウザーの履歴に残り、長さの上限もあるため)。「不具合を報告...」を押すと最近のログがクリップボードにコピーされるので、フォームの「ログ」の欄に貼り付けてもらいます。
+入力した文字は、設定「ログに入力した文字を残す」が OFF (既定) なら文字数だけになっています。ただし判定の理由には、判定した語の先頭の数文字が残ります。
 
 ## 公開前 (v1.0.0 より前) の注意
 

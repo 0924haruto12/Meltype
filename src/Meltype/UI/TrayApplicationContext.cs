@@ -195,12 +195,22 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _ => "手動 (提案のみ・Tab で英字)",
     };
 
-    /// <summary>不具合報告のフォームをブラウザーで開く (GitHub のアカウントが無くても報告できる)。</summary>
-    private static void OpenReport()
+    /// <summary>
+    /// 不具合報告のフォームをブラウザーで開く (GitHub のアカウントが無くても報告できる)。OS・版・実行環境はフォームに入れておく。
+    /// ログは URL に入れず (履歴に残る・長さの上限がある)、クリップボードにコピーして貼り付けてもらう。
+    /// </summary>
+    private void OpenReport()
     {
         try
         {
-            Process.Start(new ProcessStartInfo(AppInfo.ReportUrl()) { UseShellExecute = true });
+            var log = Diagnostics.ReportInfo.RecentLog();
+            if (log.Length > 0)
+            {
+                Clipboard.SetText(log);
+                MessageBox.Show("最近のログをコピーしました。\n開いたフォームの「ログ」の欄に貼り付けてください (Ctrl+V)。\n\n見られて困る部分があれば、貼り付けた後に消してから送ってください。",
+                    "Meltype 不具合の報告", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            Process.Start(new ProcessStartInfo(AppInfo.ReportUrl(Diagnostics.ReportInfo.Environment(_engine.Settings))) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
