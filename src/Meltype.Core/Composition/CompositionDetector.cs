@@ -457,6 +457,17 @@ public sealed class CompositionDetector
             // 名前 (Tanaka、Hanako) を区切らないよう、後ろが助詞で始まるときだけ。
             if (head.Length == 1 && char.IsAsciiLetterUpper(head[0]) && Detection.DictionaryDetector.StartsWithParticle(rest.Replace("-", "")) is not null) return k;
         }
+        // 後ろに大文字で始まる語が続く (Japanese|to|English…) と、後ろが小文字だけにならず上では区切れない。
+        // 次の大文字の前までを見て、知っている語 + 助詞で始まるローマ字 (Japanese|to) なら区切る。
+        var camel = start + 1;
+        while (camel < n && !units[camel].Raw.Any(char.IsAsciiLetterUpper)) camel++;
+        for (var k = camel - 1; camel < n && k > start; k--)
+        {
+            var head = Raw(units, start, k);
+            var rest = Raw(units, k, camel);
+            if (!rest.All(char.IsAsciiLetterLower) || Detection.DictionaryDetector.StartsWithParticle(rest) is null || !_romaji.AnalyzeFragment(rest).IsValid) continue;
+            if (head.Length >= 3 && IsKnownCapitalizedWord(head) || head.Length >= 4 && IsSpellWord(head.ToLowerInvariant())) return k;
+        }
         return -1;
     }
 

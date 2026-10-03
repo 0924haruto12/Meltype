@@ -79,8 +79,8 @@ internal static class Jht
             var next = i + 1 < sounds.Count ? parts[i + 1] : "";
             parts[i] = sounds[i].Kana switch
             {
-                // っ: 次の子音を重ねる (ch は tch)。次が母音・終わりなら xtu。xtu で打つ打ち方も試す
-                "っ" => sokuonX || next.Length == 0 || "aiueo-".Contains(next[0]) ? "xtu" : next.StartsWith("ch", StringComparison.Ordinal) ? "t" : next[0].ToString(),
+                // っ: 次の子音を重ねる (ch は tch)。次が子音でない (母音・記号・終わり) なら xtu。xtu で打つ打ち方も試す
+                "っ" => sokuonX || next.Length == 0 || !char.IsAsciiLetterLower(next[0]) || "aiueon".Contains(next[0]) ? "xtu" : next.StartsWith("ch", StringComparison.Ordinal) ? "t" : next[0].ToString(),
                 // ん: 次が母音・や行・な行なら nn。それ以外は n でも nn でもよい
                 "ん" => doubleN || (next.Length > 0 && "aiueoyn".Contains(next[0])) ? "nn" : "n",
                 _ => sounds[i].Options[Math.Min(choice[i], sounds[i].Options.Length - 1)],
@@ -198,6 +198,8 @@ internal static class Jht
             }
         }
 
+        // 日本語と日本語の間の空白 (ネット マリネット) は、打つと変換・確定になるので文には入らない。比べるときは取り除く
+        expected = System.Text.RegularExpressions.Regex.Replace(expected, @"(?<=[^ -~]) +(?=[^ -~])", "");
 
         var results = new List<object>();
         foreach (var keys in Patterns(runs, readings))

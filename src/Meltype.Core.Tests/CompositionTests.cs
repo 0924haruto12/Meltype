@@ -38,6 +38,7 @@ internal static class CompositionTests
                 "きごうとう" => [new("きごう", "記号"), new("とう", "等")],
                 "あつい" => [new("あつい", "熱い")],
                 "かわ" => [new("かわ", "川")],
+                "すぱいだーまっ" => [new("すぱいだーま", "スパイダーマ"), new("っ", "っ")],
                 "はしを" => [new("はしを", "橋を")],
                 _ => null,
             };
@@ -315,6 +316,14 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Clauses_SokuonAfterKatakanaIsKatakana()
+    {
+        // 報告: すぱいだーまっ → スパイダーマっ。カタカナの語の後ろの「っ」の文節はカタカナの「ッ」にする。
+        var k = new Keyboard();
+        k.Type("supaida-maxtu ");
+        Assert.Equal("スパイダーマ|ッ", string.Join("|", k.Host.View!.Clauses!));
+    }
+
     public static void Clauses_SelectWithArrowsAndConvertEach()
     {
         var k = new Keyboard();
