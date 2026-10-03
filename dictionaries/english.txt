@@ -203,3 +203,5 @@ ah ooh wow oops yay huh ugh aww hmm whoa yo
 english japanese chinese korean french german spanish italian russian portuguese arabic hindi thai vietnamese indonesian dutch swedish latin greek
 # --- bot まわり (korosuzobot → 殺すぞbot。bo + t として 墓t になっていた) ---
 bot bots chatbot chatbots
+# --- 略語・ゲームの名前 (ローマ字として読めない英字を含むもの。ai・ui のように読めるものは日本語とまぎらわしいので入れない) ---
+av vr ar tv pc pv mv cg sns rta fps rpg nft dm dlc npc pvp pve mvp cv bgm geoguessr geoguesser

@@ -245,7 +245,8 @@ internal static class Jht
                     var found = candidates.FindIndex(x => x.Length > 0 && remaining.StartsWith(x, StringComparison.Ordinal));
                     if (found >= 0)
                     {
-                        if (found > 0) notes.Add($"{c + 1} 番目の文節「{clauses[c]}」: 「{candidates[found]}」は候補の {found + 1} 番目 (最初の変換では出ない)");
+                        if (found > 0 && HalfWidth(candidates[0]) == HalfWidth(candidates[found])) notes.Add($"記号の全角 / 半角だけが違う: 「{candidates[0]}」→「{candidates[found]}」 (日本語の文の中の記号は全角になる。半角は候補の {found + 1} 番目)");
+                        else if (found > 0) notes.Add($"{c + 1} 番目の文節「{clauses[c]}」: 「{candidates[found]}」は候補の {found + 1} 番目 (最初の変換では出ない)");
                         remaining = remaining[candidates[found].Length..];
                         continue;
                     }
