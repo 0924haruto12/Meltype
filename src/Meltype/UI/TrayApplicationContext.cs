@@ -30,6 +30,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private UserDictionaryForm? _dictionaryForm;
     private ReportDialog? _reportDialog;
     private LearnedWordsForm? _learnedForm;
+    private WelcomeForm? _welcomeForm;
     private readonly Updater _updater;
     private readonly ToolStripMenuItem _updateItem;
     private readonly ToolStripMenuItem _autoUpdateItem;
@@ -77,6 +78,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _levelItem.DropDownItems.Add(new ToolStripMenuItem(LevelName(level), null, (_, _) => SetLevel(level)) { Tag = level });
         }
         menu.Items.Add(_levelItem);
+        menu.Items.Add("使い方...", null, (_, _) => ShowWelcome());
         menu.Items.Add("設定...", null, (_, _) => ShowSettings());
         menu.Items.Add("ユーザー辞書...", null, (_, _) => ShowUserDictionary());
         menu.Items.Add("ログ / 判定理由...", null, (_, _) => ShowLog());
@@ -110,6 +112,25 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _updater.Ready += OnUpdateReady;
         ShowUpdateItem();
         UpdateStatus();
+        // 初めて起動したら使い方を見せる (見せたことは設定に残す)
+        if (!_engine.Settings.WelcomeShown)
+        {
+            var next = _engine.Settings.Clone();
+            next.WelcomeShown = true;
+            _engine.ApplySettings(next);
+            _invoker.BeginInvoke(ShowWelcome);
+        }
+    }
+
+    private void ShowWelcome()
+    {
+        if (_welcomeForm is { IsDisposed: false })
+        {
+            _welcomeForm.Activate();
+            return;
+        }
+        _welcomeForm = new WelcomeForm();
+        _welcomeForm.Show();
     }
 
     /// <summary>新しい版をダウンロードし終えた: メニューに「更新して再起動」を出し、通知する (クリックで今すぐ更新)。</summary>
@@ -345,6 +366,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _dictionaryForm?.Close();
         _reportDialog?.Close();
         _learnedForm?.Close();
+        _welcomeForm?.Close();
         _updater.Dispose();
         _hotkey.Dispose();
         _tray.Visible = false;

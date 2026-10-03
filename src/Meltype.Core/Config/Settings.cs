@@ -221,6 +221,10 @@ public sealed class Settings
     [Browsable(false)]
     public int SettingsVersion { get; set; } = CurrentVersion;
 
+    /// <summary>初めて起動したときの「使い方」を見せたか (見せたら true にして、次からは出さない)。</summary>
+    [Browsable(false)]
+    public bool WelcomeShown { get; set; }
+
     public const int CurrentVersion = 5;
 
     [Category("4. セッション"), DisplayName("新しいセッションとみなす無入力時間 (ms)")]
