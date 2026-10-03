@@ -83,7 +83,7 @@ jobs:
           dotnet run --project src/Meltype.Tests -c Release -- --repro $env:KEYS $env:LAST | Out-File results/repro-main.json
           # 最新のリリース (タグ v*) にも --repro があれば、その版でも打ってみる (直ったか・いつから壊れたかの手がかり)
           $tag = git tag -l 'v*' --sort=-v:refname | Select-Object -First 1
-          if ($tag -and (git cat-file -e "${tag}:src/Meltype.Core.Tests/Repro.cs" 2>$null; $?)) {
+          if ($tag -and (git ls-tree --name-only $tag src/Meltype.Core.Tests/Repro.cs)) {
             git worktree add ../release $tag
             dotnet run --project ../release/src/Meltype.Tests -c Release -- --repro $env:KEYS $env:LAST | Out-File "results/repro-$tag.json"
           }
