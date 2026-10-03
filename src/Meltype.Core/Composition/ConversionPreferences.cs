@@ -134,6 +134,10 @@ public sealed class ConversionHistory
         Save();
     }
 
+    /// <summary>学習した変換 (読み → 選んだ語) の一覧 (新しく使ったものから)。設定の「学習した語」に出す。</summary>
+    public IReadOnlyList<(string Reading, string Text, DateTime Used)> Entries() =>
+        _entries.OrderByDescending(e => e.Value.Used).Select(e => (e.Key, e.Value.Text, e.Value.Used)).ToList();
+
     public void Clear()
     {
         _entries.Clear();

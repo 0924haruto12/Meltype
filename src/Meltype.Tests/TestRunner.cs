@@ -114,7 +114,7 @@ internal static class TestRunner
             composition.ShowView(new Composition.CompositionView("えがお", ["笑顔", "😊", "😄", "☺️", "(^^)", "(*^^*)", "(´▽｀)", "えがお", "エガオ", "smile", "smiling face", "egao", "ｅｇａｏ"], 10, true, "Space/↓ 候補", Notes: [null, null, null, null, null, null, null, null, null, "英訳", "英訳"]), new Point(-5000, -5000));
             var indicator = new Composition.ModeIndicatorWindow();
             indicator.Flash(true, new Point(-5000, -5000));
-            foreach (var form in new Form[] { new UI.SettingsForm(engine), new UI.UserDictionaryForm(service), new UI.ReportDialog(new Config.Settings()), indicator, composition })
+            foreach (var form in new Form[] { new UI.SettingsForm(engine), new UI.UserDictionaryForm(service), new UI.ReportDialog(new Config.Settings()), new UI.LearnedWordsForm(LearnedSample(), new Composition.ConversionHistory(null)), indicator, composition })
             {
                 using (form)
                 {
@@ -172,6 +172,16 @@ internal static class TestRunner
         if (args.FirstOrDefault() == "--explain") { TestHost.Explain(args.Skip(1)); return 0; }
 
         return TestHost.Run([typeof(TestSupport).Assembly, typeof(TestRunner).Assembly], args.FirstOrDefault());
+    }
+
+    /// <summary>--render-forms 用の、学習した語の見本。</summary>
+    private static Composition.LanguageMemory LearnedSample()
+    {
+        var memory = new Composition.LanguageMemory(null) { IsReadableRomaji = _ => true };
+        memory.Remember("go", english: true);
+        memory.Remember("api", english: true);
+        memory.Remember("sushi", english: false, explicitChoice: true);
+        return memory;
     }
 
     /// <summary>画面の中から条件に合うコントロールを探す (--render-forms 用)。</summary>

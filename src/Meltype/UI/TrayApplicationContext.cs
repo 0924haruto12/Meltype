@@ -29,6 +29,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private LogForm? _logForm;
     private UserDictionaryForm? _dictionaryForm;
     private ReportDialog? _reportDialog;
+    private LearnedWordsForm? _learnedForm;
     private readonly Updater _updater;
     private readonly ToolStripMenuItem _updateItem;
     private readonly ToolStripMenuItem _autoUpdateItem;
@@ -83,6 +84,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add("データフォルダを開く", null, (_, _) => OpenDataFolder());
         menu.Items.Add("不具合の報告・提案...", null, (_, _) => OpenReport());
         menu.Items.Add("Meltype について...", null, (_, _) => MessageBox.Show(AppInfo.AboutText, "Meltype について", MessageBoxButtons.OK, MessageBoxIcon.Information));
+        menu.Items.Add("学習した語...", null, (_, _) => ShowLearnedWords());
         menu.Items.Add("学習データをリセット", null, (_, _) => ResetLearning());
         // 更新: 自動更新の ON/OFF、今すぐ確認、ダウンロード済みなら更新して再起動
         var updates = new ToolStripMenuItem("更新");
@@ -281,6 +283,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _settingsForm.Show();
     }
 
+    private void ShowLearnedWords()
+    {
+        if (_learnedForm is { IsDisposed: false })
+        {
+            _learnedForm.Activate();
+            return;
+        }
+        _learnedForm = new LearnedWordsForm(_composition.Languages, _composition.History);
+        _learnedForm.Show();
+    }
+
     private void ShowUserDictionary()
     {
         if (_dictionaryForm is { IsDisposed: false })
@@ -331,6 +344,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _logForm?.Close();
         _dictionaryForm?.Close();
         _reportDialog?.Close();
+        _learnedForm?.Close();
         _updater.Dispose();
         _hotkey.Dispose();
         _tray.Visible = false;
