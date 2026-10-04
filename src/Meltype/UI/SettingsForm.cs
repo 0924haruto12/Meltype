@@ -28,6 +28,12 @@ internal sealed class SettingsForm : Form
     private readonly TextBox _testInput = new() { Dock = DockStyle.Top, ImeMode = ImeMode.Disable };
     private readonly TextBox _testResult = new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical };
     private readonly ToolTip _toolTip = new() { AutoPopDelay = 20000 };
+    // プロファイル (仕事用・趣味用・SNS 用など) を選ぶ欄
+    private readonly ComboBox _profiles = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 200, Anchor = AnchorStyles.Left };
+    private bool _loadingProfiles;
+
+    /// <summary>画面の部品に出していない値 (プロファイルの一覧・使っているプロファイル など) を持つ設定。</summary>
+    private Settings _draft;
 
     /// <summary>1 項目分の部品と、設定値との受け渡し。</summary>
     private sealed record Binding(PropertyInfo Property, Control Control, Action<Settings> Load, Action<Settings> Store);
@@ -35,6 +41,7 @@ internal sealed class SettingsForm : Form
     public SettingsForm(MeltypeEngine engine)
     {
         _engine = engine;
+        _draft = engine.Settings.Clone().Normalize();
         Text = "Meltype 設定";
         StartPosition = FormStartPosition.CenterScreen;
         // 画面に収まる高さにする (中身はスクロールできる)。
@@ -98,13 +105,83 @@ internal sealed class SettingsForm : Form
         buttons.Controls.AddRange([cancel, ok, defaults]);
 
         Controls.Add(body);
+        Controls.Add(BuildProfileBar());
         Controls.Add(_helpPanel);
         Controls.Add(testPanel);
         Controls.Add(buttons);
         AcceptButton = ok;
         CancelButton = cancel;
 
-        LoadFrom(engine.Settings);
+        LoadFrom(_draft);
+        RefreshProfiles();
+    }
+
+    /// <summary>上のプロファイルの欄: 選ぶと、そのプロファイルの値を画面に読み込む。新規は今の値を写して作る。</summary>
+    private Control BuildProfileBar()
+    {
+        var bar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true, Padding = new Padding(8, 8, 8, 0) };
+        var label = new Label { Text = "プロファイル:", AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 0) };
+        var add = new Button { Text = "新規...", AutoSize = true };
+        var rename = new Button { Text = "名前を変更...", AutoSize = true };
+        var remove = new Button { Text = "削除", AutoSize = true };
+        ShowHelpFor(_profiles, "プロファイル", "仕事用・趣味用・SNS 用など、設定の値をまとめて切り替えられます。トレイのメニューの「プロファイル」からも切り替えられます。Meltype の ON/OFF・ログ・更新の設定は、どのプロファイルでも共通です。");
+        _profiles.SelectedIndexChanged += (_, _) =>
+        {
+            if (_loadingProfiles || _profiles.SelectedItem is not string name || name == _draft.ActiveProfile) return;
+            // 今の画面の値を今のプロファイルに入れてから、選んだプロファイルの値を読み込む
+            _draft = Collect().SwitchProfile(name);
+            LoadFrom(_draft);
+            RunTest();
+        };
+        add.Click += (_, _) =>
+        {
+            if (TextPrompt.Ask(this, "新しいプロファイル", "名前 (例: 仕事用、趣味用、SNS 用)。今の設定を写して作ります。", "") is not { } name) return;
+            if (Collect().AddProfile(name) is not { } next)
+            {
+                MessageBox.Show(this, "名前が空か、同じ名前のプロファイルがあります。", "プロファイル", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            _draft = next;
+            RefreshProfiles();
+        };
+        rename.Click += (_, _) =>
+        {
+            var old = _draft.ActiveProfile;
+            if (TextPrompt.Ask(this, "プロファイルの名前を変更", "新しい名前:", old) is not { } name || name == old) return;
+            if (Collect().RenameProfile(old, name) is not { } next)
+            {
+                MessageBox.Show(this, "名前が空か、同じ名前のプロファイルがあります。", "プロファイル", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            _draft = next;
+            RefreshProfiles();
+        };
+        remove.Click += (_, _) =>
+        {
+            var name = _draft.ActiveProfile;
+            if (_draft.Profiles.Count <= 1)
+            {
+                MessageBox.Show(this, "プロファイルが 1 つだけのときは削除できません。", "プロファイル", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (MessageBox.Show(this, $"プロファイル「{name}」を削除しますか?", "プロファイル", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
+            _draft = Collect().RemoveProfile(name) ?? _draft;
+            LoadFrom(_draft);
+            RefreshProfiles();
+            RunTest();
+        };
+        bar.Controls.AddRange([label, _profiles, add, rename, remove]);
+        return bar;
+    }
+
+    /// <summary>プロファイルの一覧を出し直して、使っているものを選ぶ。</summary>
+    private void RefreshProfiles()
+    {
+        _loadingProfiles = true;
+        _profiles.Items.Clear();
+        _profiles.Items.AddRange(_draft.ProfileNames.Cast<object>().ToArray());
+        _profiles.SelectedItem = _draft.ActiveProfile;
+        _loadingProfiles = false;
     }
 
     /// <summary>分類 (Category) ごとの枠に、項目を 1 行ずつ並べる。</summary>
@@ -418,10 +495,10 @@ internal sealed class SettingsForm : Form
         foreach (var binding in _bindings) binding.Load(settings);
     }
 
-    /// <summary>画面の内容を設定にする。画面に出していない項目 (SettingsVersion など) は今の値を引き継ぐ。</summary>
+    /// <summary>画面の内容を設定にする。画面に出していない項目 (SettingsVersion・プロファイルの一覧など) は今の値を引き継ぐ。</summary>
     private Settings Collect()
     {
-        var settings = _engine.Settings.Clone();
+        var settings = _draft.Clone();
         foreach (var binding in _bindings) binding.Store(settings);
         return settings.Normalize();
     }

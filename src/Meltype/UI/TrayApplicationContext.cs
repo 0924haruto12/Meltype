@@ -25,6 +25,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _keyboardModeItem;
     private readonly ToolStripMenuItem _autoSwitchModeItem;
     private readonly ToolStripMenuItem _levelItem;
+    private readonly ToolStripMenuItem _profileItem;
     private readonly Composition.CompositionService _composition;
     private SettingsForm? _settingsForm;
     private LogForm? _logForm;
@@ -79,6 +80,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _levelItem.DropDownItems.Add(new ToolStripMenuItem(LevelName(level), null, (_, _) => SetLevel(level)) { Tag = level });
         }
         menu.Items.Add(_levelItem);
+        // プロファイル (仕事用・趣味用・SNS 用など)。一覧は開くたびに作る (設定画面で足したもの・名前を変えたものを出す)
+        _profileItem = new ToolStripMenuItem("プロファイル");
+        _profileItem.DropDownItems.Add("(読み込み中)");
+        _profileItem.DropDownOpening += (_, _) => FillProfiles();
+        menu.Items.Add(_profileItem);
         var startup = new ToolStripMenuItem("Windows の起動時に起動", null, (_, _) => ToggleStartup());
         menu.Items.Add(startup);
         menu.Items.Add("使い方...", null, (_, _) => ShowWelcome());
@@ -264,6 +270,26 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _autoUpdateItem.Checked = next.AutoUpdate;
     }
 
+    private void FillProfiles()
+    {
+        _profileItem.DropDownItems.Clear();
+        var settings = _engine.Settings;
+        foreach (var name in settings.ProfileNames)
+        {
+            _profileItem.DropDownItems.Add(new ToolStripMenuItem(name, null, (_, _) => SwitchProfile(name)) { Checked = name == settings.ActiveProfile });
+        }
+        _profileItem.DropDownItems.Add(new ToolStripSeparator());
+        _profileItem.DropDownItems.Add("プロファイルを足す・名前を変える (設定)...", null, (_, _) => ShowSettings());
+    }
+
+    private void SwitchProfile(string name)
+    {
+        if (name == _engine.Settings.ActiveProfile) return;
+        _engine.ApplySettings(_engine.Settings.SwitchProfile(name));
+        UpdateStatus();
+        if (_engine.Settings.ShowNotifications) _tray.ShowBalloonTip(1500, "Meltype", $"プロファイルを「{name}」にしました", ToolTipIcon.Info);
+    }
+
     private void SetLevel(DetectionLevel level)
     {
         var next = _engine.Settings.Clone();
@@ -290,6 +316,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _autoSwitchModeItem.Checked = !keyboard;
         foreach (ToolStripMenuItem item in _levelItem.DropDownItems) item.Checked = item.Tag is DetectionLevel level && level == settings.DetectionLevel;
         _levelItem.Text = $"自動判定の強さ: {LevelName(settings.DetectionLevel).Split(' ')[0]}";
+        _profileItem.Text = $"プロファイル: {settings.ActiveProfile}";
 
         string status;
         if (!enabled)

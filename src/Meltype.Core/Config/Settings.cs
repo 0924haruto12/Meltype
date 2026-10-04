@@ -3,6 +3,7 @@
 
 using System.ComponentModel;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace Meltype.Config;
@@ -98,6 +99,20 @@ public sealed class AppKind
     public bool StartInEnglish { get; set; }
 
     public AppKind Clone() => (AppKind)MemberwiseClone();
+}
+
+/// <summary>
+/// プロファイル (仕事用・趣味用・SNS 用など)。設定の値をまとめて名前を付けたもの。
+/// 使っているプロファイルの値は Settings そのもの。ほかのプロファイルの値は Values に入れておき、切り替えたときに Settings に読み込む。
+/// </summary>
+public sealed class SettingsProfile
+{
+    public string Name { get; set; } = "";
+
+    /// <summary>このプロファイルの設定の値 (config.json と同じ形)。全員で共通の項目 (ログ・更新など) は入れない。</summary>
+    public JsonObject? Values { get; set; }
+
+    public SettingsProfile Clone() => new() { Name = Name, Values = Values?.DeepClone() as JsonObject };
 }
 
 /// <summary>アプリの種類。アプリに合わせて、英語と日本語のどちらを基本にするかを変える。</summary>
@@ -227,6 +242,86 @@ public sealed class Settings
     [Browsable(false)]
     public bool WelcomeShown { get; set; }
 
+    /// <summary>プロファイル (仕事用・趣味用・SNS 用など)。設定画面の上と、トレイのメニューで切り替える。</summary>
+    [Browsable(false)]
+    public List<SettingsProfile> Profiles { get; set; } = [];
+
+    /// <summary>使っているプロファイルの名前。</summary>
+    [Browsable(false)]
+    public string ActiveProfile { get; set; } = DefaultProfileName;
+
+    public const string DefaultProfileName = "標準";
+
+    /// <summary>
+    /// プロファイルごとに変えない項目 (どのプロファイルでも共通)。Meltype の ON/OFF・ログ・更新と、内部で使う値。
+    /// </summary>
+    private static readonly HashSet<string> SharedKeys =
+    [
+        nameof(Profiles), nameof(ActiveProfile), nameof(SettingsVersion), nameof(WelcomeShown),
+        nameof(Enabled), nameof(FileLog), nameof(LogTypedText), nameof(AutoUpdate),
+    ];
+
+    /// <summary>今の設定の値のうち、プロファイルに入れるもの。</summary>
+    public JsonObject ProfileValues()
+    {
+        var values = JsonSerializer.SerializeToNode(this, JsonOptions)!.AsObject();
+        foreach (var key in SharedKeys) values.Remove(key);
+        return values;
+    }
+
+    /// <summary>プロファイルの名前の一覧 (使っているものも含む。並びは作った順)。</summary>
+    public IReadOnlyList<string> ProfileNames => Profiles.Select(p => p.Name).ToList();
+
+    /// <summary>
+    /// プロファイルを切り替えた設定を返す。今の値は今のプロファイルに入れておき、切り替え先の値を読み込む。
+    /// 切り替え先が無ければ、今の設定のまま (名前だけが変わることはない)。
+    /// </summary>
+    public Settings SwitchProfile(string name)
+    {
+        var current = Clone().Normalize();
+        if (name == current.ActiveProfile || current.Profiles.FirstOrDefault(p => p.Name == name) is not { } target) return current;
+        current.Profiles.First(p => p.Name == current.ActiveProfile).Values = current.ProfileValues();
+        // 共通の項目は今の値のまま、プロファイルの項目だけを切り替え先の値にする
+        var merged = JsonSerializer.SerializeToNode(current, JsonOptions)!.AsObject();
+        foreach (var (key, value) in target.Values ?? []) merged[key] = value?.DeepClone();
+        var next = merged.Deserialize<Settings>(JsonOptions) ?? current;
+        next.ActiveProfile = name;
+        return next.Normalize();
+    }
+
+    /// <summary>今の値をそのまま写した新しいプロファイルを足して、それに切り替えた設定を返す。名前が空・使われているなら null。</summary>
+    public Settings? AddProfile(string name)
+    {
+        name = name.Trim();
+        var current = Clone().Normalize();
+        if (name.Length == 0 || current.Profiles.Any(p => p.Name == name)) return null;
+        current.Profiles.First(p => p.Name == current.ActiveProfile).Values = current.ProfileValues();
+        current.Profiles.Add(new SettingsProfile { Name = name, Values = current.ProfileValues() });
+        current.ActiveProfile = name;
+        return current;
+    }
+
+    /// <summary>プロファイルの名前を変えた設定を返す。新しい名前が空・使われているなら null。</summary>
+    public Settings? RenameProfile(string oldName, string newName)
+    {
+        newName = newName.Trim();
+        var current = Clone().Normalize();
+        if (newName.Length == 0 || current.Profiles.Any(p => p.Name == newName) || current.Profiles.FirstOrDefault(p => p.Name == oldName) is not { } profile) return null;
+        profile.Name = newName;
+        if (current.ActiveProfile == oldName) current.ActiveProfile = newName;
+        return current;
+    }
+
+    /// <summary>プロファイルを消した設定を返す。最後の 1 つは消せない (null)。使っているものを消したら、残りの最初のものに切り替える。</summary>
+    public Settings? RemoveProfile(string name)
+    {
+        var current = Clone().Normalize();
+        if (current.Profiles.Count <= 1 || current.Profiles.All(p => p.Name != name)) return null;
+        if (current.ActiveProfile == name) current = current.SwitchProfile(current.Profiles.First(p => p.Name != name).Name);
+        current.Profiles.RemoveAll(p => p.Name == name);
+        return current;
+    }
+
     public const int CurrentVersion = 5;
 
     [Category("4. セッション"), DisplayName("新しいセッションとみなす無入力時間 (ms)")]
@@ -330,6 +425,7 @@ public sealed class Settings
         var copy = (Settings)MemberwiseClone();
         copy.AppRules = AppRules.Select(r => new AppRule { Process = r.Process, Enabled = r.Enabled, Profile = r.Profile, Kind = r.Kind }).ToList();
         copy.AppKinds = AppKinds.Select(k => k.Clone()).ToList();
+        copy.Profiles = (Profiles ?? []).Select(p => p.Clone()).ToList();
         return copy;
     }
 
@@ -346,6 +442,13 @@ public sealed class Settings
         AppRules ??= [];
         AppKinds ??= [];
         AppRules.RemoveAll(r => r is null || string.IsNullOrWhiteSpace(r.Process));
+        // プロファイル: 名前の無いもの・同じ名前のものは除き、使っているプロファイルは必ず一覧にある
+        Profiles ??= [];
+        Profiles.RemoveAll(p => p is null || string.IsNullOrWhiteSpace(p.Name));
+        Profiles = Profiles.GroupBy(p => p.Name.Trim()).Select(g => { var p = g.First(); p.Name = g.Key; return p; }).ToList();
+        if (string.IsNullOrWhiteSpace(ActiveProfile)) ActiveProfile = Profiles.FirstOrDefault()?.Name ?? DefaultProfileName;
+        ActiveProfile = ActiveProfile.Trim();
+        if (Profiles.All(p => p.Name != ActiveProfile)) Profiles.Insert(0, new SettingsProfile { Name = ActiveProfile });
         foreach (var rule in AppRules) rule.Process = rule.Process.Trim();
         return this;
     }

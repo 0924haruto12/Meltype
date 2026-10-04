@@ -4,7 +4,7 @@
 
 1. 版を上げる: `src/Meltype/Meltype.csproj`・`src/Meltype.Core/Meltype.Core.csproj` の `<Version>`、
    `mac/Resources/Info.plist` の `CFBundleShortVersionString`・`CFBundleVersion`、`mac/Sources/MeltypeIME/Converter.swift` の版。
-2. コミットして push し、タグを付けて push: `git tag v0.2.0 && git push origin v0.2.0`
+2. コミットして push し、タグを付けて push: `git tag v0.3.0 && git push origin v0.3.0`
 3. GitHub Actions が Windows (build.yml)・Mac (mac.yml)・Linux (linux.yml) の zip を作り、リリースに添付する。
 4. 公開版 (1.0.0 以降) なら、利用者の Meltype が自動で更新する (Windows)。
 
@@ -65,8 +65,8 @@ winget・Scoop で入れた場合は Install.cmd を使わないので、Windows
 
 ## 公開版 (1.0.0) の前の確認
 
-- [ ] 判定・変換の精度 (v0.2.x のバグ修正・辞書の拡張)
-- [ ] 協力者のお名前を載せる (v0.2.3)
+- [ ] 判定・変換の精度 (v0.3.1〜v0.3.3 で変換のバグ修正・辞書の拡張)
+- [ ] 協力者のお名前を載せる (v0.3.3)
 - [ ] コード署名 (Windows・Mac)
 - [ ] リポジトリを Public にし、上の GitHub の設定をする
 - [ ] 不具合報告のフォームをつなぐ
