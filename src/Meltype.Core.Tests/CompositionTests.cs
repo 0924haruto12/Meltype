@@ -33,6 +33,7 @@ internal static class CompositionTests
             return hiragana switch
             {
                 "たんいをとる" => [new("たんいを", "単位を"), new("とる", "取る")],
+                "ひるか" => [new("ひる", "昼"), new("か", "化")],
                 // 本物の変換エンジンは、前に同じ語があると区切りを変える (「記号等」含め、 + きごうとう → 気強盗)。
                 "きごうとう" when context?.Contains("記号等") == true => [new("き", "気"), new("ごうとう", "強盗")],
                 "きごうとう" => [new("きごう", "記号"), new("とう", "等")],
@@ -285,6 +286,7 @@ internal static class CompositionTests
         var cases = new Dictionary<string, string>
         {
             ["kyouhagoogle"] = "きょうはgoogle",
+            ["kyouhanikonha"] = "きょうはにこんは",
             ["googlede"] = "googleで",
             ["kyouhagoogledekensaku"] = "きょうはgoogleでけんさく",
             ["githubnipush"] = "githubにpush",
@@ -367,6 +369,45 @@ internal static class CompositionTests
         k = new Keyboard();
         k.Type("hashiwo ");
         Assert.True(k.Host.View!.Candidates.Contains("箸を") && k.Host.View.Candidates.Contains("端を"), "助詞付きの文節でも同音異義語を出す: " + string.Join(",", k.Host.View.Candidates));
+        var extra = CandidateDictionary.Load(null);
+        Assert.True(extra.Lookup("おんげー").Contains("音ゲー"), "おんげー → 音ゲー");
+        Assert.True(extra.Lookup("りあとも").Contains("リア友"), "りあとも → リア友");
+        Assert.True(extra.Lookup("すこんぶ").Contains("すこん部"), "すこんぶ → すこん部");
+        Assert.True(extra.Lookup("かちで").Contains("ガチで"), "かちで → ガチで");
+        Assert.True(extra.Lookup("いんゆめ").Contains("淫夢"), "いんゆめ → 淫夢");
+        Assert.True(extra.Lookup("いん").Contains("淫"), "文節が分かれた いん + ゆめ でも 淫夢 にできる");
+    }
+
+    [Test]
+    public static void CorpusContextRules_PreferChatFormsWhenCued()
+    {
+        var rules = ContextRules.Load(null);
+        Assert.Equal("ガチで", rules.Choose("かちで", "終わってる")!);
+        Assert.Equal("垢", rules.Choose("あか", "Twitterのアカウント")!);
+        Assert.Equal("鯖", rules.Choose("さば", "Discordコミュ")!);
+        Assert.Equal("めるちゃん", rules.Choose("めるちゃん", "先輩")!);
+        Assert.Equal("ガチで", rules.Choose("かちで", "オンゲーしかしてないから知らん")!);
+        Assert.Equal("音ゲーしか", rules.Choose("おんげーしか", "ACの曲を漁ろう")!);
+        Assert.Equal("淫夢", rules.Choose("いんゆめ", "R18画像")!);
+        Assert.Equal("すこん部", rules.Choose("すこんぶ", "鯖のオーナー")!);
+        Assert.Equal("音ゲーしか", rules.Choose("おんげーしか", "してないから")!);
+        Assert.Equal("淫", rules.Choose("いん", "夢のr－18画像")!);
+        Assert.Equal("鯖", rules.Choose("さば", "すこん部のオーナ人")!);
+        Assert.Equal("え", rules.Choose("え", "ほんと")!);
+        Assert.Equal("うちの", rules.Choose("うちの", "家族は")!);
+        Assert.Equal("ねむ", rules.Choose("ねむ", "先輩に聞いて")!);
+        Assert.Equal("いま", rules.Choose("いま", "やるなら")!);
+        Assert.Equal("垢", rules.Choose("あか", "ログインできなくなって")!);
+        Assert.Equal("なに", rules.Choose("なに", "って")!);
+        Assert.Equal("めるちゃん", rules.Choose("めるちゃん", "後輩")!);
+    }
+
+    [Test]
+    public static void QuestionParticle_KaStaysKana()
+    {
+        var k = new Keyboard();
+        k.Type("hiruka ");
+        Assert.Equal("昼|か", string.Join("|", k.Host.View!.Clauses!));
     }
 
     [Test]
@@ -468,7 +509,7 @@ internal static class CompositionTests
         // えーmail、こーおp になっていた
         foreach (var (typed, expected) in new[]
         {
-            ("e-mail", "e-mail"), ("co-op", "co-op"), ("e-maildeokuru", "e-mailでおくる"), ("x-ray", "x-ray"),
+            ("e-mail", "e-mail"), ("co-op", "co-op"), ("e-maildeokuru", "e-mailでおくる"), ("x-ray", "x-ray"), ("r-18", "r-18"), ("sub-6", "sub-6"), ("GPT-6.7", "GPT-6.7"),
             ("e-to", "えーと"), ("su-pa-", "すーぱー"), ("o-bun", "おーぶん"),
         })
         {
@@ -755,9 +796,10 @@ internal static class CompositionTests
     public static void Symbols_StartComposition()
     {
         // 報告: かぎかっこが入力できない。
-        var cases = new Dictionary<string, string> { ["[kagi]"] = "「かぎ」", ["-"] = "ー", ["/"] = "/", ["z/"] = "・", ["#"] = "#", ["("] = "（", ["@"] = "@", [",,,"] = "...", ["\\"] = "￥", [","] = "、",
+        var cases = new Dictionary<string, string> { ["[kagi]"] = "「かぎ」", ["-"] = "ー", ["/"] = "/", ["z/"] = "・", ["#"] = "#", ["("] = "(", [")"] = ")", ["]"] = "」", ["@"] = "@", [",,,"] = "...", ["\\"] = "￥", [","] = "、",
             // 報告: Shift で打つ記号が全角で打てない、/ が打てない。英語の中では半角のまま。
-            ["$%&"] = "＄％＆", ["kyouha(tenki)"] = "きょうは（てんき）", ["hello@example"] = "hello@example",
+            ["$%&"] = "＄％＆", ["kyouha(tenki)"] = "きょうは(てんき)", ["hello@example"] = "hello@example",
+            ["tetr.io"] = "tetr.io", ["Wakatte.TV"] = "Wakatte.TV", ["J-core"] = "J-core", ["p-hub"] = "p-hub", ["talk-admin"] = "talk-admin",
             // 報告: ca / cu / co で か く こ
             ["cacuco"] = "かくこ", ["iijane"] = "いいじゃね", ["shoucanshi"] = "しょうかんし", ["vanpaia"] = "ゔぁんぱいあ", ["wyiwye"] = "ゐゑ", ["GPL3.0"] = "GPL3.0", ["3.14desu"] = "3.14です", ["oknotasuku"] = "okのたすく",
         };
@@ -767,6 +809,9 @@ internal static class CompositionTests
             k.Type(typed);
             Assert.Equal(expected, k.Showing, $"「{typed}」");
         }
+        var ramen = new Keyboard();
+        ramen.Type("ra-men\n");
+        Assert.Equal("らーめん", ramen.Host.Document, "日本語の長音の打ち方は変えない");
     }
 
     [Test]

@@ -23,6 +23,8 @@ public sealed class CompositionDetector
     private readonly ProperNouns _proper;
     private readonly KanaDetector? _kana;
 
+    private static readonly HashSet<string> DomainSuffixes = ["ai", "app", "au", "biz", "ca", "cn", "co", "com", "de", "dev", "edu", "eu", "fr", "gg", "gov", "info", "in", "io", "jp", "kr", "me", "net", "org", "uk", "us", "xyz"];
+
     public CompositionDetector(RomajiDetector romaji, DictionaryDetector japanese, EnglishDetector english, TypoDetector typo, ProperNouns? proper = null,
         KanaDetector? kana = null)
     {
@@ -119,6 +121,19 @@ public sealed class CompositionDetector
         while (i < n)
         {
             var found = -1;
+            // ドメインの . の後ろは、短い国別・用途別トップレベルドメインでも英字のままにする (tetr.io、Wakatte.TV)。
+            if (!kanaInput && level != DetectionLevel.Manual && i > 0 && units[i - 1].Raw == "." && PrecededByEnglish(i) == true)
+            {
+                for (var j = n; j > i; j--)
+                {
+                    var domainLabel = (Raw(units, i, j) + (j == n ? pending : "")).ToLowerInvariant();
+                    if (DomainSuffixes.Contains(domainLabel) || !final && DomainSuffixes.Any(tld => tld.StartsWith(domainLabel, StringComparison.Ordinal)))
+                    {
+                        found = j;
+                        break;
+                    }
+                }
+            }
             // 英文の中の記号 (, . ! ? -) は読点・句点にせず半角のまま。日本語の文の中の英単語の後 (今日はgoogle、) は日本語の記号。
             // (かな入力では 、。 も かなのキーなので対象外)
             if (!kanaInput && IsAsciiSymbol(units[i]) && PrecededByEnglish(i) == true && segments.All(s => s.IsEnglish || !s.Raw.Any(char.IsAsciiLetter))) found = i + 1;
@@ -508,7 +523,9 @@ public sealed class CompositionDetector
     private static readonly HashSet<string> HyphenPrefixes = ["e", "x", "re", "co", "ex", "non", "anti", "semi", "multi", "pre", "sub", "post", "mid", "self", "well"];
 
     // 接頭辞の規則では拾えない、- の入ったよく使う英単語 (後ろが 2 文字以下など)
-    private static readonly HashSet<string> HyphenatedWords = ["co-op", "re-do", "x-ray", "t-shirt", "wi-fi", "hi-fi", "e-book", "e-sports", "k-pop", "j-pop", "j-rock", "a-z", "u-turn", "check-in", "log-in", "sign-in", "add-on", "plug-in", "built-in", "follow-up", "set-up", "pop-up", "drop-down"];
+    private static readonly HashSet<string> HyphenatedWords = ["co-op", "re-do", "x-ray", "t-shirt", "wi-fi", "hi-fi", "e-book", "e-sports", "k-pop", "j-pop", "j-rock", "j-core", "p-hub", "talk-admin", "r-18", "sub-6", "gpt-6.7", "a-z", "u-turn", "check-in", "log-in", "sign-in", "add-on", "plug-in", "built-in", "follow-up", "set-up", "pop-up", "drop-down"];
+    // 日本語のローマ字の途中を英語の接頭辞と誤認しないよう、日本語に続けて拾うのは明示した英数字表記だけ。
+    private static readonly HashSet<string> NumericHyphenatedWords = ["r-18", "sub-6", "gpt-6.7"];
 
     /// <summary>- を付けて使う英語の接頭辞か (e、re、co …)。英数状態で、- の後を見てから英語か決めるのに使う。</summary>
     public static bool IsHyphenPrefix(string lower) => HyphenPrefixes.Contains(lower);
@@ -530,16 +547,17 @@ public sealed class CompositionDetector
     private int HyphenatedWordEnd(IReadOnlyList<CompositionUnit> units, int start, string pending)
     {
         var n = units.Count;
-        // 語の途中からは探さない
-        if (start > 0 && units[start - 1].Raw.All(char.IsAsciiLetter) && units[start - 1].Raw.Length > 0) return -1;
+        // 日本語を打っている最中のローマ字列では、明示した英数字表記だけを英語として切り出す。
+        var afterJapaneseRomaji = start > 0 && units[start - 1].Raw.Length > 0 && units[start - 1].Raw.All(char.IsAsciiLetter) &&
+                                  units[start - 1].Kana != units[start - 1].Raw;
+        if (start > 0 && units[start - 1].Raw.Length > 0 && units[start - 1].Raw.All(char.IsAsciiLetter) && !afterJapaneseRomaji) return -1;
         var dash = start;
         while (dash < n && units[dash].Raw.Length > 0 && units[dash].Raw.All(char.IsAsciiLetter)) dash++;
         if (dash == start || dash >= n || units[dash].Raw != "-") return -1;
         for (var end = n; end > dash + 1; end--)
         {
             var word = (Raw(units, start, end) + (end == n ? pending : "")).ToLowerInvariant();
-            if (!word[(word.IndexOf('-') + 1)..].All(char.IsAsciiLetterLower)) continue;
-            if (IsHyphenatedEnglishWord(word)) return end;
+            if (afterJapaneseRomaji ? NumericHyphenatedWords.Contains(word) : IsHyphenatedEnglishWord(word)) return end;
         }
         return -1;
     }

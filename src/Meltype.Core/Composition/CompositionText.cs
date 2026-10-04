@@ -68,6 +68,22 @@ public sealed class CompositionText
 
     public void Append(char c)
     {
+        // 英数字の間に打った . / - はドメイン名や略語の区切り。入力直後は後続文字が分からないため、
+        // 次の英数字が来た時点で句点・長音として読んだ記号を半角に戻す (tetr.io、J-core)。
+        if (char.IsAsciiLetterOrDigit(c) && _units.Count >= 2 && (_units[^1].Raw is "." or "-") &&
+            _units[^2].Raw.Length > 0 && char.IsAsciiLetterOrDigit(_units[^2].Raw[^1]))
+        {
+            var preceding = new StringBuilder();
+            for (var i = _units.Count - 2; i >= 0 && _units[i].Raw.Length > 0 && _units[i].Raw.All(char.IsAsciiLetterOrDigit); i--) preceding.Insert(0, _units[i].Raw);
+            var word = preceding.ToString();
+            var lower = word.ToLowerInvariant();
+            var acronym = word.Any(char.IsAsciiLetterUpper) && word.All(c => char.IsAsciiLetterUpper(c) || char.IsAsciiDigit(c));
+            var knownUnambiguous = word.Length >= 3 && _detector.IsKnownEnglishWord(word) && !_detector.Romaji.AnalyzeFragment(lower).IsValid;
+            var properNoun = _detector.ProperNouns.Contains(lower);
+            var loneConsonant = word.Length == 1 && char.IsAsciiLetterLower(word[0]) && word[0] is not ('a' or 'i' or 'u' or 'e' or 'o');
+            if (acronym || knownUnambiguous || properNoun || _units[^1].Raw == "-" && loneConsonant)
+                _units[^1] = _units[^1] with { Kana = _units[^1].Raw };
+        }
         // / を 3 つ続けて打ったら … (三点リーダー)。URL (file:///) の : の後ろは除く。
         if (c == '/' && _pending.Length == 0 && _units.Count >= 2 && _units[^1].Raw == "/" && _units[^2].Raw == "/" &&
             !(_units.Count >= 3 && _units[^3].Raw == ":"))
@@ -711,7 +727,7 @@ public sealed class CompositionText
         return _detector.Romaji.ConvertLenient(pending.ToLowerInvariant(), final);
     }
 
-    /// <summary>日本語の中で打った記号 (Microsoft IME と同じく全角)。英語の区間では打ったままの半角で出す。数字は半角のまま。</summary>
+    /// <summary>日本語の中で打った記号 (Microsoft IME と同じく全角)。英語の区間では打ったままの半角で出す。数字と括弧は半角のまま。</summary>
     private static char Symbol(char c) => c switch
     {
         '-' => 'ー',
@@ -719,6 +735,13 @@ public sealed class CompositionText
         '.' => '。',
         '[' => '「',
         ']' => '」',
+        // ASCII の括弧はチャット本文でもそのまま使われるため、入力した幅を保つ。
+        '(' => '(',
+        ')' => ')',
+        // Discord などの会話では ! ? : を半角で使うため、入力した幅を保つ。
+        '!' => '!',
+        '?' => '?',
+        ':' => ':',
         '~' => '～',
         '\'' => '’',
         '"' => '”',

@@ -57,8 +57,9 @@ internal static class FeedbackTests
     [Test]
     public static void ShiftedSymbols_StartComposition()
     {
-        Assert.Equal("！", Showing("!"));
-        Assert.Equal("？", Showing("?"));
+        Assert.Equal("!", Showing("!"));
+        Assert.Equal("?", Showing("?"));
+        Assert.Equal(":", Showing(":"));
         Assert.Equal("～", Showing("~"));
         Assert.Equal("!", Showing("!", before: "Hello"), "英文の後は半角");
     }
@@ -474,7 +475,7 @@ internal static class LanguageLearningTests
             {
                 ("koreareka", "これあれか"), ("koreade", "koreaで"),
                 ("\"uchiagebanashihaGo Through!\"", "\"うちあげばなしはGo Through!\""), ("(Ooh Let's Think wow...) ", "(Ooh Let's Think wow...) "),
-                ("(chuui)", "（ちゅうい）"), ("\"kyouhaGo!\"tteitta", "\"きょうはGo!\"っていった"),
+                ("(chuui)", "(ちゅうい)"), ("\"kyouhaGo!\"tteitta", "\"きょうはGo!\"っていった"),
                 ("1. Ah! Ah!", "1. Ah! Ah!"), ("ahoka", "あほか"),
                 ("Swingin'", "Swingin'"), ("rockin' and rollin'", "rockin' and rollin'"),
                 ("A fool a fool a, for u", "A fool a fool a, for u"), ("how r u", "how r u"), ("kyouhau", "きょうはう"),

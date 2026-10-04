@@ -162,8 +162,8 @@ internal static class Quality
         new("短い語", "a", "a", Before: "this is "),
 
         // --- 記号・数字 ---
-        new("記号・数字", "!", "！"),
-        new("記号・数字", "?", "？"),
+        new("記号・数字", "!", "!"),
+        new("記号・数字", "?", "?"),
         new("記号・数字", "~", "～"),
         new("記号・数字", "!", "!", Before: "Hello"),
         new("記号・数字", "kore,sore.", "これ、それ。"),

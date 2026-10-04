@@ -77,10 +77,13 @@ export class ChannelCheckQueue {
   }
 
   /** 今のチェックを止めて、待ちもすべて取り消す。止めたチャンネルの数を返す。 */
-  stop() {
-    const count = this.#jobs.length + (this.#current ? 1 : 0);
-    this.#jobs = [];
-    if (this.#current) this.#current.cancelled = true;
+  stop(reportGuildId = null) {
+    const belongsToGuild = job => reportGuildId === null || job.report.guildId === reportGuildId;
+    const queued = this.#jobs.filter(belongsToGuild).length;
+    this.#jobs = this.#jobs.filter(job => !belongsToGuild(job));
+    const stopCurrent = this.#current && belongsToGuild(this.#current);
+    const count = queued + (stopCurrent ? 1 : 0);
+    if (stopCurrent) this.#current.cancelled = true;
     return count;
   }
 
@@ -95,17 +98,18 @@ export class ChannelCheckQueue {
       await this.#check(this.#current);
     } catch (error) {
       console.error(error);
-      await job.report.send(`❌ <#${job.target.id}> のチェック中にエラーが起きました: ${shorten(error.message, 200)}`).catch(() => {});
+      const targetLabel = job.targetLabel ?? `<#${job.target.id}>`;
+      await job.report.send(`❌ ${targetLabel} のチェック中にエラーが起きました: ${shorten(error.message, 200)}`).catch(() => {});
     }
     this.#current = null;
     void this.#runNext();
   }
 
   async #check(job) {
-    const { target, report, botId } = job;
+    const { target, targetLabel = `<#${job.target.id}>`, report, botId } = job;
     const isCancelled = () => job.cancelled;
     const started = Date.now();
-    await report.send(`🔍 <#${target.id}> のメッセージを読んでいます…`);
+    await report.send(`🔍 ${targetLabel} のメッセージを読んでいます…`);
     const messages = await readAllMessages(target, isCancelled);
 
     const stats = { total: messages.length, checked: 0, problems: 0, long: 0, other: 0, failed: 0 };
@@ -121,7 +125,7 @@ export class ChannelCheckQueue {
       else if (prepared.skip) stats.other++;
       else items.push({ message, text: prepared.text });
     }
-    await report.send(`▶ <#${target.id}>: ${messages.length} 件のうち ${items.length} 件を試します (同時に ${this.#options.concurrency} 件ずつ。80 文字を超える ${stats.long} 件と、日本語の無いもの・bot のもの ${stats.other} 件は飛ばします)。`);
+    await report.send(`▶ ${targetLabel}: ${messages.length} 件のうち ${items.length} 件を試します (同時に ${this.#options.concurrency} 件ずつ。80 文字を超える ${stats.long} 件と、日本語の無いもの・bot のもの ${stats.other} 件は飛ばします)。`);
 
     await runPool(items, this.#options.concurrency, async ({ message, text }) => {
       let result;
@@ -148,8 +152,8 @@ export class ChannelCheckQueue {
 
     const minutes = ((Date.now() - started) / 60000).toFixed(1);
     await report.send(job.cancelled
-      ? `⏹ <#${target.id}> のチェックを止めました (試した ${stats.checked} 件のうち、問題があったもの ${stats.problems} 件)。`
-      : `✅ <#${target.id}> のチェックが終わりました (${minutes} 分): 試した ${stats.checked} 件のうち、問題があったもの **${stats.problems} 件**` +
+      ? `⏹ ${targetLabel} のチェックを止めました (試した ${stats.checked} 件のうち、問題があったもの ${stats.problems} 件)。`
+      : `✅ ${targetLabel} のチェックが終わりました (${minutes} 分): 試した ${stats.checked} 件のうち、問題があったもの **${stats.problems} 件**` +
         `${stats.failed ? `、試せなかったもの ${stats.failed} 件` : ''}。80 文字を超えて飛ばしたもの ${stats.long} 件。`);
   }
 }

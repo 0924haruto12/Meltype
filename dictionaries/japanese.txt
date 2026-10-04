@@ -141,3 +141,6 @@ tenki ame yuki kaze kumori hare kion natsu fuyu haru aki
 # カタカナ語 (助詞の後に続けて打つことが多いもの)
 tasuku sukejuuru purojekuto miitingu kaigi shiryou fairu foruda pasuwaado akaunto rogu settei
 gamen botan messeeji menyuu risuto deeta saabaa apuri sofuto baagu tesuto koodo
+
+# 英語の固有名詞でも、日本語の文ではカタカナ表記にする語
+nikon

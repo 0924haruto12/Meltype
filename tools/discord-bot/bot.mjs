@@ -69,6 +69,10 @@ async function canClose(message, item) {
 /** 管理する人か (MANAGER_ROLE_ID の役職、無ければ「メッセージの管理」の権限)。 */
 async function isManager(message) {
   const member = message.member ?? await message.guild.members.fetch(message.author.id);
+  return isManagerMember(member);
+}
+
+function isManagerMember(member) {
   if (config.managerRole) return member.roles.cache.has(config.managerRole);
   return member.permissions.has(PermissionFlagsBits.ManageMessages);
 }
@@ -85,18 +89,30 @@ async function handleChannelJht(message, rest) {
   const id = rest.match(/^<#(\d+)>$/)?.[1] ?? rest.match(/^(\d{15,})$/)?.[1];
   if (!id) return message.reply(`チャンネルを指定してください (例: ${me()} ${code('chjht #チャンネル')} か ${code('chjht 1234567890')})。`);
   const target = await client.channels.fetch(id).catch(() => null);
-  if (!target || target.guildId !== message.guildId || !target.isTextBased?.() || !target.messages) {
-    return message.reply('そのチャンネルが見つからないか、読めません (このサーバーのテキストのチャンネルで、bot が読めるもの)。');
+  if (!target?.guildId || !target.isTextBased?.() || !target.messages) {
+    return message.reply('そのチャンネルが見つからないか、読めません (bot が参加しているサーバーのテキストチャンネルを指定してください)。');
   }
-  const position = channelQueue.enqueue({ target, report: message.channel, botId: client.user.id });
+  const targetGuild = await client.guilds.fetch(target.guildId).catch(() => null);
+  const targetMember = targetGuild ? await targetGuild.members.fetch(message.author.id).catch(() => null) : null;
+  if (!targetMember || !isManagerMember(targetMember)) {
+    return message.reply('対象サーバーでも管理する人である必要があります。');
+  }
+  const permissions = target.permissionsFor?.(client.user);
+  if (permissions && (!permissions.has(PermissionFlagsBits.ViewChannel) || !permissions.has(PermissionFlagsBits.ReadMessageHistory))) {
+    return message.reply('対象チャンネルで bot に「チャンネルを見る」と「メッセージ履歴を読む」権限が必要です。');
+  }
+  const targetLabel = target.guildId === message.guildId
+    ? `<#${target.id}>`
+    : `${targetGuild.name} / #${target.name ?? target.id}`;
+  const position = channelQueue.enqueue({ target, targetLabel, report: message.channel, botId: client.user.id });
   await message.reply(position === 0
-    ? `<#${target.id}> のチェックを始めます。問題が見つかるたびに、このチャンネルに送ります。`
-    : `<#${target.id}> を順番待ちに入れました (${position} 番目)。前のチャンネルが終わったら自動で始めます。`);
+    ? `${targetLabel} のチェックを始めます。問題が見つかるたびに、このチャンネルに送ります。`
+    : `${targetLabel} を順番待ちに入れました (${position} 番目)。前のチャンネルが終わったら自動で始めます。`);
 }
 
 async function handleChannelJhtStop(message) {
   if (!await isManager(message)) return message.reply('管理する人だけが使えます。');
-  const count = channelQueue.stop();
+  const count = channelQueue.stop(message.guildId);
   await message.reply(count === 0 ? '動いているチェックはありません。' : `チェックを止めて、順番待ちを取り消しました (${count} チャンネル)。`);
 }
 
