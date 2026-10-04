@@ -21,6 +21,10 @@ internal sealed class SettingsForm : Form
     private readonly MeltypeEngine _engine;
     private readonly List<Binding> _bindings = [];
     private readonly Label _help = new() { Dock = DockStyle.Fill, ForeColor = SystemColors.GrayText, Padding = new Padding(8, 4, 8, 4) };
+    // 説明の欄。長い説明でも見切れないよう、説明の長さに合わせて高さを変える
+    private readonly Panel _helpPanel = new() { Dock = DockStyle.Bottom, Height = HelpMinHeight, BorderStyle = BorderStyle.FixedSingle };
+    private const int HelpMinHeight = 46;
+    private const int HelpMaxHeight = 150;
     private readonly TextBox _testInput = new() { Dock = DockStyle.Top, ImeMode = ImeMode.Disable };
     private readonly TextBox _testResult = new() { Dock = DockStyle.Fill, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical };
     private readonly ToolTip _toolTip = new() { AutoPopDelay = 20000 };
@@ -54,9 +58,12 @@ internal sealed class SettingsForm : Form
             body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             body.Controls.Add(group);
         }
+        // 自動スクロールの表は、最後の行の下の余白を含めないことがあり、一番下の枠が少し見切れる。空の行で余白を取る
+        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 16));
+        body.Controls.Add(new Panel { Height = 16, Margin = Padding.Empty });
 
-        var helpPanel = new Panel { Dock = DockStyle.Bottom, Height = 46, BorderStyle = BorderStyle.FixedSingle };
-        helpPanel.Controls.Add(_help);
+        _helpPanel.Controls.Add(_help);
+        _helpPanel.Resize += (_, _) => FitHelp();
 
         var testLabel = new Label { Text = "判定テスト (IME 自動切替の判定。英字で入力):", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(0, 6, 0, 2) };
         _testInput.TextChanged += (_, _) => RunTest();
@@ -91,7 +98,7 @@ internal sealed class SettingsForm : Form
         buttons.Controls.AddRange([cancel, ok, defaults]);
 
         Controls.Add(body);
-        Controls.Add(helpPanel);
+        Controls.Add(_helpPanel);
         Controls.Add(testPanel);
         Controls.Add(buttons);
         AcceptButton = ok;
@@ -118,7 +125,8 @@ internal sealed class SettingsForm : Form
                 var name = property.GetCustomAttribute<DisplayNameAttribute>()?.DisplayName ?? property.Name;
                 var description = property.GetCustomAttribute<DescriptionAttribute>()?.Description ?? "";
                 var label = new Label { Text = name, AutoSize = true, Anchor = AnchorStyles.Left, Padding = new Padding(0, 6, 0, 6) };
-                var fullRow = binding.Control is DataGridView;
+                // 表 (アプリ別設定は表 + ボタンの枠) は、右の列だと狭くて列が見切れるので、名前の下に幅いっぱいで出す
+                var fullRow = binding.Control is DataGridView or Panel;
                 if (fullRow)
                 {
                     table.Controls.Add(label);
@@ -171,11 +179,19 @@ internal sealed class SettingsForm : Form
         {
             var grid = _rulesGrid = AppRulesGrid();
             // プロセス名 (maya.exe など) を知らなくても足せるように、実行中のアプリから選べるようにする。
-            var add = new Button { Text = "実行中のアプリから追加…", AutoSize = true, Dock = DockStyle.Bottom };
+            var add = new Button { Text = "実行中のアプリから追加…", AutoSize = true };
             add.Click += (_, _) => ShowRunningApps(grid, add);
-            var panel = new Panel { Height = grid.Height + add.PreferredSize.Height + 4, Dock = DockStyle.Fill };
+            // 行の削除は Delete キーでもできるが、気づきにくいのでボタンも置く
+            var remove = new Button { Text = "選んだ行を削除", AutoSize = true };
+            remove.Click += (_, _) =>
+            {
+                foreach (var row in grid.SelectedCells.Cast<DataGridViewCell>().Select(c => c.OwningRow).Distinct().Where(r => !r.IsNewRow).ToList()) grid.Rows.Remove(row);
+            };
+            var actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, WrapContents = false, Margin = Padding.Empty };
+            actions.Controls.AddRange([add, remove]);
+            var panel = new Panel { Height = grid.Height + add.PreferredSize.Height + 10, Dock = DockStyle.Fill };
             panel.Controls.Add(grid);
-            panel.Controls.Add(add);
+            panel.Controls.Add(actions);
             return new Binding(property, panel,
                 s =>
                 {
@@ -379,9 +395,22 @@ internal sealed class SettingsForm : Form
     private void ShowHelpFor(Control control, string name, string description)
     {
         if (description.Length > 0) _toolTip.SetToolTip(control, description);
-        void Show(object? sender, EventArgs e) => _help.Text = description.Length > 0 ? $"{name}: {description}" : name;
+        void Show(object? sender, EventArgs e)
+        {
+            _help.Text = description.Length > 0 ? $"{name}: {description}" : name;
+            FitHelp();
+        }
         control.Enter += Show;
         control.MouseEnter += Show;
+    }
+
+    /// <summary>説明の欄の高さを、説明が全部見える高さにする (上限を超える分はツールチップで見られる)。</summary>
+    private void FitHelp()
+    {
+        var width = Math.Max(100, _helpPanel.ClientSize.Width - _help.Padding.Horizontal);
+        var size = TextRenderer.MeasureText(_help.Text, _help.Font, new Size(width, int.MaxValue), TextFormatFlags.WordBreak);
+        var height = Math.Clamp(size.Height + _help.Padding.Vertical + 6, HelpMinHeight, HelpMaxHeight);
+        if (_helpPanel.Height != height) _helpPanel.Height = height;
     }
 
     private void LoadFrom(Settings settings)

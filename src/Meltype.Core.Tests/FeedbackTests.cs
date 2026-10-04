@@ -64,6 +64,15 @@ internal static class FeedbackTests
     }
 
     [Test]
+    public static void TripleSlash_IsEllipsis()
+    {
+        // 報告 (Discord のリスト #4): /// を … にできるようにする。URL (file:///) はそのまま。
+        Assert.Equal("…", Showing("///"));
+        Assert.Equal("それで…", Showing("sorede///"));
+        Assert.Equal("file:///", Showing("file:///"));
+    }
+
+    [Test]
     public static void ShortParticles_AfterEnglishWord_AreJapanese()
     {
         foreach (var (typed, expected) in new[] { ("no", "の"), ("to", "と"), ("ga", "が") })

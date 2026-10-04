@@ -156,6 +156,15 @@ internal static class TestRunner
                         form.DrawToBitmap(scrolled, new Rectangle(0, 0, form.Width, form.Height));
                         scrolled.Save(Path.Combine(args[1], "SettingsForm-apps.png"));
                     }
+                    // スクロールできる画面は、いちばん下までスクロールした画像も作る (一番下の項目が見切れていないか)。
+                    if (FindControl(form, c => c is ScrollableControl { AutoScroll: true, VerticalScroll.Visible: true }) is ScrollableControl bottom)
+                    {
+                        bottom.AutoScrollPosition = new Point(0, bottom.DisplayRectangle.Height);
+                        Application.DoEvents();
+                        using var scrolled = new Bitmap(form.Width, form.Height);
+                        form.DrawToBitmap(scrolled, new Rectangle(0, 0, form.Width, form.Height));
+                        scrolled.Save(Path.Combine(args[1], form.GetType().Name + "-bottom.png"));
+                    }
                 }
             }
             return 0;

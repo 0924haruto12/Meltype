@@ -65,7 +65,10 @@ internal sealed class WelcomeForm : Form
         body.Controls.Add(practice);
 
         body.Controls.Add(Heading("困ったら"));
-        body.Controls.Add(Paragraph("画面右下のタスクトレイの Meltype のアイコン (あ / A) を右クリックすると、設定・ユーザー辞書 (ほかの日本語入力の辞書の取り込みもここ)・学習した語・不具合の報告があります。この画面はトレイの「使い方...」でまた開けます。"));
+        var last = Paragraph("画面右下のタスクトレイの Meltype のアイコン (あ / A) を右クリックすると、設定・ユーザー辞書 (ほかの日本語入力の辞書の取り込みもここ)・学習した語・不具合の報告があります。この画面はトレイの「使い方...」でまた開けます。");
+        // 自動スクロールの枠は下の余白 (Padding) を含めないので、最後の段落の下に余白を取って見切れないようにする
+        last.Margin = new Padding(0, 0, 0, 24);
+        body.Controls.Add(last);
 
         var close = new Button { Text = "はじめる", AutoSize = true, DialogResult = DialogResult.OK, Padding = new Padding(12, 2, 12, 2) };
         close.Click += (_, _) => Close();

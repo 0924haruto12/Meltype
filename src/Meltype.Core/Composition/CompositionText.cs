@@ -68,6 +68,14 @@ public sealed class CompositionText
 
     public void Append(char c)
     {
+        // / を 3 つ続けて打ったら … (三点リーダー)。URL (file:///) の : の後ろは除く。
+        if (c == '/' && _pending.Length == 0 && _units.Count >= 2 && _units[^1].Raw == "/" && _units[^2].Raw == "/" &&
+            !(_units.Count >= 3 && _units[^3].Raw == ":"))
+        {
+            _units.RemoveRange(_units.Count - 2, 2);
+            _units.Add(new CompositionUnit("…", "///"));
+            return;
+        }
         // 数字の後の , は、次も数字なら桁区切り (1,000) のまま、それ以外なら読点 (x64、arm64)。
         if (!char.IsAsciiDigit(c) && _pending.Length == 0 && _units.Count >= 2 && _units[^1] is { Raw: ",", Kana: "," } &&
             _units[^2].Raw is [var digit] && char.IsAsciiDigit(digit))
