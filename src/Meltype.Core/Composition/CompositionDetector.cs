@@ -46,6 +46,13 @@ public sealed class CompositionDetector
         return new CompositionDetector(romaji, japanese, english, new TypoDetector(japanese.Words), proper, new KanaDetector(japaneseWords, romaji));
     }
 
+    private static readonly Lazy<WordList> ReadableEnglish = new(() =>
+    {
+        var list = new WordList();
+        foreach (var word in DictionarySource.Load("english-readable.txt", null)) list.Add(word);
+        return list;
+    });
+
     public RomajiDetector Romaji => _romaji;
 
     /// <summary>普通の英単語の判定に使う Windows のスペルチェッカー。null なら同梱の辞書だけ。</summary>
@@ -356,6 +363,9 @@ public sealed class CompositionDetector
             if (lower.Contains('c') && !lower.Contains("ch")) return true;
             if (_romaji.AnalyzeFragment(lower).Kana.IndexOfAny(['ぢ', 'づ']) >= 0 && IsCommonJapanese?.Invoke(lower) != true) return true;
         }
+        // ローマ字として最後まで読めても、日本語の語にならない英単語 (feature = ふぇあつれ、remote = れもて。dictionaries/english-readable.txt、#12)。
+        // 日本語の語の始まりにもならない語だけを入れているので、後ろに日本語が続いても (feature|wo) 英語。
+        if (lower.Length >= 4 && ReadableEnglish.Value.ContainsWord(lower)) return true;
         // c 行の綴りで読める語 (care = かれ、can = かん) が日本語の途中にあるなら、日本語を打っている (fucarete → ふかれて、shoucanshi → しょうかんし)。
         // 入力全体がその語だけのときは英語。
         if (!(startOfInput && atEnd))
