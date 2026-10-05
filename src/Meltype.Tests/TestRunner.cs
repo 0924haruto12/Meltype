@@ -32,7 +32,7 @@ internal static class TestRunner
             return 0;
         }
         if (args.FirstOrDefault() == "--units") { DebugUnits.Run(args[1]); return 0; }
-        // Discord の bot の henkan-test / japanese-henkan-test を Windows で: アプリと同じく Windows のスペルチェッカーを使い、
+        // henkan-test / japanese-henkan-test を Windows で: アプリと同じく Windows のスペルチェッカーを使い、
         // 漢字の読みは Microsoft IME の逆変換で求める。Mozc (MELTYPE_MOZC、無ければ native\mozc\bin) が無ければ Microsoft IME で変換する。
         if (args.FirstOrDefault() is "--henkan" or "--jht" or "--jht-batch")
         {
