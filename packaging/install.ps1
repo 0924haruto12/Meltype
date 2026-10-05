@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-# Meltype テスト版のインストール (協力者向け)。ビルド済みの app フォルダーを %LOCALAPPDATA%\Programs\Meltype にコピーし、
+# Meltype のインストール。ビルド済みの app フォルダーを %LOCALAPPDATA%\Programs\Meltype にコピーし、
 # スタートアップに登録して起動する。管理者権限は不要。.NET は app の dotnet フォルダーに同梱しているので、インストール不要。
 
 $source = Join-Path $PSScriptRoot 'app'
