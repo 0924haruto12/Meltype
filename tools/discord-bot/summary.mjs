@@ -105,6 +105,28 @@ export function parseJhtEmbed(embed, fallbackUrl) {
 }
 
 /**
+ * chjht の終わりのメッセージ (「✅ #ch のチェックが終わりました (3.2 分): 試した 120 件のうち、問題があったもの **8 件**」) を読む。
+ * 試した件数が分かれば、問題の無かった文を送ってもらわなくても、正解率 (問題なし ÷ 試した件数) が分かる。違うメッセージなら null。
+ */
+export function parseChjhtDone(content) {
+  const m = (content ?? '').match(/^(✅|⏹) (.+?) のチェック(?:が終わりました|を止めました).*?試した (\d+) 件のうち、問題があったもの \**(\d+) 件/);
+  return m ? { target: m[2], checked: Number(m[3]), problems: Number(m[4]), stopped: m[1] === '⏹' } : null;
+}
+
+/** 試した件数: 同じチャンネルを何度か chjht したなら、いちばん新しい回だけを数える。runs は { ...parseChjhtDone の結果, at }。 */
+export function testedCounts(runs) {
+  const latest = new Map();
+  for (const run of runs) {
+    const old = latest.get(run.target);
+    if (!old || (run.at ?? 0) >= (old.at ?? 0)) latest.set(run.target, run);
+  }
+  const list = [...latest.values()];
+  const checked = list.reduce((n, r) => n + r.checked, 0);
+  const problems = list.reduce((n, r) => n + r.problems, 0);
+  return { checked, problems, ok: checked - problems, runs: list.map(({ target, checked, problems, stopped }) => ({ target, checked, problems, stopped })) };
+}
+
+/**
  * 結果 1 つの重さ: split (分かれ方が違う) > none (どの打ち方でも出ない) > some (出ない打ち方がある) > width (全角 / 半角だけ) > ok。
  * 分かれ方の違いが決められない語 (tomato) だけなら ambiguous (除外)。
  */
@@ -119,7 +141,7 @@ export function severity(entry, englishWords = new Set()) {
  * 結果をまとめる。entries は { ...parseJhtEmbed の結果, at (送られた時刻) }。
  * 同じ文 (expected) は、いちばん新しいものだけを使う。
  */
-export function summarize(entries, { englishWords = new Set() } = {}) {
+export function summarize(entries, { englishWords = new Set(), runs = [] } = {}) {
   const latest = new Map();
   for (const entry of entries) {
     const old = latest.get(entry.expected);
@@ -136,7 +158,7 @@ export function summarize(entries, { englishWords = new Set() } = {}) {
   for (const entry of unique.filter(e => !groups.ambiguous.includes(e))) {
     for (const [key, , pattern] of ProblemKinds) if (entry.problems.some(p => pattern.test(p))) kinds[key]++;
   }
-  return { total: entries.length, duplicates: entries.length - unique.length, unique: unique.length, groups, kinds };
+  return { total: entries.length, duplicates: entries.length - unique.length, unique: unique.length, groups, kinds, tested: runs.length > 0 ? testedCounts(runs) : null };
 }
 
 /** 一覧の 1 行。いちばん大事な問題 (全角 / 半角だけのものは後回し) を 1 つ添える。 */
@@ -164,6 +186,8 @@ export function summaryJson(summary, channelIds) {
   });
   return {
     channels: channelIds,
+    // chjht で試した件数 (問題の無かった文も含む)。正解率 = ok / checked
+    ...(summary.tested ? { tested: summary.tested } : {}),
     total: summary.total,
     unique: summary.unique,
     duplicates: summary.duplicates,
@@ -187,6 +211,7 @@ export function formatSummary(summary, channelIds, fileName = 'summary.json') {
   const problems = summary.unique - groups.ok.length - groups.ambiguous.length;
   const head = [
     `📋 **jht の結果のまとめ** (${channelIds.map(id => `<#${id}>`).join(' ')})`,
+    ...(summary.tested ? [`chjht で試した **${summary.tested.checked} 件**: 問題なし ${summary.tested.ok} 件 (${(100 * summary.tested.ok / Math.max(1, summary.tested.checked)).toFixed(1)}%)・問題あり ${summary.tested.problems} 件 (${summary.tested.runs.length} チャンネル。同じチャンネルは新しい回だけ)`] : []),
     `結果 ${summary.total} 件 → 重複を除いて **${summary.unique} 件** (重複 ${summary.duplicates} 件は無視。同じ文は新しい結果を使用)`,
     `問題あり ${problems} 件: ❌ 分かれ方が違う **${groups.split.length}**・🔴 どの打ち方でも出ない **${groups.none.length}**・🟠 出ない打ち方がある ${groups.some.length}・記号の全角 / 半角だけ ${groups.width.length}`,
     `除外 ${groups.ambiguous.length} 件 (英単語でもローマ字でも読める語 (tomato など) だけの違いで、どちらにすべきか決められないもの)`,

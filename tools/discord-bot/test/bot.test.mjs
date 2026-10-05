@@ -201,3 +201,17 @@ test('jht のテスト用プログラムを起動したまま続けて使い、�
   const env = childEnv('mozc.exe', { DISCORD_TOKEN: 'secret', GH_TOKEN: 'x', PATH: '/bin' });
   assert.deepEqual(env, { PATH: '/bin', MELTYPE_MOZC: 'mozc.exe' }, 'トークンはテスト用プログラムに渡さない');
 });
+
+test('summary: chjht の終わりのメッセージから試した件数を読み、正解率を出す', async () => {
+  const { formatSummary, parseChjhtDone, summarize, summaryJson } = await import('../summary.mjs');
+  const done = parseChjhtDone('✅ <#1> のチェックが終わりました (3.2 分): 試した 120 件のうち、問題があったもの **8 件**、試せなかったもの 1 件。80 文字を超えて飛ばしたもの 3 件。');
+  assert.deepEqual(done, { target: '<#1>', checked: 120, problems: 8, stopped: false });
+  assert.equal(parseChjhtDone('⏹ 別鯖 / #雑談 のチェックを止めました (試した 40 件のうち、問題があったもの 5 件)。').checked, 40);
+  assert.equal(parseChjhtDone('🔍 <#1> のメッセージを読んでいます…'), null);
+  const runs = [{ ...done, at: 1 }, { ...done, checked: 200, problems: 10, at: 2 }, { target: '<#2>', checked: 50, problems: 0, stopped: false, at: 3 }];
+  const summary = summarize([], { runs });
+  assert.deepEqual([summary.tested.checked, summary.tested.problems, summary.tested.ok], [250, 10, 240], '同じチャンネルは新しい回だけ');
+  assert.equal(summaryJson(summary, ['1']).tested.ok, 240);
+  assert.match(formatSummary(summary, ['1']), /chjht で試した \*\*250 件\*\*: 問題なし 240 件 \(96\.0%\)/);
+  assert.equal(summaryJson(summarize([]), ['1']).tested, undefined, '終わりのメッセージが無ければ入れない');
+});

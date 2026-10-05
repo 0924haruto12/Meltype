@@ -11,7 +11,7 @@ import { AttachmentBuilder, Client, EmbedBuilder, Events, GatewayIntentBits, Per
 import { code, helpText, parseChannelIds, parseCommand, parseNumber, shorten } from './commands.mjs';
 import { formatJht } from './jht-format.mjs';
 import { ChannelCheckQueue, readAllMessages } from './channel-check.mjs';
-import { formatSummary, loadEnglishWords, parseJhtEmbed, summarize, summaryJson } from './summary.mjs';
+import { formatSummary, loadEnglishWords, parseChjhtDone, parseJhtEmbed, summarize, summaryJson } from './summary.mjs';
 import { JhtWorkers, runHenkan, runJht, sanitizeKeys } from './henkan.mjs';
 import { Kinds, ListStore, Status } from './store.mjs';
 
@@ -144,17 +144,21 @@ async function handleSummary(message, rest) {
   }
   const waiting = await message.reply(`⏳ ${channels.map(c => `<#${c.id}>`).join(' ')} の結果を読んでいます…`);
   const entries = [];
+  const runs = [];
   for (const channel of channels) {
     for (const m of await readAllMessages(channel)) {
       if (m.author.id !== client.user.id) continue;
+      // chjht の終わりのメッセージから、試した件数 (問題の無かった文も含む) を読む
+      const run = parseChjhtDone(m.content);
+      if (run) runs.push({ ...run, at: m.createdTimestamp });
       for (const embed of m.embeds) {
         const entry = parseJhtEmbed(embed, m.url);
         if (entry) entries.push({ ...entry, at: m.createdTimestamp });
       }
     }
   }
-  if (entries.length === 0) return waiting.edit('指定したチャンネルに jht の結果が見つかりませんでした。');
-  const summary = summarize(entries, { englishWords });
+  if (entries.length === 0 && runs.length === 0) return waiting.edit('指定したチャンネルに jht の結果が見つかりませんでした。');
+  const summary = summarize(entries, { englishWords, runs });
   // 文は概要と上位だけ (1 メッセージ)。全体は JSON のファイルで添える
   const file = new AttachmentBuilder(Buffer.from(JSON.stringify(summaryJson(summary, channels.map(c => c.id)), null, 2), 'utf8'), { name: 'summary.json' });
   await waiting.edit({ content: formatSummary(summary, channels.map(c => c.id), 'summary.json'), files: [file] });
