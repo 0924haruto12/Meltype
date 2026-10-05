@@ -56,6 +56,33 @@ if (-not (Test-Path -LiteralPath $exe)) {
     exit 1
 }
 
+# インターネットから落とした印 (Zone.Identifier) はコピーにも付いてくるので外す (起動時の SmartScreen の確認を減らす)
+Get-ChildItem -LiteralPath $target -Recurse -File | Unblock-File -ErrorAction SilentlyContinue
+
+# Windows の「設定 → アプリ → インストールされているアプリ」からアンインストールできるようにする。
+# 前は zip を展開したフォルダーの Uninstall.cmd しか無く、zip を消していると探し直す手間がかかった。
+$uninstaller = Join-Path $target 'uninstall.ps1'
+$uninstallSource = Join-Path $PSScriptRoot 'uninstall.ps1'
+if (Test-Path -LiteralPath $uninstallSource) {
+    Copy-Item -LiteralPath $uninstallSource -Destination $uninstaller -Force
+    Unblock-File -LiteralPath $uninstaller -ErrorAction SilentlyContinue
+    $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Meltype'
+    New-Item -Path $key -Force | Out-Null
+    $size = [int]((Get-ChildItem -LiteralPath $target -Recurse -File | Measure-Object Length -Sum).Sum / 1KB)
+    $values = @{
+        DisplayName     = 'Meltype'
+        DisplayVersion  = (Get-Item -LiteralPath $exe).VersionInfo.ProductVersion
+        Publisher       = 'Yukishiro'
+        DisplayIcon     = $exe
+        InstallLocation = $target
+        UninstallString = "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$uninstaller`" -FromSettings"
+        URLInfoAbout    = 'https://github.com/yksr-melt/Meltype'
+    }
+    foreach ($name in $values.Keys) { Set-ItemProperty -Path $key -Name $name -Value $values[$name] }
+    foreach ($name in 'NoModify', 'NoRepair') { Set-ItemProperty -Path $key -Name $name -Value 1 -Type DWord }
+    Set-ItemProperty -Path $key -Name EstimatedSize -Value $size -Type DWord
+}
+
 $startup = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut((Join-Path $startup 'Meltype.lnk'))
