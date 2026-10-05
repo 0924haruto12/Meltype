@@ -45,6 +45,9 @@ internal static class CompositionTests
                 "え、しらん" => [new("え", "得"), new("、", "、"), new("しらん", "知らん")],
                 "えかく" => [new("え", "絵"), new("かく", "描く")],
                 "がちでやばい" => [new("がちで", "勝ちで"), new("やばい", "ヤバい")],
+                // 英単語の後ろの する の活用: した → 下、したい → 死体
+                "した" => [new("した", "下")],
+                "したい" => [new("したい", "死体")],
                 _ => null,
             };
         }
@@ -334,7 +337,9 @@ internal static class CompositionTests
     public static void Clauses_InterjectionE_AndGachi()
     {
         // summary.json: 文頭の「え、」が 得、、がちで が 勝ちで になっていた (勝ち の読みは かち)
-        foreach (var (typed, expected) in new[] { ("e,shiran ", "え|、|知らん"), ("ekaku ", "絵|描く"), ("gachideyabai ", "ガチで|ヤバい") })
+        foreach (var (typed, expected) in new[] { ("e,shiran ", "え|、|知らん"), ("ekaku ", "絵|描く"), ("gachideyabai ", "ガチで|ヤバい"),
+            // 英単語 + する: push|下、commit|死体 になっていた。英単語の無いところ (した = 下) は変換エンジンのまま
+            ("pushshita ", "push|した"), ("commitshitai ", "commit|したい"), ("shita ", "下") })
         {
             var k = new Keyboard();
             k.Type(typed);
