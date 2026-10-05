@@ -194,6 +194,28 @@ public sealed class MeltypeSession
         return _host.Result(consumed: true);
     }
 
+    /// <summary>
+    /// 文字を伴わない・扱えないキーを、変換ボックスの状態を変えずにアプリへそのまま渡す (Consumed = false)。
+    /// 不正な C ABI の引数で不正な文字列を作らないための経路。
+    /// </summary>
+    public SessionResult PassThrough()
+    {
+        _host.Begin(null, false, null, null);
+        return _host.Result(consumed: false);
+    }
+
+    /// <summary>
+    /// 未確定の内容を確定したうえで、元の OS イベントを 1 回だけアプリへ通す (Consumed = false)。
+    /// 補助面の文字 (非 BMP) を char へ切り詰めずに渡すための経路。確定と pass-through を二重に行わない。
+    /// </summary>
+    public SessionResult CommitForPassThrough()
+    {
+        _host.Begin(null, false, null, null);
+        _controller.CommitPending();
+        _controller.ResetContext();
+        return _host.Result(consumed: false);
+    }
+
     /// <summary>候補ウィンドウで候補をクリックしたとき。</summary>
     public SessionResult SelectCandidate(int index)
     {

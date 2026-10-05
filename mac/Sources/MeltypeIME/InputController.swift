@@ -44,8 +44,16 @@ final class MeltypeInputController: IMKInputController {
         }
 
         guard let vk = KeyMapping.virtualKey(for: event) else { return false }
-        let utf16 = Array((event.characters ?? "").utf16)
-        let character: Int32 = utf16.count == 1 ? Int32(utf16[0]) : 0
+        // event.characters は「見た目の 1 文字」で、UTF-16 要素が複数のことがある
+        // (補助面の文字・結合文字・ZWJ 絵文字・異体字セレクター)。1 要素へ切り詰めたり 0 に置き換えたりしない。
+        // 1 スカラーならそのコードポイントのまま本体へ渡し、複数スカラーは未確定内容だけ確定して
+        // 元のイベントを 1 回アプリへ通す (本体側の pass-through 契約と対にする)。
+        let scalars = Array((event.characters ?? "").unicodeScalars)
+        if scalars.count > 1 {
+            apply(NativeCore.shared.commit(session), to: client)
+            return false
+        }
+        let character: Int32 = scalars.count == 1 ? Int32(scalars[0].value) : 0
         let flags = event.modifierFlags
         var modifiers: Int32 = 0
         if flags.contains(.shift) { modifiers |= 1 }

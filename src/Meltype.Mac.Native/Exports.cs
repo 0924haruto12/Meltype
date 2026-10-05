@@ -97,9 +97,22 @@ public static unsafe class Exports
     [UnmanagedCallersOnly(EntryPoint = "meltype_handle_key")]
     public static byte* HandleKey(IntPtr handle, int vk, int ch, int modifiers, byte* before, byte* after)
     {
-        return Run(handle, session => session.HandleKey(vk, ch > 0 ? (char)ch : null,
-            (modifiers & 1) != 0, (modifiers & 2) != 0, (modifiers & 4) != 0, (modifiers & 8) != 0, FromUtf8(before), FromUtf8(after)));
+        return Run(handle, session =>
+        {
+            // 文字を伴わない・扱えない入力。不正な Unicode (負数・単独サロゲート・上限超過) は
+            // 文字列を作らず、状態も変えずにアプリへそのまま渡す。
+            if (IsInvalidCodeUnit(ch)) return session.PassThrough();
+            // 補助面の有効なスカラー (U+10000..U+10FFFF) は char (UTF-16 1 コードユニット) へ切り詰められない。
+            // 未確定の内容をここで確定してから、元の OS イベントを 1 回だけアプリへ通す (Consumed = false)。
+            if (ch > 0xFFFF) return session.CommitForPassThrough();
+            return session.HandleKey(vk, ch > 0 ? (char)ch : null,
+                (modifiers & 1) != 0, (modifiers & 2) != 0, (modifiers & 4) != 0, (modifiers & 8) != 0, FromUtf8(before), FromUtf8(after));
+        });
     }
+
+    /// <summary>不正な文字の引数か。0 は「文字を伴わないキー」なので不正ではない。</summary>
+    private static bool IsInvalidCodeUnit(int ch) =>
+        ch < 0 || ch > 0x10FFFF || (ch >= 0xD800 && ch <= 0xDFFF);
 
     /// <summary>未確定の内容を確定する (フォーカスが外れたときなど)。</summary>
     [UnmanagedCallersOnly(EntryPoint = "meltype_commit")]
