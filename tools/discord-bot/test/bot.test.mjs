@@ -168,3 +168,36 @@ test('summary: チャンネルの指定・結果の読み取り・重複の無�
   assert.deepEqual(groups.ambiguous.map(e => e.expected), ['トマトを買う']);
   assert.deepEqual(groups.split.map(e => e.expected), ['goodかも'], 'ローマ字として読めない英単語は除外しない');
 });
+
+test('jht のテスト用プログラムを起動したまま続けて使い、止まっても続ける・秘密は渡さない', async () => {
+  const { JhtWorkers, childEnv } = await import('../henkan.mjs');
+  const { spawn } = await import('node:child_process');
+  // テスト用プログラムの代わり: 1 行読むごとに 1 行の JSON を返す。「落ちる」なら止まる・「エラー」なら error を返す
+  const fake = `
+    const rl = require('node:readline').createInterface({ input: process.stdin });
+    rl.on('line', line => {
+      if (line === '') process.exit(0);
+      if (line === '落ちる') process.exit(1);
+      if (line === 'エラー') return console.log(JSON.stringify({ error: '読みが分かりません' }));
+      console.log(JSON.stringify({ expected: line, pid: process.pid, token: process.env.DISCORD_TOKEN ?? null, results: [] }));
+    });`;
+  let started = 0;
+  const workers = new JhtWorkers({
+    dll: 'x.dll', mozc: '', size: 2, idleMs: 50,
+    spawn: (_command, _args, options) => { started++; return spawn(process.execPath, ['-e', fake], options); },
+  });
+  const texts = ['あ', 'い', 'う', 'え', 'お'];
+  const results = await Promise.all(texts.map(t => workers.run(t)));
+  assert.deepEqual(results.map(r => r.expected), texts);
+  assert.equal(started, 2, '同時に 2 つまで。続きは起動したままのプロセスで');
+  assert.equal(new Set(results.map(r => r.pid)).size, 2);
+  await assert.rejects(workers.run('エラー'), e => e.userMessage === '読みが分かりません');
+  await assert.rejects(workers.run('落ちる'));
+  assert.equal((await workers.run('か')).expected, 'か', 'プロセスが止まっても次の文は新しいプロセスで試す');
+  await assert.rejects(workers.run('\n'), e => e.userMessage === '文が空です。');
+  workers.close();
+  assert.equal(workers.size, 0);
+
+  const env = childEnv('mozc.exe', { DISCORD_TOKEN: 'secret', GH_TOKEN: 'x', PATH: '/bin' });
+  assert.deepEqual(env, { PATH: '/bin', MELTYPE_MOZC: 'mozc.exe' }, 'トークンはテスト用プログラムに渡さない');
+});

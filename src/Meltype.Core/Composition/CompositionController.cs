@@ -973,9 +973,30 @@ public sealed class CompositionController
             // カタカナの語の後ろの「っ」で始まる文節 (スパイダーマ + っ！) は、カタカナの「ッ」にする (スパイダーマッ！)。
             preferred ??= i > 0 && clauses[i].Text.StartsWith('っ') && clauses[i - 1].Text is [.., var last] && last is >= 'ァ' and <= 'ヺ' or 'ー'
                 ? "ッ" + clauses[i].Text[1..] : null;
+            // 文頭・記号の後ろの「え、」「え？」(聞き返し) を、変換エンジンは 得 にしてしまう (得、知らん)。かなのまま
+            preferred ??= IsInterjection(clauses, i) ? clauses[i].Reading : null;
+            // がち (ガチで) を、変換エンジンは 勝ち にしてしまう (勝ちでやばい)。勝ち の読みは かち なので、がち は ガチ にする
+            preferred ??= clauses[i].Reading.StartsWith("がち", StringComparison.Ordinal) && clauses[i].Text.StartsWith("勝ち", StringComparison.Ordinal)
+                ? "ガチ" + clauses[i].Text["勝ち".Length..] : null;
             if (preferred is not null) Prefer(clauses[i], preferred);
         }
         return clauses;
+    }
+
+    private static readonly HashSet<char> SentencePunctuation = ['、', '。', '，', '．', ',', '.', '！', '？', '!', '?', '…', '‥', '「', '」', '(', ')', '（', '）', ' ', '　'];
+
+    /// <summary>
+    /// 文節が「え」だけ (後ろに記号が付いていてもよい) で、文の頭か記号の後ろにあり、後ろが記号か文の終わりか。
+    /// こういう「え」は聞き返し・驚き (え、しらん) で、絵 や 得 ではない。
+    /// </summary>
+    private bool IsInterjection(List<Clause> clauses, int i)
+    {
+        var reading = clauses[i].Reading;
+        if (reading.Length == 0 || reading[0] != 'え' || !reading.Skip(1).All(SentencePunctuation.Contains) || clauses[i].Text == reading) return false;
+        var before = i > 0 ? clauses[i - 1].Text : _precedingText ?? "";
+        if (before.Length > 0 && !SentencePunctuation.Contains(before[^1])) return false;
+        if (reading.Length > 1) return true;
+        return i + 1 == clauses.Count || clauses[i + 1].Text is [var next, ..] && SentencePunctuation.Contains(next);
     }
 
     /// <summary>

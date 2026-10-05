@@ -12,7 +12,7 @@ import { code, helpText, parseChannelIds, parseCommand, parseNumber, shorten } f
 import { formatJht } from './jht-format.mjs';
 import { ChannelCheckQueue, readAllMessages } from './channel-check.mjs';
 import { formatSummary, loadEnglishWords, parseJhtEmbed, summarize, summaryJson } from './summary.mjs';
-import { runHenkan, runJht, sanitizeKeys } from './henkan.mjs';
+import { JhtWorkers, runHenkan, runJht, sanitizeKeys } from './henkan.mjs';
 import { Kinds, ListStore, Status } from './store.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -72,15 +72,26 @@ async function isManager(message) {
   return isManagerMember(member);
 }
 
+/** そのチャンネルを読めるか (見る・履歴を読む)。bot の権限で読めても、頼んだ人が読めないチャンネルの中身は出さない。 */
+function canRead(channel, memberOrUser) {
+  let permissions = null;
+  try { permissions = memberOrUser ? channel.permissionsFor?.(memberOrUser) : null; } catch { return false; }
+  return Boolean(permissions?.has(PermissionFlagsBits.ViewChannel) && permissions.has(PermissionFlagsBits.ReadMessageHistory));
+}
+
 function isManagerMember(member) {
   if (config.managerRole) return member.roles.cache.has(config.managerRole);
   return member.permissions.has(PermissionFlagsBits.ManageMessages);
 }
 
+const concurrency = Math.min(16, Math.max(1, Number(env.CHJHT_CONCURRENCY) || 4));
+// chjht は多くの文を試すので、起動したままのテスト用プログラムで続けて試す (1 文ごとに dotnet と Mozc を起動し直さない)
+let jhtWorkers = null;
+const workers = () => (jhtWorkers ??= new JhtWorkers({ dll: config.dll, mozc: fs.existsSync(config.mozc) ? config.mozc : '', size: concurrency }));
 const channelQueue = new ChannelCheckQueue({
-  runJht: text => runJht(text, { dll: config.dll, mozc: fs.existsSync(config.mozc) ? config.mozc : '' }),
+  runJht: text => workers().run(text),
   formatJht,
-  concurrency: Number(env.CHJHT_CONCURRENCY) || 4,
+  concurrency,
 });
 
 async function handleChannelJht(message, rest) {
@@ -97,8 +108,10 @@ async function handleChannelJht(message, rest) {
   if (!targetMember || !isManagerMember(targetMember)) {
     return message.reply('対象サーバーでも管理する人である必要があります。');
   }
-  const permissions = target.permissionsFor?.(client.user);
-  if (permissions && (!permissions.has(PermissionFlagsBits.ViewChannel) || !permissions.has(PermissionFlagsBits.ReadMessageHistory))) {
+  if (!canRead(target, targetMember)) {
+    return message.reply('そのチャンネルが見つからないか、読めません (bot が参加しているサーバーのテキストチャンネルを指定してください)。');
+  }
+  if (!canRead(target, client.user)) {
     return message.reply('対象チャンネルで bot に「チャンネルを見る」と「メッセージ履歴を読む」権限が必要です。');
   }
   const targetLabel = target.guildId === message.guildId
@@ -120,10 +133,11 @@ async function handleSummary(message, rest) {
   if (!await isManager(message)) return message.reply('`summary` はチャンネルを全部読むので、管理する人だけが使えます。');
   const ids = parseChannelIds(rest);
   if (ids.length === 0) return message.reply(`chjht の結果が流れたチャンネルを指定してください (例: ${me()} ${code('summary #チャンネル1 #チャンネル2')})。`);
+  const member = message.member ?? await message.guild.members.fetch(message.author.id).catch(() => null);
   const channels = [];
   for (const id of ids) {
     const channel = await client.channels.fetch(id).catch(() => null);
-    if (!channel || channel.guildId !== message.guildId || !channel.isTextBased?.() || !channel.messages) {
+    if (!channel || channel.guildId !== message.guildId || !channel.isTextBased?.() || !channel.messages || !canRead(channel, member)) {
       return message.reply(`<#${id}> が見つからないか、読めません (このサーバーのテキストのチャンネルで、bot が読めるもの)。`);
     }
     channels.push(channel);
