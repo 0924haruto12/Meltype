@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Yukishiro
 
+using System.Text;
 using Meltype.Config;
 using Meltype.Detection;
 
@@ -71,6 +72,9 @@ public sealed class CompositionDetector
     public IReadOnlyList<CompositionSegment> Segment(IReadOnlyList<CompositionUnit> units, string pending, bool? precedingEnglish = null, bool? followingEnglish = null,
         DetectionLevel level = DetectionLevel.Balanced, bool englishSentence = false, bool kanaInput = false, bool final = false)
     {
+        // 区間分けは units[i..j] の生文字列・かなを何度も作る。1 回の Segment 呼び出しの間だけ、
+        // 連結した原文と各位置のオフセットを使い回す (内容・順序は同じで、文字列を毎回連結しない)。
+        Prepare(units);
         var segments = FindSpans(units, pending, precedingEnglish, followingEnglish, level, englishSentence && precedingEnglish == true, kanaInput, final);
         if (kanaInput) return segments;
         // 辞書にない英単語 (stackoverflow など) を最初から打っているなら全体を英語にする。
@@ -552,7 +556,7 @@ public sealed class CompositionDetector
     /// @ の後ろ (Discord・X のメンション @kuraido) と、_ の入った語 (upah_setu、cafely_latte) は、ローマ字として読めても英字のまま。
     /// 英字・数字・_ が続く所までがユーザー名 (@ の後ろは、メールアドレスのドメインの . - も含める)。
     /// </summary>
-    private static int UserNameEnd(IReadOnlyList<CompositionUnit> units, int start, string pending)
+    private int UserNameEnd(IReadOnlyList<CompositionUnit> units, int start, string pending)
     {
         static bool IsNameUnit(CompositionUnit unit) => unit.Raw.Length > 0 && unit.Raw.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
         var n = units.Count;
@@ -660,7 +664,7 @@ public sealed class CompositionDetector
         return typo.Count == 0;
     }
 
-    private static CompositionSegment Japanese(IReadOnlyList<CompositionUnit> units, int start, int end, string pending)
+    private CompositionSegment Japanese(IReadOnlyList<CompositionUnit> units, int start, int end, string pending)
     {
         var kana = string.Concat(Enumerable.Range(start, end - start).Select(k => units[k].Kana));
         return new CompositionSegment(false, kana, Raw(units, start, end) + pending);
@@ -713,9 +717,46 @@ public sealed class CompositionDetector
                Enumerable.Range(k + 1, units.Count - k - 1).TakeWhile(j => units[j].Raw.Length > 0 && char.IsAsciiLetter(units[j].Raw[0])).All(j => units[j].Raw is "w" or "W");
     }
 
-    private static string Kana(IReadOnlyList<CompositionUnit> units, int start, int end) =>
-        string.Concat(Enumerable.Range(start, end - start).Select(k => units[k].Kana));
+    private IReadOnlyList<CompositionUnit>? _preparedUnits;
+    private string _preparedRaw = "";
+    private int[] _preparedRawOffsets = [];
+    private string _preparedKana = "";
+    private int[] _preparedKanaOffsets = [];
 
-    private static string Raw(IReadOnlyList<CompositionUnit> units, int start, int end) =>
-        string.Concat(Enumerable.Range(start, end - start).Select(k => units[k].Raw));
+    /// <summary>この Segment 呼び出しの units で、原文・かなの連結と位置を用意する (Segment の先頭で必ず呼ぶ)。</summary>
+    private void Prepare(IReadOnlyList<CompositionUnit> units)
+    {
+        var raw = new StringBuilder();
+        var rawOffsets = new int[units.Count + 1];
+        var kana = new StringBuilder();
+        var kanaOffsets = new int[units.Count + 1];
+        for (var i = 0; i < units.Count; i++)
+        {
+            rawOffsets[i] = raw.Length;
+            raw.Append(units[i].Raw);
+            kanaOffsets[i] = kana.Length;
+            kana.Append(units[i].Kana);
+        }
+        rawOffsets[units.Count] = raw.Length;
+        kanaOffsets[units.Count] = kana.Length;
+        _preparedUnits = units;
+        _preparedRaw = raw.ToString();
+        _preparedRawOffsets = rawOffsets;
+        _preparedKana = kana.ToString();
+        _preparedKanaOffsets = kanaOffsets;
+    }
+
+    private string Kana(IReadOnlyList<CompositionUnit> units, int start, int end)
+    {
+        if (ReferenceEquals(units, _preparedUnits) && start >= 0 && end < _preparedKanaOffsets.Length)
+            return _preparedKana.Substring(_preparedKanaOffsets[start], _preparedKanaOffsets[end] - _preparedKanaOffsets[start]);
+        return string.Concat(Enumerable.Range(start, end - start).Select(k => units[k].Kana));
+    }
+
+    private string Raw(IReadOnlyList<CompositionUnit> units, int start, int end)
+    {
+        if (ReferenceEquals(units, _preparedUnits) && start >= 0 && end < _preparedRawOffsets.Length)
+            return _preparedRaw.Substring(_preparedRawOffsets[start], _preparedRawOffsets[end] - _preparedRawOffsets[start]);
+        return string.Concat(Enumerable.Range(start, end - start).Select(k => units[k].Raw));
+    }
 }
