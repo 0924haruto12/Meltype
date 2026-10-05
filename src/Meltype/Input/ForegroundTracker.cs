@@ -109,6 +109,8 @@ internal sealed class ForegroundTracker
     [
         @"\steamapps\common\", @"\Epic Games\", @"\Riot Games\", @"\EA Games\", @"\Electronic Arts\",
         @"\Ubisoft Game Launcher\games\", @"\Battle.net\", @"\XboxGames\", @"\GOG Galaxy\Games\", @"\Origin Games\",
+        // 専用のランチャーから入れるゲーム (PSO2 NGS: …\PHANTASYSTARONLINE2_JP\pso2_bin\pso2.exe)
+        @"\pso2_bin\",
     ];
 
     public static bool LooksLikeGame(string path) =>

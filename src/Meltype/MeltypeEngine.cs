@@ -189,7 +189,9 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             lock (_swallowedToggleUps) if (_swallowedToggleUps.Remove(e.Vk)) return true;
         }
         // 英数状態で英語と判定した単語は、区切りのキー (Space・記号など) が来たら終わり。次の単語はまた判定する。
-        if (_keyboardDirect && e.IsDown && !VirtualKeys.IsLetter(e.Vk) && !VirtualKeys.IsModifier(e.Vk)) _directEnglishWord = false;
+        // @ と _ の後ろはユーザー名 (@kuraido、upah_setu) なので判定しない (ローマ字として読めても日本語にしない)。
+        if (_keyboardDirect && e.IsDown && !VirtualKeys.IsLetter(e.Vk) && !VirtualKeys.IsModifier(e.Vk))
+            _directEnglishWord = !e.Injected && KeyText.CharFromKey(e.Vk, e.Scan, false) is '@' or '_';
         var swallowed = composition.Gate.OnKey(e, StartsComposition);
         // Meltype を通らずにアプリへ届いたキーはキャレットを動かすかもしれない。直前の語を確定し直さないようにする。
         if (!swallowed && e.IsDown && !VirtualKeys.IsModifier(e.Vk)) composition.ForgetLastCommit();
@@ -316,7 +318,6 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             // 英数状態: ローマ字かどうかを判定するために、単語の打ち始めの英字だけを受け取る。
             // 英語と分かった単語の続きは、区切り (Space など) まで素通しする。
             if (!letter || !settings.DirectModeAutoDetect || settings.ForApp(_foreground.Current.ProcessName).DetectionLevel == DetectionLevel.Manual || _directEnglishWord) return false;
-            if (_composition?.Focus.CanCaptureWaiting() != true) Log.Info("英数状態: 入力欄を確認できないので判定しない");
         }
         else if (!letter && !punctuation)
         {

@@ -531,6 +531,9 @@ internal static class LanguageLearningTests
                 ("kitaw!", "きたw！"), ("hontow?w", "ほんとw？w"),
                 // 略語 + 日本語 + 記号は今までどおり (BE|かな？ が BEkana？ になっていた)
                 ("tougouhandakaraBEkana?", "とうごうはんだからBEかな？"), ("fubusangaXshisuginadakenanda!!", "ふぶさんがXしすぎなだけなんだ！！"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),
+                // テスターの報告 (2026-10-05): 英語のユーザー名が打てない。@ の後ろ (メンション)・_ の入った語は英字のまま
+                ("@kuraido", "@kuraido"), ("@una08142009 arigatou", "@una08142009 ありがとう"), ("upah_setu", "upah_setu"), ("cafely_latte", "cafely_latte"),
+                ("taro@gmail.com", "たろ@gmail.com"), ("@akisamesan", "@akisamesan"),
             })
             {
                 var k = new CompositionTests.Keyboard();

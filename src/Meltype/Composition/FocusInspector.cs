@@ -68,6 +68,11 @@ public sealed class FocusInspector : IDisposable
     /// </summary>
     public bool CanCaptureWaiting(int waitMs = 80)
     {
+        // 待つのは、同じウィンドウで直前に調べた所が入力欄だったときだけ (Discord の # の候補)。
+        // ゲームなど入力欄の無いウィンドウでは待たない: クリックのたびに調べ直すので、
+        // キーを押すたびにフックで最大 waitMs 止まり、ゲームの操作が遅れていた (PSO2 NGS)。
+        var last = _info;
+        if (!last.IsTextInput || last.IsPassword || Native.GetForegroundWindow() != _inspectedForeground) waitMs = 0;
         var deadline = Environment.TickCount64 + waitMs;
         while (Interlocked.Read(ref _resolvedSequence) != Interlocked.Read(ref _focusSequence) && Environment.TickCount64 < deadline) Thread.Sleep(5);
         // 調べ終わらなかったときに直前の結果を使うのは、前面のウィンドウが同じときだけ (別のアプリのパスワード欄などに移った直後は使わない)。

@@ -137,6 +137,7 @@ public sealed class CompositionDetector
             // 英文の中の記号 (, . ! ? -) は読点・句点にせず半角のまま。日本語の文の中の英単語の後 (今日はgoogle、) は日本語の記号。
             // (かな入力では 、。 も かなのキーなので対象外)
             if (!kanaInput && IsAsciiSymbol(units[i]) && PrecededByEnglish(i) == true && segments.All(s => s.IsEnglish || !s.Raw.Any(char.IsAsciiLetter))) found = i + 1;
+            if (!kanaInput && found < 0) found = UserNameEnd(units, i, pending);
             if (!kanaInput && found < 0 && level != DetectionLevel.Manual) found = CapitalizedWordEnd(units, i, pending, final);
             if (!kanaInput && found < 0 && level != DetectionLevel.Manual) found = HyphenatedWordEnd(units, i, pending);
             // 英語の語 + 数字のすぐ後ろの英単語 (part1026|beta、win11|pro) は、ローマ字として読めても英語 (ベタ にしない)。
@@ -544,6 +545,30 @@ public sealed class CompositionDetector
         if (dash <= 0 || lower.IndexOf('-', dash + 1) >= 0) return false;
         var rest = lower[(dash + 1)..];
         return HyphenPrefixes.Contains(lower[..dash]) && rest.Length >= 3 && rest.All(char.IsAsciiLetterLower) && IsKnownEnglishWord(rest);
+    }
+
+    /// <summary>
+    /// start から始まるユーザー名の終わり。無ければ -1。
+    /// @ の後ろ (Discord・X のメンション @kuraido) と、_ の入った語 (upah_setu、cafely_latte) は、ローマ字として読めても英字のまま。
+    /// 英字・数字・_ が続く所までがユーザー名 (@ の後ろは、メールアドレスのドメインの . - も含める)。
+    /// </summary>
+    private static int UserNameEnd(IReadOnlyList<CompositionUnit> units, int start, string pending)
+    {
+        static bool IsNameUnit(CompositionUnit unit) => unit.Raw.Length > 0 && unit.Raw.All(c => char.IsAsciiLetterOrDigit(c) || c == '_');
+        var n = units.Count;
+        if (!IsNameUnit(units[start]) || start > 0 && IsNameUnit(units[start - 1])) return -1;
+        var mention = start > 0 && units[start - 1].Raw == "@";
+        var end = start;
+        while (end < n && IsNameUnit(units[end])) end++;
+        // メールアドレスのドメイン (taro@gmail.com) の . - も続けて英字に。
+        while (mention && end + 1 < n && units[end].Raw is "." or "-" && IsNameUnit(units[end + 1]))
+        {
+            end++;
+            while (end < n && IsNameUnit(units[end])) end++;
+        }
+        var name = Raw(units, start, end) + (end == n ? pending : "");
+        if (!name.Any(char.IsAsciiLetter)) return -1;
+        return mention || name.Contains('_') ? end : -1;
     }
 
     /// <summary>
