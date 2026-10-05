@@ -767,13 +767,15 @@ public sealed class CompositionText
         if (count == 0) return end;
         // 1 つだけの w は、日本語のかなの後ろ (きた + w) のときだけ笑いとみなす
         if (count == 1 && !(start > 0 && _units[start - 1].Kana is [var kana, ..] && kana is >= 'ぁ' and <= 'ヺ')) return end;
-        // 前から続く英単語の終わり (aww・new・show) なら笑いではない
+        // 前から続く英単語の終わり (aww・new・show) なら笑いではない。英単語とみなすのは、英字の並びの頭から始まる語か、同梱の辞書の語だけ
+        // (スペルチェッカーの短い語が音の途中から見つかる kiyagat|taw の taw で、笑いの w を英字にしていた)
         var letters = string.Concat(_units.Skip(start).Take(end - start).Select(u => u.Raw)) + pending;
         var laugh = letters;
         for (var i = start - 1; i >= 0 && _units[i].Raw.Length > 0 && _units[i].Raw.All(char.IsAsciiLetter); i--)
         {
             letters = _units[i].Raw + letters;
-            if (letters.Length >= 3 && _detector.IsKnownEnglishWord(letters)) return end;
+            var runStart = i == 0 || !IsLetters(_units[i - 1].Raw);
+            if (letters.Length >= 3 && (runStart ? _detector.IsKnownEnglishWord(letters) : _detector.IsListedEnglishWord(letters.ToLowerInvariant()))) return end;
         }
         _units.RemoveRange(start, end - start);
         if (withPending) _pending.Clear();

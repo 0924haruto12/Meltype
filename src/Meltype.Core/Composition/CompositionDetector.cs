@@ -671,9 +671,21 @@ public sealed class CompositionDetector
     {
         for (var k = start; k < end; k++)
         {
-            if (units[k] is { Raw.Length: 1 } unit && unit.Kana == unit.Raw && char.IsAsciiLetter(unit.Raw[0])) return true;
+            if (units[k] is { Raw.Length: 1 } unit && unit.Kana == unit.Raw && char.IsAsciiLetter(unit.Raw[0]) && !IsLaughter(units, k)) return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// かなのすぐ後ろに続く w の単位 (きた|w|w): 笑いとして w のまま残したもの。ローマ字として読めなかった英字 (zoom の m) とは違うので、
+    /// 英単語の根拠にしない (kiyagat|ta|w の ta + w を英単語 taw にしていた)。
+    /// </summary>
+    private static bool IsLaughter(IReadOnlyList<CompositionUnit> units, int k)
+    {
+        var i = k;
+        while (i >= 0 && units[i].Raw is "w" or "W" && units[i].Kana == units[i].Raw) i--;
+        return i < k && i >= 0 && units[i].Kana is [var kana, ..] && kana is >= 'ぁ' and <= 'ヺ' &&
+               Enumerable.Range(k + 1, units.Count - k - 1).TakeWhile(j => units[j].Raw.Length > 0 && char.IsAsciiLetter(units[j].Raw[0])).All(j => units[j].Raw is "w" or "W");
     }
 
     private static string Kana(IReadOnlyList<CompositionUnit> units, int start, int end) =>

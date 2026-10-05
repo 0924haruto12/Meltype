@@ -54,6 +54,34 @@ internal static class FeedbackTests
         Assert.Equal("かW", Showing("kaW"));
     }
 
+    /// <summary>短い英単語だけを知っているスペルチェッカー (Windows のスペルチェッカーの代わり)。</summary>
+    private sealed class FewWordsChecker(params string[] words) : Detection.IWordChecker
+    {
+        public bool IsAvailable => true;
+        public bool IsWord(string lower) => words.Contains(lower);
+    }
+
+    [Test]
+    public static void Laughter_IsNotTakenAsWordFoundMidRomaji()
+    {
+        // Windows のスペルチェッカーは taw (ビー玉) を知っている。kiyagat|taw の taw で、笑いの w を英字にしていた (きやがっtaw)
+        var saved = CompositionTests.Detector.SpellChecker;
+        CompositionTests.Detector.SpellChecker = new FewWordsChecker("taw", "new", "show");
+        try
+        {
+            foreach (var (typed, expected) in new[] { ("kiyagattaw", "きやがったw"), ("kitaw!", "きたw！"), ("new", "new"), ("show", "show") })
+            {
+                var k = new CompositionTests.Keyboard();
+                k.Type(typed + "\n");
+                Assert.Equal(expected, k.Host.Document, typed);
+            }
+        }
+        finally
+        {
+            CompositionTests.Detector.SpellChecker = saved;
+        }
+    }
+
     [Test]
     public static void ShiftedSymbols_StartComposition()
     {
