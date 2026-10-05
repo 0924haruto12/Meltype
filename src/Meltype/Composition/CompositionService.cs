@@ -84,6 +84,9 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     public CompositionController Controller { get; }
 
+    /// <summary>入力言語による制限。フックで保留した後・タイマーで判定する前にも確かめる。</summary>
+    public Func<bool> InputAllowed { get; set; } = () => true;
+
     /// <summary>選び直した変換の学習データ (トレイの「学習データをリセット」で消す)。</summary>
     public ConversionHistory History { get; }
 
@@ -153,6 +156,11 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     {
         try
         {
+            if (!InputAllowed())
+            {
+                Controller.SuspendInput();
+                return;
+            }
             action();
         }
         catch (Exception ex)
@@ -194,6 +202,11 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     /// <summary>自動切替を止めたときなど。未確定の内容を確定し、残りの入力を通す。</summary>
     public void Flush()
     {
+        if (!InputAllowed())
+        {
+            Controller.SuspendInput();
+            return;
+        }
         Controller.CommitPending();
         ReplayAll(Gate.Abort());
         Hide();
@@ -232,6 +245,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     {
         try
         {
+            if (!InputAllowed()) return;
             if (IME.ImeTarget.FromForeground() is not { } target) return;
             var state = _imm32.GetState(target);
             if (state.Mode != IME.ImeMode.Open) return;
