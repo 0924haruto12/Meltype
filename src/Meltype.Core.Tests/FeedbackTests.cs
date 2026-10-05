@@ -533,7 +533,8 @@ internal static class LanguageLearningTests
                 ("tougouhandakaraBEkana?", "とうごうはんだからBEかな？"), ("fubusangaXshisuginadakenanda!!", "ふぶさんがXしすぎなだけなんだ！！"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),
                 // テスターの報告 (2026-10-05): 英語のユーザー名が打てない。@ の後ろ (メンション)・_ の入った語は英字のまま
                 ("@kuraido", "@kuraido"), ("@una08142009 arigatou", "@una08142009 ありがとう"), ("upah_setu", "upah_setu"), ("cafely_latte", "cafely_latte"),
-                ("taro@gmail.com", "たろ@gmail.com"), ("@akisamesan", "@akisamesan"),
+                // MT-002: メールアドレスは全体を保護する (ローカル部 taro も たろ にしない)。@ の後ろだけを守る旧挙動を変更した。
+                ("taro@gmail.com", "taro@gmail.com"), ("@akisamesan", "@akisamesan"),
             })
             {
                 var k = new CompositionTests.Keyboard();

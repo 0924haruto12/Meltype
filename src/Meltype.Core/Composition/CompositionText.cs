@@ -247,6 +247,24 @@ public sealed class CompositionText
     /// <summary>1 音 (または 1 文字) 消す。入力途中の子音があればそれを 1 文字消す。</summary>
     public void RemoveLast()
     {
+        // 保護範囲 (メンション・URL・パス) の中は、1 音 (く・ら…) ではなく打った原文の 1 文字ずつ消す。
+        if (!KanaInput && HasProtectedTail)
+        {
+            var raw = Raw;
+            if (raw.Length > 0)
+            {
+                var truncated = raw[..^1];
+                _units.Clear();
+                _pending.Clear();
+                foreach (var c in truncated) Append(c);
+                if (IsEmpty)
+                {
+                    Mode = DisplayMode.Auto;
+                    LevelOverride = null;
+                }
+                return;
+            }
+        }
         if (_pending.Length > 0) _pending.Length--;
         else if (_units.Count > 0)
         {
@@ -272,6 +290,8 @@ public sealed class CompositionText
     {
         _units.Clear();
         _pending.Clear();
+        _protectedCache = null;
+        _protectedCacheRaw = null;
         Mode = DisplayMode.Auto;
         LevelOverride = null;
     }
@@ -584,9 +604,49 @@ public sealed class CompositionText
         _ => IsNumeric ? Raw : RenderSegments(final, convert),
     };
 
-    /// <summary>英語区間は英字のまま、日本語区間はかな (または漢字)。</summary>
+    // ---- 保護範囲 (メンション・URL・メール・パス) ----
+
+    private string? _protectedCacheRaw;
+    private IReadOnlyList<ProtectedSpan>? _protectedCache;
+
+    /// <summary>今の原文の保護区間 (原文が変わったら再計算する)。</summary>
+    public IReadOnlyList<ProtectedSpan> ProtectedSpans()
+    {
+        // かな入力では "@" は濁点などのキーで、ローマ字の原文とは意味が違う。保護判定はローマ字入力だけにする。
+        if (KanaInput) return [];
+        var raw = Raw;
+        if (_protectedCache is not null && _protectedCacheRaw == raw) return _protectedCache;
+        _protectedCache = ProtectedSpanScanner.Scan(raw);
+        _protectedCacheRaw = raw;
+        return _protectedCache;
+    }
+
+    /// <summary>原文全体が 1 つの保護区間か (自動変換・幅変換・誤字補正の対象外)。</summary>
+    public bool IsProtectedRaw => !IsEmpty && VerifyProtectedRaw();
+
+    private bool VerifyProtectedRaw()
+    {
+        var spans = ProtectedSpans();
+        return !IsEmpty && spans.Count == 1 && spans[0].Start == 0 && spans[0].End == Raw.Length;
+    }
+
+    /// <summary>原文の末尾が保護区間で終わっているか (Space/Enter/Tab/確定で原文のまま確定する)。</summary>
+    public bool HasProtectedTail
+    {
+        get
+        {
+            var spans = ProtectedSpans();
+            return spans.Count > 0 && spans[^1].End == Raw.Length;
+        }
+    }
+
+    /// <summary>英語区間は英字のまま、日本語区間はかな (または漢字)。保護範囲は打った原文のまま。</summary>
     public string RenderSegments(bool final, Func<string, string>? convert)
     {
+        // 保護範囲 (技術的な文字列) は、幅変換・かな化・漢字変換をせずに原文のまま出す (INV-01)。
+        // 原文全体が保護区間のときだけ適用する。通常の日本語と混ざった入力を
+        // 丸ごと保護してしまうことを避けるためで、混在文の部分保護は今後の課題とする。
+        if (VerifyProtectedRaw()) return Raw;
         var builder = new StringBuilder();
         var segments = Segments(final);
         for (var i = 0; i < segments.Count; i++)

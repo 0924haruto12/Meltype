@@ -411,6 +411,7 @@ public sealed class CompositionController
         switch (vk)
         {
             case VirtualKeys.Return:
+                if (IsProtectedInput) { CommitProtected(""); return; }
                 _text.FixTypos();
                 Commit();
                 return;
@@ -421,6 +422,8 @@ public sealed class CompositionController
                 StartConversion(preferJapanese: true);
                 return;
             case VirtualKeys.Space:
+                // 保護区間 (メンション・URL・パス) の末尾は、自動変換せず原文のまま + 半角空白で確定する。
+                if (IsProtectedInput) { CommitProtected(" "); return; }
                 _text.FixTypos();
                 // 英語と判定した語で終わっているなら、変換ではなく確定して空白を入れる
                 // (日本語の部分は、ライブ変換が ON なら漢字にして、OFF なら見えているかなのまま確定)。
@@ -1278,8 +1281,16 @@ public sealed class CompositionController
         if (!_text.IsEmpty) Commit();
     }
 
+    /// <summary>今の未確定入力が、自動では変換してはいけない保護区間か (F9/F10 などの明示指定は除く)。</summary>
+    private bool IsProtectedInput => _text.Mode == DisplayMode.Auto && _text.HasProtectedTail;
+
     private void Commit(string suffix = "", bool fixEnglish = false)
     {
+        if (IsProtectedInput)
+        {
+            CommitProtected(suffix);
+            return;
+        }
         var converting = _converting && _clauses.Count > 0;
         var text = converting ? string.Concat(_clauses.Select(c => c.Text)) : CurrentDisplay(final: true);
         if (fixEnglish && !converting && _text.Mode == DisplayMode.Auto) text = FixEnglishTypo(text);
@@ -1288,6 +1299,21 @@ public sealed class CompositionController
         if (converting) Learn();
         else LearnLanguage();
         CommitText(text + suffix, english, _text.Raw, chosen);
+    }
+
+    /// <summary>
+    /// 保護区間 (メンション・URL・メール・パス) を、自動変換・かな化・幅変換・誤字補正・学習・確定後補正に
+    /// 渡さず、打った原文のまま確定する。Space は IME が半角空白を 1 つ足し、Enter は足さない。
+    /// </summary>
+    private void CommitProtected(string suffix)
+    {
+        // 表示の再計算に依存せず、打った原文そのものを使う (確定条件で区間分けが変わっても記号を変えない)。
+        var text = (_text.IsProtectedRaw ? _text.Raw : CurrentDisplay(final: true)) + suffix;
+        _converting = false;
+        _clauses = [];
+        _correctable.Clear();
+        // raw を空にして渡し、保護原文を確定後補正・学習の対象にしない (INV-06)。
+        CommitText(text, english: false);
     }
 
     /// <summary>
