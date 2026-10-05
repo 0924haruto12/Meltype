@@ -94,6 +94,7 @@ const LabelInfo = {
   '高DPI': ['FEF2C0', '画面の拡大率が 100% より大きい'],
   '優先: 高': ['B60205', '入力できない・止まる・文字が消えるなど'],
   '優先: 中': ['E99695', 'よくある不具合'],
+  '優先: 低': ['C5DEF5', '見た目だけ・一度だけ起きた・回避方法がある など'],
   'アプリ: チャット': ['BFDADC', 'Discord・Slack・LINE など'],
   'アプリ: コード': ['BFDADC', 'VS Code・ターミナル・Maya など'],
   'アプリ: ブラウザー': ['BFDADC', 'Chrome・Edge・Firefox など'],
@@ -108,8 +109,10 @@ async function ensureLabel(name) {
   knownLabels.add(name);
   const [color, description] = LabelInfo[name] ?? (/^v\d/.test(name) ? ['EDEDED', 'Meltype の版'] : [null, null]);
   if (!color) return; // 雛形で作ってあるラベル (bug・windows など)
-  // 既にあれば 422 が返るだけ
-  await gh('POST', '/labels', { name, color, description }).catch(() => {});
+  // 既にあれば 422 が返るので、色と説明だけそろえる (Issue の画面などで先に作られた灰色のラベル)
+  await gh('POST', '/labels', { name, color, description })
+    .catch(() => gh('PATCH', `/labels/${encodeURIComponent(name)}`, { color, description }))
+    .catch(() => {});
 }
 
 /** 実行環境の欄 (「項目: 値」の行) から付けるラベル。 */
@@ -141,11 +144,18 @@ function triageLabels(form, labels) {
   const text = Object.entries(form).filter(([k]) => !/実行環境|ログ/.test(k)).map(([, v]) => v).join('\n');
   const app = field(form, 'どのアプリで') + '\n' + text;
   const isBug = labels.has('bug') || 'どうなったか' in form;
-  if (isBug) {
-    const severe = text.match(/止ま|落ち|固ま|フリーズ|クラッシュ|入力できな|打てな|文字が消え|消えた|起動しな|起動でき|インストールでき|動かな/);
+  // 優先度は、作者が付け替えていたら (本文を直したときも) そのまま
+  if (isBug && ![...labels].some(l => l.startsWith('優先: '))) {
+    // 入力できない・止まる・違う文字が入る (Resolve で「あいうえお」→「あああああ」) は高
+    const severe = text.match(/止ま|落ち|固ま|フリーズ|クラッシュ|入力できな|打てな|文字が消え|消えた|起動しな|起動でき|インストールでき|動かな|反映され[なず]|違う文字|別の文字|化け|連続で入力|勝手に|二重に|重複/);
+    // 見た目だけ・一度だけ起きたものは低
+    const minor = text.match(/見た目|表示がずれ|位置がずれ|ちらつ|色が|文言|誤字|デザイン|アイコン/);
+    const once = field(form, '起きる頻度') === '一度だけ';
     result.push(severe
-      ? { label: '優先: 高', reason: `本文に「${severe[0]}」とある (入力できない・止まる系)` }
-      : { label: '優先: 中', reason: '不具合の報告 (止まる・入力できない等の言葉はない)' });
+      ? { label: '優先: 高', reason: `本文に「${severe[0]}」とある (入力できない・止まる・違う文字が入る系)` }
+      : minor || once
+        ? { label: '優先: 低', reason: minor ? `本文に「${minor[0]}」とある (見た目の問題)` : '起きる頻度が「一度だけ」' }
+        : { label: '優先: 中', reason: '不具合の報告 (止まる・入力できない等の言葉はない)' });
     const install = text.match(/インストール|アンインストール|更新|アップデート|起動/);
     if (install) result.push({ label: 'インストール', reason: `本文に「${install[0]}」とある` });
   }
@@ -202,7 +212,8 @@ async function parse() {
 
     if (problems.length > 0) add.add('情報待ち');
     else if (labels.has('情報待ち')) await gh('DELETE', `/issues/${issue}/labels/${encodeURIComponent('情報待ち')}`).catch(() => {});
-    for (const label of add) await ensureLabel(label);
+    // 優先度のラベルは、付かなかったものもそろえておく (作者が手で付け替えられるように)
+    for (const label of ['優先: 高', '優先: 中', '優先: 低', ...add]) await ensureLabel(label);
     if (add.size > 0) await gh('POST', `/issues/${issue}/labels`, { labels: [...add] });
 
     // 仕分けの結果のコメント (作った・直したたびに同じコメントを書き直す)
