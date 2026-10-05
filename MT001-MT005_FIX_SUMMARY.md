@@ -78,7 +78,7 @@ MT-005 は未完了として報告する。
 - 追加ケース 120件: 61 PASS / 1 FAIL（BMP の結合アクセント）/ 58 NOT_RUN。
 - macOS 実機 IMK、Linux IBus GUI、Linux x86_64+Mozc、Windows は **NOT_RUN**。
 
-## 既存契約との衝突（詳細は implementation-evidence/decisions.md）
+## 既存契約との衝突（要点）
 
 - 既存テストの `taro@gmail.com → たろ@gmail.com` は MT-002 と矛盾するため
   `taro@gmail.com` に更新した（黙って書き換えず、理由を明記）。
