@@ -223,9 +223,13 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     // ---- ICompositionHost ----
 
+    /// <summary>前面のアプリで、確定した文字を貼り付けで入れるか (設定の「貼り付けで入力するアプリ」)。</summary>
+    public Func<bool> PasteCommit { get; set; } = () => false;
+
     public void CommitText(string text)
     {
         EnsureSystemImeClosed();
+        if (PasteCommit() && TryPaste(text)) return;
         var inputs = new List<Native.INPUT>(text.Length * 2);
         foreach (var c in text)
         {
@@ -234,6 +238,53 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         }
         var array = inputs.ToArray();
         Native.SendAll(array, "確定文字列の入力");
+    }
+
+    private IDataObject? _savedClipboard;
+    private System.Windows.Forms.Timer? _restoreClipboard;
+
+    /// <summary>
+    /// 確定した文字をクリップボード経由 (Ctrl+V) で入れる。1 文字ずつのキーとして送ると、最初の文字を打った数だけくり返すアプリがある
+    /// (DaVinci Resolve、#5)。元のクリップボードの中身は、アプリが貼り付け終わるのを少し待ってから戻す。
+    /// 続けて確定したときは、最初に取っておいた中身を戻す。クリップボードを使えなければ false (1 文字ずつ送る)。
+    /// </summary>
+    private bool TryPaste(string text)
+    {
+        if (text.Length == 0) return true;
+        try
+        {
+            if (_restoreClipboard is null) _savedClipboard = Clipboard.GetDataObject();
+            else _restoreClipboard.Stop();
+            Clipboard.SetText(text);
+            KeyInjector.SendShortcut(VirtualKeys.Control, 0x56); // Ctrl+V
+            _restoreClipboard ??= new System.Windows.Forms.Timer { Interval = 500 };
+            _restoreClipboard.Tick -= RestoreClipboard;
+            _restoreClipboard.Tick += RestoreClipboard;
+            _restoreClipboard.Start();
+            return true;
+        }
+        catch (Exception ex) when (ex is ExternalException or System.Threading.ThreadStateException)
+        {
+            Diagnostics.Log.Warn($"クリップボードを使えないので、1 文字ずつ送ります: {ex.Message}");
+            return false;
+        }
+    }
+
+    private void RestoreClipboard(object? sender, EventArgs e)
+    {
+        var timer = _restoreClipboard;
+        _restoreClipboard = null;
+        timer?.Dispose();
+        try
+        {
+            if (_savedClipboard is { } saved) Clipboard.SetDataObject(saved, copy: true);
+            else Clipboard.Clear();
+        }
+        catch (ExternalException ex)
+        {
+            Diagnostics.Log.Warn($"クリップボードの中身を戻せませんでした: {ex.Message}");
+        }
+        _savedClipboard = null;
     }
 
     /// <summary>
