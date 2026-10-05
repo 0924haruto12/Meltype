@@ -493,7 +493,9 @@ internal static class LanguageLearningTests
                 ("kiyagattaw", "きやがったw"), ("daneww", "だねww"), ("toottawwwww", "とおったwwwww"), ("wwww", "wwww"), ("kitaww!", "きたww！"), ("new", "new"), ("aww", "aww"),
                 // 読めない略語の最後の c + は・や (vrc|ya が vr|ちゃ になっていた)。読める語 (まち) と大文字の略語の後ろ (EDちゃう) は分けない
                 ("vrcyaranai", "vrcやらない"), ("vchairu", "vcはいる"), ("pcha", "pcは"), ("machi", "まち"), ("ochaire", "おちゃいれ"), ("EDchau", "EDちゃう"),
-                ("everyonenohatsugen", "everyoneのはつげん"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),
+                ("everyonenohatsugen", "everyoneのはつげん"),
+                // 英語の歌詞: 行の始めの I'll の後ろ (I'll ご になっていた)、riverside, (river しで、 になっていた)
+                ("I'll go to see you again tomorrow", "I'll go to see you again tomorrow"), ("by the riverside, I'm sitting", "by the riverside, I'm sitting"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),
             })
             {
                 var k = new CompositionTests.Keyboard();

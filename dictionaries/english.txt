@@ -208,4 +208,4 @@ av vr ar tv pc pv mv cg sns rta fps rpg nft dm dlc npc pvp pve mvp cv bgm geogue
 vc vrc bpm mac dtm pro gb jk asmr luna yann tetr iidx
 # --- テスターのチャット (summary.json) で英字のまま打たれていた語 (ローマ字として読めない、または日本語でまず使わない綴り) ---
 everyone jc revanced lavalink skeb vol rtx fanbox ryzen wav mov unix lim lite launcher intellisense zenfone firmware llm npm
-mod mods hardcore tacz nsfw sfw fbc mineall probot carlbot disboard
+riverside seaside mod mods hardcore tacz nsfw sfw fbc mineall probot carlbot disboard
