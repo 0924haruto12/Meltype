@@ -123,12 +123,15 @@ jobs:
         shell: powershell
         env:
           MELTYPE_SIGN_PASSWORD: ${{ secrets.SIGN_PASSWORD }}
-        run: .\Build-Package.ps1
+        # タグ (v1.0.0) なら Meltype-1.0.0-windows.zip、手動実行ならテスト版の名前 (Meltype-test-<日時>.zip)
+        run: |
+          $version = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF_NAME.Substring(1) } else { '' }
+          .\Build-Package.ps1 -Version $version
       - uses: actions/upload-artifact@v4
         with:
           name: meltype-package
-          path: dist/Meltype-test-*.zip
+          path: dist/Meltype-*.zip
       - if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Meltype-test-*.zip
+          files: dist/Meltype-*.zip

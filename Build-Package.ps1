@@ -1,6 +1,9 @@
 ﻿# SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Yukishiro
 
+# -Version を付けると、公開するリリースの名前 (dist\Meltype-<版>-windows.zip) にする (GitHub Actions がタグから付ける)。
+param([string]$Version = '')
+
 $ErrorActionPreference = 'Stop'
 
 # 協力者に渡すテスト版の zip を作る: dist\Meltype-test-<日付>.zip
@@ -15,7 +18,7 @@ $dist = Join-Path $root 'dist'
 $stage = Join-Path $dist 'Meltype'
 $app = Join-Path $stage 'app'
 $stamp = Get-Date -Format 'yyyyMMdd-HHmm'
-$zip = Join-Path $dist "Meltype-test-$stamp.zip"
+$zip = if ($Version) { Join-Path $dist "Meltype-$Version-windows.zip" } else { Join-Path $dist "Meltype-test-$stamp.zip" }
 
 if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null

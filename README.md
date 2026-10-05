@@ -5,7 +5,7 @@
 半角/全角 キーを押さなくても、日本語と英語を打ち分けられるようにする Windows 常駐ツールです。
 (開発中は AutoIME という仮の名前でした。以前の設定と学習データは、Meltype の初回起動時に自動で引き継ぎます)
 
-Windows 版のほか、Mac 版の試作があります ([mac/README.md](mac/README.md))。
+Windows 版のほか、Mac 版・Linux 版のプレビュー版があります ([mac/README.md](mac/README.md)。Linux 版は IBus のエンジン)。プレビュー版は、まだ一部の機能が無く、動きも変わることがあります。
 
 動作モードは 2 つあり、タスクトレイのメニューで切り替えます。
 
@@ -17,6 +17,20 @@ Windows 版のほか、Mac 版の試作があります ([mac/README.md](mac/READ
 もとの設計は [docs/AutoIME_technical_design_v2.md](docs/AutoIME_technical_design_v2.md) を参照してください (開発時の仮の名前 AutoIME のときに書いたものです。Meltype キーボードは設計書の後に追加した機能です)。
 
 ## インストール
+
+### リリースの zip から (ふつうはこちら)
+
+1. [Releases](https://github.com/yksr-melt/Meltype/releases) から `Meltype-<版>-windows.zip` をダウンロードして展開する
+   (Mac 版は `Meltype-<版>-mac.zip`、Linux 版は `Meltype-<版>-linux.zip`。どちらもプレビュー版)
+2. `Install.cmd` をダブルクリックする (管理者権限は不要)
+   - Meltype はコード署名をしていないので、「Windows によって PC が保護されました」と出ることがあります。「詳細情報」→「実行」で入れられます。
+   - キーボードの入力を受け持つソフトなので、ウイルス対策ソフトが誤って止めることがあります。そのときは、お使いのウイルス対策ソフトで Meltype のフォルダーを許可してください。
+   - ダウンロードした zip が本物か確かめたいときは、リリースのページに出ている SHA-256 と比べてください (PowerShell: `Get-FileHash .\Meltype-<版>-windows.zip`)。
+3. タスクトレイに「あ」のアイコンが出れば動いています。Windows の起動時にも自動で起動します。
+
+1.0.0 以降は、新しい版が出ると自動で更新します (トレイのアイコンを右クリック →「更新」→「自動で更新する」で止められます)。
+
+### ソースからビルドして入れる
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Install-Meltype.ps1
@@ -260,7 +274,7 @@ IME 自動切替:
 
 ## データと辞書
 
-保存場所はすべて `%LOCALAPPDATA%\Meltype\` です。ネットワークには何も送りません。
+保存場所はすべて `%LOCALAPPDATA%\Meltype\` です。打った内容をネットワークに送ることはありません (通信するのは自動更新の確認だけ。下の「プライバシー」)。
 
 | ファイル | 内容 |
 | --- | --- |

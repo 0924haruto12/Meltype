@@ -3,7 +3,7 @@
 
 # Meltype の更新を確認して、新しい版があればダウンロードして展開しておく (Meltype が定期的に呼ぶ)。
 #   update.ps1 -Repository yksr-melt/Meltype -CurrentVersion 0.1.2 -Directory %LOCALAPPDATA%\Meltype\update
-# GitHub の最新のリリースに Meltype-test-*.zip があり、版 (タグ v0.1.3) が今の版より新しければ、
+# GitHub の最新のリリースに Windows 版の zip (Meltype-<版>-windows.zip、前の名前は Meltype-test-*.zip) があり、版 (タグ v0.1.3) が今の版より新しければ、
 # <Directory>\<版> に展開し、<Directory>\ready.txt に「版 TAB 展開した場所」を書く。インストールは Meltype が install.ps1 を呼んで行う。
 # 結果は標準出力に 1 行で返す: none (更新なし) / ready <版> / error <理由>
 
@@ -25,7 +25,7 @@ try {
     $latest = $release.tag_name -replace '^v', ''
     if ([version]$latest -le [version]$CurrentVersion) { Write-Output 'none'; exit 0 }
 
-    $asset = @($release.assets | Where-Object { $_.name -like 'Meltype-test-*.zip' }) | Select-Object -First 1
+    $asset = @($release.assets | Where-Object { $_.name -like 'Meltype-*-windows.zip' }) + @($release.assets | Where-Object { $_.name -like 'Meltype-test-*.zip' }) | Select-Object -First 1
     if (-not $asset) { Write-Output "error リリース $latest に zip がありません"; exit 0 }
 
     $target = Join-Path $Directory $latest
