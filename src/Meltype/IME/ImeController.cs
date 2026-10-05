@@ -52,7 +52,7 @@ public interface IImeBackend
     bool TrySetOpen(ImeTarget target, bool open, int? conversionMode, int timeoutMs);
 }
 
-public enum SwitchOutcome { AlreadyJapanese, Switched, NoJapaneseLayout, LanguageFailed, OpenFailed, NoTarget }
+public enum SwitchOutcome { AlreadyJapanese, Switched, NoJapaneseLayout, LanguageFailed, OpenFailed, NoTarget, InputLanguageExcluded }
 
 public sealed record SwitchResult(SwitchOutcome Outcome, ImeState Before, ImeState After, string Detail)
 {
@@ -87,6 +87,9 @@ public sealed class ImeController
         var settings = _settings();
         var timeout = settings.ImeTimeoutMs;
         var before = _imm32.GetState(target);
+        // 判定待ちの間に Win+Space などで切り替わっても、日本語へ勝手に戻さない。
+        if (!KeyboardLayoutPolicy.AllowsInput(settings, before.KeyboardLayout))
+            return new SwitchResult(SwitchOutcome.InputLanguageExcluded, before, before, "日本語キーボード以外では動作しない設定");
         if (before.IsJapaneseReady) return new SwitchResult(SwitchOutcome.AlreadyJapanese, before, before, "既に日本語入力");
 
         var steps = new List<string>();
@@ -106,11 +109,17 @@ public sealed class ImeController
             }
         }
 
-        var conversion = DesiredConversionMode(_imm32.GetState(target).ConversionMode, settings.InputStyle);
+        var current = _imm32.GetState(target);
+        if (!KeyboardLayoutPolicy.AllowsInput(settings, current.KeyboardLayout))
+            return new SwitchResult(SwitchOutcome.InputLanguageExcluded, before, current, "IME の確認中に入力言語が変わった");
+        var conversion = DesiredConversionMode(current.ConversionMode, settings.InputStyle);
         var opened = _imm32.TrySetOpen(target, true, conversion, timeout);
         steps.Add($"{_imm32.Name}.開く={opened}");
         if (!opened)
         {
+            current = _imm32.GetState(target);
+            if (!KeyboardLayoutPolicy.AllowsInput(settings, current.KeyboardLayout))
+                return new SwitchResult(SwitchOutcome.InputLanguageExcluded, before, current, "IME の切替中に入力言語が変わった");
             // WM_IME_CONTROL が効かないアプリ向け。VK_IME_ON は「開く」だけなので、トグル系キーと違い閉じてしまう心配がない。
             KeyInjector.SendKey(VirtualKeys.ImeOn);
             opened = WaitFor(() => _imm32.GetState(target).Mode == ImeMode.Open, timeout);
