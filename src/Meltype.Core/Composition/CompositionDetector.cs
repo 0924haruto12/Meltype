@@ -145,10 +145,13 @@ public sealed class CompositionDetector
             for (var j = n; j > i && found < 0; j--)
             {
                 // 区間の後ろ: 末尾まで打っているならキャレットの後ろの文字、途中なら続きの日本語。
-                var after = j == n ? followingEnglish : false;
+                // 後ろが記号だけ (let's go! の !) なら、語はそこで打ち終わっている: Enter で確定するときと同じく末尾の語として見る
+                // (記号を日本語の続きとみなして、英文の中の go・no を ご・の にしていた)。
+                var symbolsAfter = j < n && pending.Length == 0 && Enumerable.Range(j, n - j).All(k => IsAsciiSymbol(units[k]));
+                var after = j == n || symbolsAfter ? followingEnglish : false;
                 var english = kanaInput
                     ? IsEnglishSpanKana(Raw(units, i, j), Kana(units, i, j), atEnd: j == n, BeforeScore(i), after, level, final)
-                    : IsEnglishSpan(Raw(units, i, j) + (j == n ? pending : ""), atEnd: j == n, BeforeScore(i), after, startOfInput: i == 0, level, final,
+                    : IsEnglishSpan(Raw(units, i, j) + (j == n ? pending : ""), atEnd: j == n || symbolsAfter, BeforeScore(i), after, startOfInput: i == 0, level, final || symbolsAfter,
                         unreadable: HasUnreadable(units, i, j) || EndsWithLoneSokuon(units, j), next: j < n ? units[j].Raw + (j + 1 == n ? pending : "") : null);
                 if (english)
                 {

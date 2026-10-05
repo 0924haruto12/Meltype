@@ -495,7 +495,12 @@ internal static class LanguageLearningTests
                 ("vrcyaranai", "vrcやらない"), ("vchairu", "vcはいる"), ("pcha", "pcは"), ("machi", "まち"), ("ochaire", "おちゃいれ"), ("EDchau", "EDちゃう"),
                 ("everyonenohatsugen", "everyoneのはつげん"),
                 // 英語の歌詞: 行の始めの I'll の後ろ (I'll ご になっていた)、riverside, (river しで、 になっていた)
-                ("I'll go to see you again tomorrow", "I'll go to see you again tomorrow"), ("by the riverside, I'm sitting", "by the riverside, I'm sitting"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),
+                ("I'll go to see you again tomorrow", "I'll go to see you again tomorrow"), ("by the riverside, I'm sitting", "by the riverside, I'm sitting"),
+                ("shirigaru teenage girl", "しりがるteenage girl"), ("bakudannnihanarenai oh no!", "ばくだんにはなれないoh no!"), ("supeaman woah", "すぺあまんwoah"),
+                // 英文の中の短い語 + 記号 (let's go! の go が ご になっていた)。日本語の後ろの記号は今までどおり全角
+                ("let's go!", "let's go!"), ("I said no?", "I said no?"), ("sorena!", "それな！"), ("nande?", "なんで？"),
+                // 記号の前・確定時の笑いの w (きたw！ の w が確定で消えていた)
+                ("kitaw!", "きたw！"), ("hontow?w", "ほんとw？w"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),
             })
             {
                 var k = new CompositionTests.Keyboard();

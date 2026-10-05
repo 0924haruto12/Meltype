@@ -675,8 +675,8 @@ public sealed class CompositionText
         // 確定・変換の前に、数字の後ろの単位を英字のままにする (5min を 5みん にしない)。打ち間違いを直す設定に関係なく
         SplitUnitAfterNumber(final: true);
         Normalize(final: false);
-        // 最後の w の連続 (笑い) はそのまま残し、打ち間違いの直しの対象にもしない
-        var limit = KeepLaughter();
+        // 英字の並びの最後の w の連続 (笑い) はそのまま残し、打ち間違いの直しの対象にもしない
+        KeepLaughter();
         if (TypoCorrector is not { } corrector || !CorrectTypos() || Mode != DisplayMode.Auto || KanaInput) return false;
         var changed = false;
         // 今の表示で英字に見えている文字 (きょうは|meeting|です の meeting)。ここは直さない
@@ -684,16 +684,16 @@ public sealed class CompositionText
         var shownEnglish = EnglishMask();
         var offset = 0;
         var start = 0;
-        while (start < limit)
+        while (start < _units.Count)
         {
-            if (!IsLetters(_units[start].Raw))
+            if (!IsLetters(_units[start].Raw) || IsLaughter(_units[start]))
             {
                 offset += _units[start].Raw.Length;
                 start++;
                 continue;
             }
             var end = start;
-            while (end < limit && IsLetters(_units[end].Raw)) end++;
+            while (end < _units.Count && IsLetters(_units[end].Raw) && !IsLaughter(_units[end])) end++;
             var atEnd = end == _units.Count;
             var letters = string.Concat(_units.Skip(start).Take(end - start).Select(u => u.Raw)) + (atEnd ? Pending : "");
             var runOffset = offset;
@@ -714,7 +714,6 @@ public sealed class CompositionText
                 var units = analysis.Tokens.Select(t => new CompositionUnit(t.Kana, t.Romaji)).ToList();
                 _units.RemoveRange(start, end - start);
                 _units.InsertRange(start, units);
-                limit += units.Count - (end - start);
                 if (atEnd)
                 {
                     _pending.Clear();
@@ -730,30 +729,55 @@ public sealed class CompositionText
     }
 
     /// <summary>
-    /// 入力の最後の w の連続は、チャットの笑い (きたw・だねww・www)。ww を っw と読んだり、打ち間違いとして消したりせず、
+    /// 英字の並びの最後の w の連続は、チャットの笑い (きたw・だねww・www・ほんと？w)。ww を っw と読んだり、打ち間違いとして消したりせず、
     /// 1 文字ずつ w のまま残す (確定・変換・記号の直前に呼ぶ)。英単語の最後の w (new・aww) はそのまま。
-    /// 戻り値は笑いの w の前までの単位の数 (笑いが無ければ単位の数)。
     /// </summary>
-    private int KeepLaughter()
+    private void KeepLaughter()
     {
-        if (KanaInput || Mode != DisplayMode.Auto || !Pending.All(c => c is 'w' or 'W')) return _units.Count;
-        var start = _units.Count;
+        if (KanaInput || Mode != DisplayMode.Auto) return;
+        // 後ろの英字の並びから順に見る (前を入れ替えると後ろの位置がずれるので)
+        var end = _units.Count;
+        var withPending = _pending.Length > 0;
+        while (end > 0 || withPending)
+        {
+            if (!withPending && !IsLetters(_units[end - 1].Raw))
+            {
+                end--;
+                continue;
+            }
+            var runStart = end;
+            while (runStart > 0 && IsLetters(_units[runStart - 1].Raw)) runStart--;
+            KeepLaughterAt(end, withPending);
+            withPending = false;
+            end = runStart;
+        }
+    }
+
+    /// <summary>笑いとして w のまま残した単位 (打ち間違いの直しの対象にしない)。</summary>
+    private static bool IsLaughter(CompositionUnit unit) => unit.Raw is "w" or "W" && unit.Kana == unit.Raw;
+
+    /// <summary>end の手前で終わる英字の並び (withPending なら入力途中の子音も) の最後の w の連続を、笑いなら w の単位にする。笑いの始まりを返す。</summary>
+    private int KeepLaughterAt(int end, bool withPending)
+    {
+        var pending = withPending ? _pending.ToString() : "";
+        if (!pending.All(c => c is 'w' or 'W')) return end;
+        var start = end;
         while (start > 0 && _units[start - 1].Raw is [var c] && c is 'w' or 'W' && _units[start - 1].Kana is "っ" or "w" or "W") start--;
-        var count = _units.Count - start + _pending.Length;
-        if (count == 0) return _units.Count;
+        var count = end - start + pending.Length;
+        if (count == 0) return end;
         // 1 つだけの w は、日本語のかなの後ろ (きた + w) のときだけ笑いとみなす
-        if (count == 1 && !(start > 0 && _units[start - 1].Kana is [var kana, ..] && kana is >= 'ぁ' and <= 'ヺ')) return _units.Count;
+        if (count == 1 && !(start > 0 && _units[start - 1].Kana is [var kana, ..] && kana is >= 'ぁ' and <= 'ヺ')) return end;
         // 前から続く英単語の終わり (aww・new・show) なら笑いではない
-        var letters = string.Concat(_units.Skip(start).Select(u => u.Raw)) + _pending;
+        var letters = string.Concat(_units.Skip(start).Take(end - start).Select(u => u.Raw)) + pending;
+        var laugh = letters;
         for (var i = start - 1; i >= 0 && _units[i].Raw.Length > 0 && _units[i].Raw.All(char.IsAsciiLetter); i--)
         {
             letters = _units[i].Raw + letters;
-            if (letters.Length >= 3 && _detector.IsKnownEnglishWord(letters)) return _units.Count;
+            if (letters.Length >= 3 && _detector.IsKnownEnglishWord(letters)) return end;
         }
-        var laugh = string.Concat(_units.Skip(start).Select(u => u.Raw)) + _pending;
-        _units.RemoveRange(start, _units.Count - start);
-        _pending.Clear();
-        foreach (var w in laugh) _units.Add(new CompositionUnit(w.ToString(), w.ToString()));
+        _units.RemoveRange(start, end - start);
+        if (withPending) _pending.Clear();
+        _units.InsertRange(start, laugh.Select(w => new CompositionUnit(w.ToString(), w.ToString())));
         return start;
     }
 
