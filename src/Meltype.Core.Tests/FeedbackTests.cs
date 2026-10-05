@@ -500,7 +500,9 @@ internal static class LanguageLearningTests
                 // 英文の中の短い語 + 記号 (let's go! の go が ご になっていた)。日本語の後ろの記号は今までどおり全角
                 ("let's go!", "let's go!"), ("I said no?", "I said no?"), ("sorena!", "それな！"), ("nande?", "なんで？"),
                 // 記号の前・確定時の笑いの w (きたw！ の w が確定で消えていた)
-                ("kitaw!", "きたw！"), ("hontow?w", "ほんとw？w"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),
+                ("kitaw!", "きたw！"), ("hontow?w", "ほんとw？w"),
+                // 略語 + 日本語 + 記号は今までどおり (BE|かな？ が BEkana？ になっていた)
+                ("tougouhandakaraBEkana?", "とうごうはんだからBEかな？"), ("fubusangaXshisuginadakenanda!!", "ふぶさんがXしすぎなだけなんだ！！"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),
             })
             {
                 var k = new CompositionTests.Keyboard();
