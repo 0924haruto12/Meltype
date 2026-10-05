@@ -71,7 +71,7 @@ winget・Scoop で入れた場合は Install.cmd を使わないので、Windows
 ## 公開版 (1.0.0) の前の確認
 
 - [ ] 判定・変換の精度 (v0.3.1〜v0.3.3 で変換のバグ修正・辞書の拡張)
-- [ ] 協力者のお名前を載せる (v0.3.3)
+- [x] 協力者のお名前を載せる (README の「協力してくださった方々」)
 - [ ] リポジトリを Public にし、上の GitHub の設定をする
 - [x] Mac 版・Linux 版を「プレビュー版」と明記 (README。リリースノートにも書く)
 - [x] リリースの zip の名前を `Meltype-<版>-windows.zip`・`-mac.zip`・`-linux.zip` に (タグのビルドだけ。テスト版は `Meltype-test-<日時>.zip` のまま。自動更新は両方の名前を探す)

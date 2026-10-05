@@ -484,9 +484,9 @@ internal static class CompositionTests
         var k = new Keyboard(direct: true);
         k.Type("konnnichiha");
         Assert.True(!k.Direct, "ローマ字だと分かったら日本語入力に戻る");
-        Assert.Equal("こんにちは", k.Showing, "保留していた英字も変換ボックスに入る");
+        Assert.Equal("こんにちは", k.Showing, "判定中に打った英字も変換ボックスに入る");
         Assert.Equal(0, k.Host.Output.Count);
-        Assert.True(!k.Host.Events.Any(e => e.StartsWith("down:")), "英字をアプリに送ってはいない");
+        AssertSentThenErased(k.Host.Events);
     }
 
     [Test]
@@ -497,7 +497,8 @@ internal static class CompositionTests
         k.Type("ro-maji");
         Assert.True(!k.Direct, "母音の後の - (長音) で日本語に戻る");
         Assert.Equal("ろーまじ", k.Showing);
-        Assert.Equal(0, k.Host.Events.Count(e => e.StartsWith("down:")), "英字をアプリに送ってはいない");
+        Assert.Equal(2, k.Host.Events.Count(e => e.StartsWith("down:")), "- の前の ro だけ送っていた (- は送らない)");
+        AssertSentThenErased(k.Host.Events);
 
         // 英語の接頭辞 (e-) の後は - の後ろで決める: e-mail・co-op は英語、e-me-ru は日本語
         foreach (var word in new[] { "e-mail ", "co-op ", "re-do " })
@@ -617,6 +618,32 @@ internal static class CompositionTests
         Assert.Equal("doha", k.Host.Document, "単独なら固有名詞のまま");
     }
 
+    /// <summary>判定を待たずにアプリへ送った英字 (down) を、ローマ字と分かった時点で同じ数だけ BackSpace で消している。</summary>
+    private static void AssertSentThenErased(List<string> events)
+    {
+        var downs = events.Count(e => e.StartsWith("down:"));
+        Assert.True(downs > 0, "判定を待たずに英字を送っている");
+        var bs = events.FindIndex(e => e.StartsWith("bs:"));
+        Assert.Equal($"bs:{downs}", bs < 0 ? "(なし)" : events[bs], "送った英字を消す");
+        Assert.True(events.FindLastIndex(e => e.StartsWith("down:")) < bs, "送った後に消す");
+    }
+
+    [Test]
+    public static void DirectMode_EnglishIsSentWithoutWaiting()
+    {
+        // 英数状態で打った英字が、判定 (ローマ字かどうか) が終わるまで出てこなかった。
+        // can・game・today のようにローマ字としても読める語は、Space を押すまで丸ごと出なかった。
+        foreach (var word in new[] { "can", "game", "today", "hello" })
+        {
+            var k = new Keyboard(direct: true);
+            k.Type(word);
+            Assert.Equal(string.Join(",", word.ToCharArray()), Letters(k.Host.Events), $"{word}: 打ったそばから送る (英語と決まった後は素通し)");
+            k.Type(" ");
+            Assert.True(k.Direct, $"{word}: 英数のまま");
+            Assert.True(!k.Host.Events.Any(e => e.StartsWith("bs:")), $"{word}: 英語なら消さない");
+        }
+    }
+
     [Test]
     public static void DirectMode_EnglishPassesThroughInOrder()
     {
@@ -642,10 +669,12 @@ internal static class CompositionTests
     {
         var k = new Keyboard(direct: true);
         k.Type("ka");
-        Assert.Equal(0, k.Host.Events.Count(e => e.StartsWith("down:")), "判定できるまでは保留");
+        Assert.Equal(2, k.Host.Events.Count(e => e.StartsWith("down:")), "判定中でも打った英字はすぐ送る");
+        Assert.True(k.Gate.IsCaptured, "判定中は打鍵を受け取る");
         k.Controller.Tick(k.Now + 1000);
-        Assert.Equal(2, k.Host.Events.Count(e => e.StartsWith("down:")), "しばらく打たなければ英語として出す");
-        Assert.True(!k.Gate.IsCaptured, "保留をやめたら横取りもやめる");
+        Assert.Equal(2, k.Host.Events.Count(e => e.StartsWith("down:")), "しばらく打たなければ英語とみなす (送り直さない)");
+        Assert.True(!k.Host.Events.Any(e => e.StartsWith("bs:")), "消さない");
+        Assert.True(!k.Gate.IsCaptured, "判定をやめたら横取りもやめる");
     }
 
     [Test]

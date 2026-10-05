@@ -152,7 +152,7 @@ public sealed class CompositionOptions
 ///   BackSpace / Esc → 1 音削除 / 変換取り消し・入力取り消し
 ///   F6 / F7 / F9 / F10, 半角/全角 → ひらがな / カタカナ / 全角英数 / 半角英数 / 日本語⇔英字
 ///   その他のキー・クリック → 確定してからそのキーやクリックを通す
-/// 英数状態でも、打ち始めの数文字を保留してローマ字 (日本語) かを判定し、日本語なら日本語入力に戻して変換ボックスに入れる。
+/// 英数状態でも、打ち始めの数文字でローマ字 (日本語) かを判定し (打鍵は待たせずに送る)、日本語なら送った分を消して日本語入力に戻し、変換ボックスに入れる。
 /// UI スレッドだけで動く。フックからは CaptureGate 経由で入力が順番どおり届く。
 /// </summary>
 public sealed class CompositionController
@@ -163,7 +163,7 @@ public sealed class CompositionController
     /// </summary>
     private const int LiveConversionMinLength = 4;
 
-    /// <summary>英数状態の判定で、この時間打鍵が無ければ保留をやめて英語として出す。</summary>
+    /// <summary>英数状態の判定で、この時間打鍵が無ければ英語とみなして判定をやめる。</summary>
     private const long DirectHoldIdleMs = 700;
 
     /// <summary>自分が確定してから、この時間内はアプリ側のテキストがまだ更新されていないかもしれないので自分の記録を優先する。</summary>
@@ -190,10 +190,9 @@ public sealed class CompositionController
     private long _lastCommitTime = long.MinValue / 2;
     private int _compositionId;
 
-    // 英数状態で判定のために保留している打鍵。
-    private readonly List<KeyEvent> _held = [];
-    private readonly HashSet<int> _heldDown = [];
+    // 英数状態で判定中の語。打鍵はすぐアプリに送り (待たせない)、ローマ字と分かったら消して変換ボックスに入れ直す。
     private readonly StringBuilder _heldLetters = new();
+    private int _heldSent;
     private long _heldLastKeyTime;
 
     /// <summary>変換中の文節。英語の区間も 1 つの文節として扱う (候補は英字/全角英字)。</summary>
@@ -235,8 +234,8 @@ public sealed class CompositionController
         _text.CorrectTypos = () => _options.CorrectTypos();
     }
 
-    /// <summary>変換ボックスに入力中か、英数状態の判定のために打鍵を保留中か。</summary>
-    public bool IsComposing => !_text.IsEmpty || _held.Count > 0;
+    /// <summary>変換ボックスに入力中か、英数状態で打ち始めの語を判定中か。</summary>
+    public bool IsComposing => !_text.IsEmpty || _heldLetters.Length > 0;
 
     /// <summary>直近に確定した文字列 (テスト・ログ用)。</summary>
     public event Action<string>? Committed;
@@ -265,10 +264,10 @@ public sealed class CompositionController
         }
     }
 
-    /// <summary>定期的に呼ぶ。英数状態の判定で保留している打鍵が、無入力のまま一定時間たったら英語として出す。</summary>
+    /// <summary>定期的に呼ぶ。英数状態で判定中の語が、無入力のまま一定時間たったら英語とみなす。</summary>
     public void Tick(long nowMs)
     {
-        if (_held.Count == 0 || nowMs - _heldLastKeyTime < DirectHoldIdleMs) return;
+        if (_heldLetters.Length == 0 || nowMs - _heldLastKeyTime < DirectHoldIdleMs) return;
         DecideHeld(final: true);
         Pump();
     }
@@ -287,7 +286,7 @@ public sealed class CompositionController
     /// <summary>無効化・フォーカス喪失などで、未確定の内容をそのまま確定する。</summary>
     public void CommitPending()
     {
-        if (_held.Count > 0) ReleaseHeldAsEnglish();
+        if (_heldLetters.Length > 0) ReleaseHeldAsEnglish();
         CommitIfAny();
         UpdateView();
     }
@@ -298,6 +297,8 @@ public sealed class CompositionController
     /// </summary>
     public bool Abandon(string reason)
     {
+        // 英数状態で判定中の語は、もうアプリに送ってあるので判定をやめるだけ。
+        ClearHeld();
         if (!IsComposing) return false;
         Diagnostics.Log.Warn($"{reason}ので、変換中の入力を取り消しました (移った先に入らないように)。");
         Reset();
@@ -312,9 +313,7 @@ public sealed class CompositionController
         _text.Clear();
         _converting = false;
         _clauses = [];
-        _held.Clear();
-        _heldDown.Clear();
-        _heldLetters.Clear();
+        ClearHeld();
         _swallowedShift.Clear();
         _replayedDown.Clear();
         _capturedDown.Clear();
@@ -341,12 +340,6 @@ public sealed class CompositionController
         var vk = e.Vk;
         if (e.IsUp)
         {
-            if (_heldDown.Remove(vk))
-            {
-                // 判定のために保留している打鍵のキーアップも、順番を保つため一緒に保留する。
-                _held.Add(e);
-                return;
-            }
             _swallowedShift.Remove(vk);
             // 押下をアプリに送ったキー、または押下が関所を閉じる前に通っていたキーは、離したこともアプリに伝える。
             var replayed = _replayedDown.Remove(vk);
@@ -356,7 +349,7 @@ public sealed class CompositionController
         }
         _capturedDown.Add(vk);
 
-        if (_held.Count > 0)
+        if (_heldLetters.Length > 0)
         {
             if (VirtualKeys.IsLetter(vk) && _swallowedShift.Count == 0 && !VirtualKeys.IsModifier(vk))
             {
@@ -364,18 +357,20 @@ public sealed class CompositionController
                 return;
             }
             // 母音の後の - は長音 (ro-maji → ろーまじ、de-ta → でーた)。英単語の途中にはまず出てこないので、ローマ字として
-            // 読めれば日本語に戻す。英語の接頭辞 (e-mail、co-op) かもしれないときは - も保留して、- の後ろで決める
+            // 読めれば日本語に戻す。英語の接頭辞 (e-mail、co-op) かもしれないときは - も送って判定を続け、- の後ろで決める
             // (e-mail → 英語、e-me-ru → えーめーる)。
             var part = LastHyphenPart();
             if (vk == VirtualKeys.OemMinus && _swallowedShift.Count == 0 && part.Length > 0 &&
                 _detector.Romaji.AnalyzeFragment(part) is { IsValid: true, Partial: "" })
             {
                 var prefix = !_heldLetters.ToString().Contains('-') && CompositionDetector.IsHyphenPrefix(part);
-                _held.Add(e);
-                _heldDown.Add(vk);
                 _heldLetters.Append('-');
                 _heldLastKeyTime = e.TimeMs;
-                if (prefix) return;
+                if (prefix)
+                {
+                    SendHeld(e);
+                    return;
+                }
                 Diagnostics.Log.Decision($"英数状態でローマ字を検知: 「{_heldLetters}」(母音の後の長音)");
                 SwitchHeldToJapanese();
                 return;
@@ -518,7 +513,7 @@ public sealed class CompositionController
         var letter = VirtualKeys.IsLetter(e.Vk) && c is { } l && char.IsAsciiLetter(l);
         if (letter && _options.DirectMode())
         {
-            // 英数状態: ローマ字かどうか判定できるまで保留する。大文字で始まる語は英語なのでそのまま通す。
+            // 英数状態: ローマ字かどうか判定する (打鍵はすぐ送る)。大文字で始まる語は英語なのでそのまま通す。
             if (_options.ClassifyDirect is null || _swallowedShift.Count > 0 || char.IsAsciiLetterUpper(c!.Value))
             {
                 Diagnostics.Log.Info($"英数状態: 「{c}」は大文字 / Shift なので英語のまま");
@@ -638,14 +633,24 @@ public sealed class CompositionController
 
     private void Hold(KeyEvent e)
     {
-        _held.Add(e);
-        _heldDown.Add(e.Vk);
         _heldLetters.Append(VirtualKeys.ToLetter(e.Vk));
         _heldLastKeyTime = e.TimeMs;
+        SendHeld(e);
         DecideHeld(final: false);
     }
 
-    /// <summary>保留している英字の、最後の - より後ろ (e-ma → ma)。- が無ければ全体。</summary>
+    /// <summary>
+    /// 判定中の語の打鍵を、判定を待たずにアプリへ送る。前は判定できるまで保留していたので、英単語 (can・game・today) は
+    /// Space を押すまで画面に出ず、英数状態の入力が遅れて見えた。ローマ字と分かったら、送った分を BackSpace で消す。
+    /// </summary>
+    private void SendHeld(KeyEvent e)
+    {
+        _host.Replay(e);
+        _replayedDown.Add(e.Vk);
+        _heldSent++;
+    }
+
+    /// <summary>判定中の英字の、最後の - より後ろ (e-ma → ma)。- が無ければ全体。</summary>
     private string LastHyphenPart()
     {
         var letters = _heldLetters.ToString();
@@ -671,11 +676,14 @@ public sealed class CompositionController
         else if (verdict != Verdict.Undecided || final) ReleaseHeldAsEnglish();
     }
 
-    /// <summary>ローマ字だった: 日本語入力に戻し、保留していた英字を変換ボックスに入れる。</summary>
+    /// <summary>ローマ字だった: 日本語入力に戻し、判定中の英字を変換ボックスに入れる。</summary>
     private void SwitchHeldToJapanese()
     {
         var letters = _heldLetters.ToString();
+        var sent = _heldSent;
         ClearHeld();
+        // 判定を待たずに送っていた英字を消して、変換ボックスに入れ直す。
+        _host.DeleteBackward(sent);
         _options.DirectDecided?.Invoke(true);
         BeginComposition();
         foreach (var c in letters)
@@ -694,24 +702,18 @@ public sealed class CompositionController
         return (raw, kana);
     }
 
-    /// <summary>英語だった: 保留していた打鍵をそのまま (順番どおりに) アプリへ送る。</summary>
+    /// <summary>英語だった: 打鍵はもう送ってあるので、判定をやめるだけ。</summary>
     private void ReleaseHeldAsEnglish()
     {
-        var events = _held.ToList();
-        var stillDown = _heldDown.ToList();
         ClearHeld();
-        foreach (var e in events) _host.Replay(e);
         _correctable.Clear();
-        // 押下だけ送ったキーは、離したときも送る。
-        foreach (var vk in stillDown) _replayedDown.Add(vk);
         _options.DirectDecided?.Invoke(false);
     }
 
     private void ClearHeld()
     {
-        _held.Clear();
-        _heldDown.Clear();
         _heldLetters.Clear();
+        _heldSent = 0;
     }
 
     // ---- 変換 (文節) ----

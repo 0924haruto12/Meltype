@@ -87,6 +87,20 @@ even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 General Public License for more details.
 ```
 
+## 協力してくださった方々
+
+テスト版を使って、不具合の報告や意見をくださった方々です。ありがとうございました (敬称略)。
+
+- くらいど！ ([@Kuraido8888](https://x.com/Kuraido8888))
+- しぐれ ([@Akisameee0465](https://x.com/Akisameee0465))
+- 琴音Link
+- あげちゃ
+- うな ([@una08142009](https://x.com/una08142009))
+- かふぇらて ([@cafely_latte](https://x.com/cafely_latte))
+- ウパー ([@upah_setu](https://x.com/upah_setu))
+- Ray
+- うぽつです ([@up2ds](https://x.com/up2ds))
+
 ## 開発に参加する
 
 ソースからのビルド・テスト・動作の仕組みは [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)、不具合の報告・辞書の追加・Pull Request の送り方は [CONTRIBUTING.md](CONTRIBUTING.md) を見てください。
