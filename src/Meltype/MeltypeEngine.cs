@@ -115,6 +115,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     public void AttachComposition(Composition.CompositionService composition)
     {
         _composition = composition;
+        composition.PasteCommit = () => _settings.UsesPaste(_foreground.Current.ProcessName);
         composition.InputAllowed = () => KeyboardLayoutPolicy.AllowsInput(_settings);
         // 変換ボックスで確定した文字と、Meltype が送り直したキーも、今の行の追いかけに入れる (自分で送ったキーはフックに届かない)。
         composition.Controller.Committed += text => _line.Append(text);

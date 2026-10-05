@@ -400,6 +400,15 @@ public sealed class Settings
     [Category("6. IME"), DisplayName("IME 操作のタイムアウト (ms)")]
     public int ImeTimeoutMs { get; set; } = 300;
 
+    [Category("7. アプリ"), DisplayName("貼り付けで入力するアプリ"),
+     Description("確定した文字を 1 文字ずつ送ると取り違えるアプリ (DaVinci Resolve で「あいうえお」→「あああああ」)。ここに書いたアプリ (プロセス名、カンマ区切り) では、クリップボードを使って貼り付けで入れます (元のクリップボードの中身は戻します)。")]
+    public string PasteApps { get; set; } = "Resolve.exe";
+
+    /// <summary>このアプリでは確定した文字を貼り付けで入れるか (<see cref="PasteApps"/>)。</summary>
+    public bool UsesPaste(string? processName) =>
+        !string.IsNullOrEmpty(processName) &&
+        (PasteApps ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries).Any(app => string.Equals(app.Trim(), processName, StringComparison.OrdinalIgnoreCase));
+
     [Category("7. アプリ"), DisplayName("全画面アプリでは無効"), Description("ゲームや動画など全画面のウィンドウではキーを保留しません。")]
     public bool ExcludeFullscreen { get; set; } = true;
 
