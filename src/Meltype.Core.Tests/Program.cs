@@ -55,6 +55,11 @@ internal static class Program
                     Henkan.Shutdown();
                 }
                 return 0;
+            case "--jht-batch":
+                // 標準入力から 1 行に 1 つ「出てほしい文 [/ 読み]」を受け取り、1 行ずつ結果を返す (Discord の bot の chjht。起動の待ちを省く)
+                Jht.Batch(null, Henkan.Keyboard, () => Henkan.EngineName);
+                Henkan.Shutdown();
+                return 0;
             case "--explain":
                 if (Environment.GetEnvironmentVariable("MELTYPE_UTF8") == "1") Console.OutputEncoding = new System.Text.UTF8Encoding(false);
                 TestHost.Explain(args.Skip(1));

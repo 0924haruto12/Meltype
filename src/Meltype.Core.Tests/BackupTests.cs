@@ -40,6 +40,13 @@ internal static class BackupTests
             Assert.Equal(0, Backup.Restore(evil, target), "../ や知らないフォルダーは無視");
             Assert.True(!File.Exists(Path.Combine(root, "evil.txt")), "データフォルダーの外に書かない");
 
+            // 決まった名前 (バックアップに入れるもの) 以外は戻さない
+            foreach (var name in new[] { "evil.exe", "C:evil.txt", "config.json:ads", "dictionaries/a:b.txt", "dictionaries/../x.txt", "dictionaries/sub/x.txt", "dictionaries/con.txt", "dictionaries/x.ps1", "..\\evil.txt", "/etc/x.txt" })
+            {
+                Assert.True(!Backup.IsRestorableName(name), name);
+            }
+            Assert.True(Backup.IsRestorableName("config.json") && Backup.IsRestorableName("dictionaries/candidates.txt"), "バックアップに入れるものは戻す");
+
             Assert.True(Throws(() => Backup.Inspect(Encoding.UTF8.GetBytes("{\"a\":1}"))), "Meltype のバックアップでないファイルは読まない");
         }
         finally

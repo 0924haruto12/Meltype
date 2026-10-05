@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright (C) 2026 Yukishiro
 
+using System.Collections.Concurrent;
 using System.Text;
 
 namespace Meltype.Detection;
@@ -144,13 +145,31 @@ public sealed class RomajiDetector
     /// </param>
     private RomajiAnalysis Analyze(string letters, bool strictStart, bool composition)
     {
+        // 判定は 1 キーごとに、打った文字のあらゆる区間を何度も解析し直す (長い文では 1 文字で数万回)。
+        // 結果は文字列と引数だけで決まるので、覚えておいて使い回す。
+        var cache = composition ? _compositionCache : strictStart ? _strictCache : _looseCache;
+        if (cache.TryGetValue(letters, out var cached)) return cached;
+        var result = AnalyzeCore(letters, strictStart, composition);
+        if (cache.Count >= CacheLimit) cache.Clear();
+        cache[letters] = result;
+        return result;
+    }
+
+    /// <summary>覚えておく解析結果の数 (超えたら捨てて覚え直す)。</summary>
+    private const int CacheLimit = 50000;
+    private readonly ConcurrentDictionary<string, RomajiAnalysis> _strictCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, RomajiAnalysis> _looseCache = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, RomajiAnalysis> _compositionCache = new(StringComparer.Ordinal);
+
+    private static RomajiAnalysis AnalyzeCore(string letters, bool strictStart, bool composition)
+    {
         var tokens = new List<RomajiToken>();
         int strongYouon = 0, tsu = 0, sokuon = 0, longVowels = 0;
         var i = 0;
         var s = letters;
 
         RomajiAnalysis Invalid(string reason) =>
-            new(false, tokens, "", reason, strongYouon, tsu, sokuon, longVowels);
+            new(false, tokens.ToArray(), "", reason, strongYouon, tsu, sokuon, longVowels);
 
         while (i < s.Length)
         {
@@ -198,12 +217,12 @@ public sealed class RomajiDetector
             var rest = s[i..];
             if ((composition ? CompositionPartials : PartialSpellings).Contains(rest) || rest is "n" or "tc")
             {
-                return new RomajiAnalysis(true, tokens, rest, null, strongYouon, tsu, sokuon, longVowels);
+                return new RomajiAnalysis(true, tokens.ToArray(), rest, null, strongYouon, tsu, sokuon, longVowels);
             }
             return Invalid($"「{rest}」はローマ字として成立しない");
         }
 
-        return new RomajiAnalysis(true, tokens, "", null, strongYouon, tsu, sokuon, longVowels);
+        return new RomajiAnalysis(true, tokens.ToArray(), "", null, strongYouon, tsu, sokuon, longVowels);
     }
 
     private static bool EndsWithVowel(string romaji, char a, char b) =>

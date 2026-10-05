@@ -24,6 +24,7 @@ public sealed class MozcConverter : IKanjiConverter, ILearningConverter, IDispos
     private readonly string? _profileDirectory;
     private readonly object _gate = new();
     private readonly Dictionary<string, IReadOnlyList<string>> _candidates = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, List<(string Reading, IReadOnlyList<string> Candidates)>?> _conversions = new(StringComparer.Ordinal);
     private Process? _process;
     private int _failures;
 
@@ -76,6 +77,7 @@ public sealed class MozcConverter : IKanjiConverter, ILearningConverter, IDispos
         {
             // 覚えさせると候補の順番が変わるので、候補の控えを捨てる。
             _candidates.Clear();
+            _conversions.Clear();
             var result = Send($"L\t{Clean(context ?? "")}\t{records}");
             if (result == "OK" && ++_learnedSinceSave >= SaveEvery)
             {
@@ -118,10 +120,19 @@ public sealed class MozcConverter : IKanjiConverter, ILearningConverter, IDispos
         reading = Clean(reading);
         lock (_gate)
         {
+            // ライブ変換は 1 キーごとに同じ読みを何度も変換し直すので、同じ頼み方の結果は使い回す (覚えさせたら捨てる)。
+            var key = context + "\t" + reading;
+            if (_conversions.TryGetValue(key, out var known))
+            {
+                // 候補の控えは「直前の変換」のものを使うので、使い回したときも控えを入れ直す
+                foreach (var (segmentReading, candidates) in known ?? []) _candidates[segmentReading] = candidates;
+                return known;
+            }
             try
             {
                 var line = Send($"C\t{context}\t{reading}");
-                if (line is null || line.Length == 0) return null;
+                if (line is null) return null;
+                if (line.Length == 0) return Remember(key, null);
                 var segments = new List<(string, IReadOnlyList<string>)>();
                 foreach (var record in line.Split(RecordSeparator))
                 {
@@ -132,7 +143,7 @@ public sealed class MozcConverter : IKanjiConverter, ILearningConverter, IDispos
                     if (_candidates.Count > 512) _candidates.Clear();
                     _candidates[fields[0]] = candidates;
                 }
-                return segments;
+                return Remember(key, segments);
             }
             catch (Exception ex)
             {
@@ -141,6 +152,24 @@ public sealed class MozcConverter : IKanjiConverter, ILearningConverter, IDispos
                 return null;
             }
         }
+    }
+
+    /// <summary>候補の控えと変換の結果の控えを捨てる (前の入力の控えを次の入力に持ち越さない。テストで文ごとに使う)。</summary>
+    public void ClearCache()
+    {
+        lock (_gate)
+        {
+            _candidates.Clear();
+            _conversions.Clear();
+        }
+    }
+
+    /// <summary>変換の結果を覚えておく (_gate の中で呼ぶ)。</summary>
+    private List<(string Reading, IReadOnlyList<string> Candidates)>? Remember(string key, List<(string Reading, IReadOnlyList<string> Candidates)>? segments)
+    {
+        if (_conversions.Count > 512) _conversions.Clear();
+        _conversions[key] = segments;
+        return segments;
     }
 
     // タブ・改行は区切りに使うので空白にする。

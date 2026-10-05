@@ -576,6 +576,9 @@ public sealed class CompositionController
     /// <summary>1 語でも英文の始まりとみなす、行の始めのあいさつ・感動詞。</summary>
     private static readonly HashSet<string> SentenceOpeners = ["hey", "hi", "hello", "oh", "wow", "yeah", "yes", "well", "so", "hmm", "ah", "ooh", "oops", "thanks", "sorry", "please", "dear", "yay", "whoa", "nope", "yep"];
 
+    /// <summary>日本語の後ろでも英文の始まりとみなす感動詞 (日本語のローマ字としては使わない綴りのもの)。</summary>
+    private static readonly HashSet<string> Interjections = ["oh", "wow", "yeah", "ooh", "oops", "whoa", "woah", "yay", "hmm", "hey"];
+
     internal static bool IsEnglishSentence(string? text)
     {
         if (string.IsNullOrEmpty(text) || text[^1] != ' ') return false;
@@ -586,6 +589,10 @@ public sealed class CompositionController
         // ほかの 1 語 (GitHub no repo の GitHub) は、日本語の文の中の英単語のことが多いので 2 語以上
         var lineStart = start == 0 || text[start - 1] is '\n' or '\r';
         if (lineStart && words is [var first] && SentenceOpeners.Contains(first.TrimEnd(',', '!', '.').ToLowerInvariant())) return true;
+        // 感動詞 (oh・wow・yeah …) は日本語の後ろでも英文の始まり (爆弾にはなれない oh + no! の no を の にしない)
+        if (words is [var interjection] && Interjections.Contains(interjection.TrimEnd(',', '!', '.').ToLowerInvariant())) return true;
+        // 行の始めの、' で縮めた英語 (I'll・We're・don't) も 1 語で英文の始まり ("I'll " の後の go)。ローマ字には ' が入らない
+        if (lineStart && words is [var contraction] && System.Text.RegularExpressions.Regex.IsMatch(contraction, @"^[A-Za-z]+['’][A-Za-z]{1,2}$")) return true;
         return words.Length >= 2 && words.All(w => w.Any(char.IsAsciiLetter) && w.All(c => char.IsAsciiLetterOrDigit(c) || c is ',' or '.' or '\'' or '-' or '!' or '?' or ':' or ';'));
     }
 
@@ -973,9 +980,30 @@ public sealed class CompositionController
             // カタカナの語の後ろの「っ」で始まる文節 (スパイダーマ + っ！) は、カタカナの「ッ」にする (スパイダーマッ！)。
             preferred ??= i > 0 && clauses[i].Text.StartsWith('っ') && clauses[i - 1].Text is [.., var last] && last is >= 'ァ' and <= 'ヺ' or 'ー'
                 ? "ッ" + clauses[i].Text[1..] : null;
+            // 文頭・記号の後ろの「え、」「え？」(聞き返し) を、変換エンジンは 得 にしてしまう (得、知らん)。かなのまま
+            preferred ??= IsInterjection(clauses, i) ? clauses[i].Reading : null;
+            // がち (ガチで) を、変換エンジンは 勝ち にしてしまう (勝ちでやばい)。勝ち の読みは かち なので、がち は ガチ にする
+            preferred ??= clauses[i].Reading.StartsWith("がち", StringComparison.Ordinal) && clauses[i].Text.StartsWith("勝ち", StringComparison.Ordinal)
+                ? "ガチ" + clauses[i].Text["勝ち".Length..] : null;
             if (preferred is not null) Prefer(clauses[i], preferred);
         }
         return clauses;
+    }
+
+    private static readonly HashSet<char> SentencePunctuation = ['、', '。', '，', '．', ',', '.', '！', '？', '!', '?', '…', '‥', '「', '」', '(', ')', '（', '）', ' ', '　'];
+
+    /// <summary>
+    /// 文節が「え」だけ (後ろに記号が付いていてもよい) で、文の頭か記号の後ろにあり、後ろが記号か文の終わりか。
+    /// こういう「え」は聞き返し・驚き (え、しらん) で、絵 や 得 ではない。
+    /// </summary>
+    private bool IsInterjection(List<Clause> clauses, int i)
+    {
+        var reading = clauses[i].Reading;
+        if (reading.Length == 0 || reading[0] != 'え' || !reading.Skip(1).All(SentencePunctuation.Contains) || clauses[i].Text == reading) return false;
+        var before = i > 0 ? clauses[i - 1].Text : _precedingText ?? "";
+        if (before.Length > 0 && !SentencePunctuation.Contains(before[^1])) return false;
+        if (reading.Length > 1) return true;
+        return i + 1 == clauses.Count || clauses[i + 1].Text is [var next, ..] && SentencePunctuation.Contains(next);
     }
 
     /// <summary>

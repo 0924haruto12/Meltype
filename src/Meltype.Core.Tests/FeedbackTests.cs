@@ -54,11 +54,39 @@ internal static class FeedbackTests
         Assert.Equal("かW", Showing("kaW"));
     }
 
+    /// <summary>短い英単語だけを知っているスペルチェッカー (Windows のスペルチェッカーの代わり)。</summary>
+    private sealed class FewWordsChecker(params string[] words) : Detection.IWordChecker
+    {
+        public bool IsAvailable => true;
+        public bool IsWord(string lower) => words.Contains(lower);
+    }
+
+    [Test]
+    public static void Laughter_IsNotTakenAsWordFoundMidRomaji()
+    {
+        // Windows のスペルチェッカーは taw (ビー玉) を知っている。kiyagat|taw の taw で、笑いの w を英字にしていた (きやがっtaw)
+        var saved = CompositionTests.Detector.SpellChecker;
+        CompositionTests.Detector.SpellChecker = new FewWordsChecker("taw", "new", "show");
+        try
+        {
+            foreach (var (typed, expected) in new[] { ("kiyagattaw", "きやがったw"), ("kitaw!", "きたw！"), ("new", "new"), ("show", "show") })
+            {
+                var k = new CompositionTests.Keyboard();
+                k.Type(typed + "\n");
+                Assert.Equal(expected, k.Host.Document, typed);
+            }
+        }
+        finally
+        {
+            CompositionTests.Detector.SpellChecker = saved;
+        }
+    }
+
     [Test]
     public static void ShiftedSymbols_StartComposition()
     {
-        Assert.Equal("!", Showing("!"));
-        Assert.Equal("?", Showing("?"));
+        Assert.Equal("！", Showing("!"));
+        Assert.Equal("？", Showing("?"));
         Assert.Equal(":", Showing(":"));
         Assert.Equal("～", Showing("~"));
         Assert.Equal("!", Showing("!", before: "Hello"), "英文の後は半角");
@@ -487,6 +515,22 @@ internal static class LanguageLearningTests
                 ("translatebot[Thinking is thinking]", "translatebot「Thinking is thinking」"), ("fuwafuwanacornyorifuwafuwanachocolatenohougayum", "ふわふわなcornよりふわふわなchocolateのほうがyum"),
                 ("hey yo say!", "hey yo say!"), ("korosuzobot", "ころすぞbot"),
                 ("appuruulottitukereba", "あっぷるうぉっちつければ"), ("JapanesetoEnglishwohodohodonimazetahougagoodkamoshirenai", "JapaneseとEnglishをほどほどにまぜたほうがgoodかもしれない"), ("JavaScriptwokaku", "JavaScriptをかく"), ("iPaddeiisonnnadekakunakute", "iPadでいいそんなでかくなくて"), ("atohahelppe-jitoka", "あとはhelpぺーじとか"), ("HHireta", "HHいれた"), ("grokga", "grokが"), ("grokniyoruto", "grokによると"), ("guri-nnshanottara51kmijoukukan", "ぐりーんしゃのったら51kmいじょうくかん"), ("shitaraavgadete", "したらavがでて"), ("jimotogeoguessershitetara", "じもとgeoguesserしてたら"), ("jiketsurtashite", "じけつrtaして"),
+                // summary.json (2026-10-05): 音の途中から始まる英単語 (kara|na|l の anal、da|me|x の amex) で小書き文字が崩れていた
+                ("yakaranala", "やからなぁ"), ("damexe", "だめぇ"), ("hotelya", "hotelや"),
+                // 笑いの w (文末の w が消えていた、ww が っw になっていた)。英単語の最後の w はそのまま
+                ("kiyagattaw", "きやがったw"), ("daneww", "だねww"), ("toottawwwww", "とおったwwwww"), ("wwww", "wwww"), ("kitaww!", "きたww！"), ("new", "new"), ("aww", "aww"),
+                // 読めない略語の最後の c + は・や (vrc|ya が vr|ちゃ になっていた)。読める語 (まち) と大文字の略語の後ろ (EDちゃう) は分けない
+                ("vrcyaranai", "vrcやらない"), ("vchairu", "vcはいる"), ("pcha", "pcは"), ("machi", "まち"), ("ochaire", "おちゃいれ"), ("EDchau", "EDちゃう"),
+                ("everyonenohatsugen", "everyoneのはつげん"),
+                // 英語の歌詞: 行の始めの I'll の後ろ (I'll ご になっていた)、riverside, (river しで、 になっていた)
+                ("I'll go to see you again tomorrow", "I'll go to see you again tomorrow"), ("by the riverside, I'm sitting", "by the riverside, I'm sitting"),
+                ("shirigaru teenage girl", "しりがるteenage girl"), ("bakudannnihanarenai oh no!", "ばくだんにはなれないoh no!"), ("supeaman woah", "すぺあまんwoah"),
+                // 英文の中の短い語 + 記号 (let's go! の go が ご になっていた)。日本語の後ろの記号は今までどおり全角
+                ("let's go!", "let's go!"), ("I said no?", "I said no?"), ("sorena!", "それな！"), ("nande?", "なんで？"),
+                // 記号の前・確定時の笑いの w (きたw！ の w が確定で消えていた)
+                ("kitaw!", "きたw！"), ("hontow?w", "ほんとw？w"),
+                // 略語 + 日本語 + 記号は今までどおり (BE|かな？ が BEkana？ になっていた)
+                ("tougouhandakaraBEkana?", "とうごうはんだからBEかな？"), ("fubusangaXshisuginadakenanda!!", "ふぶさんがXしすぎなだけなんだ！！"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),
             })
             {
                 var k = new CompositionTests.Keyboard();

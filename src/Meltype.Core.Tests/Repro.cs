@@ -120,6 +120,12 @@ internal static class Henkan
         try { if (Directory.Exists(ProfileDirectory)) Directory.Delete(ProfileDirectory, recursive: true); } catch { }
     }
 
+    /// <summary>続けて試すとき (--jht-batch)、前の文の控えを次の文に持ち越さない (1 文ずつ起動したときと同じ結果にする)。</summary>
+    public static void Reset()
+    {
+        if (Mozc.IsValueCreated) Mozc.Value?.ClearCache();
+    }
+
     private static readonly Lazy<Composition.MozcConverter?> Mozc = new(() =>
         Environment.GetEnvironmentVariable("MELTYPE_MOZC") is { Length: > 0 } helper && File.Exists(helper)
             ? new Composition.MozcConverter(helper, ProfileDirectory)
@@ -135,9 +141,18 @@ internal static class Henkan
     public static CompositionTests.Keyboard Keyboard()
     {
         CompositionTests.Detector.SpellChecker ??= Detection.BuiltInWordChecker.Shared;
-        var converter = (Composition.IKanjiConverter?)Mozc.Value ?? FallbackConverter;
+        // Mozc には覚えさせない (覚えさせると、前の打ち方・前の文で確定した変換が次の打ち方の結果を変えてしまう。
+        // 確かめたいのは、まだ何も覚えていない人の最初の変換)
+        var converter = Mozc.Value is { } engine ? new WithoutLearning(engine) : FallbackConverter;
         return new(live: true, converter: converter, moreCandidates: Mozc.Value is { } mozc ? mozc.Candidates : null,
             userDictionary: new Composition.UserDictionary(null), translations: Translations.Value);
+    }
+
+    /// <summary>変換だけを頼み、覚えさせない変換エンジン (ILearningConverter を持たない)。</summary>
+    private sealed class WithoutLearning(Composition.IKanjiConverter inner) : Composition.IKanjiConverter
+    {
+        public string? Convert(string hiragana) => inner.Convert(hiragana);
+        public IReadOnlyList<Composition.ConversionClause>? ConvertClauses(string hiragana, string? context = null) => inner.ConvertClauses(hiragana, context);
     }
 
     public static void Run(string keys)

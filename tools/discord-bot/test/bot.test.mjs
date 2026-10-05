@@ -168,3 +168,50 @@ test('summary: チャンネルの指定・結果の読み取り・重複の無�
   assert.deepEqual(groups.ambiguous.map(e => e.expected), ['トマトを買う']);
   assert.deepEqual(groups.split.map(e => e.expected), ['goodかも'], 'ローマ字として読めない英単語は除外しない');
 });
+
+test('jht のテスト用プログラムを起動したまま続けて使い、止まっても続ける・秘密は渡さない', async () => {
+  const { JhtWorkers, childEnv } = await import('../henkan.mjs');
+  const { spawn } = await import('node:child_process');
+  // テスト用プログラムの代わり: 1 行読むごとに 1 行の JSON を返す。「落ちる」なら止まる・「エラー」なら error を返す
+  const fake = `
+    const rl = require('node:readline').createInterface({ input: process.stdin });
+    rl.on('line', line => {
+      if (line === '') process.exit(0);
+      if (line === '落ちる') process.exit(1);
+      if (line === 'エラー') return console.log(JSON.stringify({ error: '読みが分かりません' }));
+      console.log(JSON.stringify({ expected: line, pid: process.pid, token: process.env.DISCORD_TOKEN ?? null, results: [] }));
+    });`;
+  let started = 0;
+  const workers = new JhtWorkers({
+    dll: 'x.dll', mozc: '', size: 2, idleMs: 50,
+    spawn: (_command, _args, options) => { started++; return spawn(process.execPath, ['-e', fake], options); },
+  });
+  const texts = ['あ', 'い', 'う', 'え', 'お'];
+  const results = await Promise.all(texts.map(t => workers.run(t)));
+  assert.deepEqual(results.map(r => r.expected), texts);
+  assert.equal(started, 2, '同時に 2 つまで。続きは起動したままのプロセスで');
+  assert.equal(new Set(results.map(r => r.pid)).size, 2);
+  await assert.rejects(workers.run('エラー'), e => e.userMessage === '読みが分かりません');
+  await assert.rejects(workers.run('落ちる'));
+  assert.equal((await workers.run('か')).expected, 'か', 'プロセスが止まっても次の文は新しいプロセスで試す');
+  await assert.rejects(workers.run('\n'), e => e.userMessage === '文が空です。');
+  workers.close();
+  assert.equal(workers.size, 0);
+
+  const env = childEnv('mozc.exe', { DISCORD_TOKEN: 'secret', GH_TOKEN: 'x', PATH: '/bin' });
+  assert.deepEqual(env, { PATH: '/bin', MELTYPE_MOZC: 'mozc.exe' }, 'トークンはテスト用プログラムに渡さない');
+});
+
+test('summary: chjht の終わりのメッセージから試した件数を読み、正解率を出す', async () => {
+  const { formatSummary, parseChjhtDone, summarize, summaryJson } = await import('../summary.mjs');
+  const done = parseChjhtDone('✅ <#1> のチェックが終わりました (3.2 分): 試した 120 件のうち、問題があったもの **8 件**、試せなかったもの 1 件。80 文字を超えて飛ばしたもの 3 件。');
+  assert.deepEqual(done, { target: '<#1>', checked: 120, problems: 8, stopped: false });
+  assert.equal(parseChjhtDone('⏹ 別鯖 / #雑談 のチェックを止めました (試した 40 件のうち、問題があったもの 5 件)。').checked, 40);
+  assert.equal(parseChjhtDone('🔍 <#1> のメッセージを読んでいます…'), null);
+  const runs = [{ ...done, at: 1 }, { ...done, checked: 200, problems: 10, at: 2 }, { target: '<#2>', checked: 50, problems: 0, stopped: false, at: 3 }];
+  const summary = summarize([], { runs });
+  assert.deepEqual([summary.tested.checked, summary.tested.problems, summary.tested.ok], [250, 10, 240], '同じチャンネルは新しい回だけ');
+  assert.equal(summaryJson(summary, ['1']).tested.ok, 240);
+  assert.match(formatSummary(summary, ['1']), /chjht で試した \*\*250 件\*\*: 問題なし 240 件 \(96\.0%\)/);
+  assert.equal(summaryJson(summarize([]), ['1']).tested, undefined, '終わりのメッセージが無ければ入れない');
+});

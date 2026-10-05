@@ -115,14 +115,14 @@ public sealed class CompositionText
             while (_units.Count > 0 && _units[^1] is { Raw.Length: 1 } last && last.Kana == last.Raw && char.IsAsciiLetter(last.Raw[0]) &&
                    !(char.IsAsciiLetterUpper(last.Raw[0]) && _units.Count >= 2 && _units[^2].Raw is { Length: > 0 } before && char.IsAsciiLetterUpper(before[^1])) &&
                    // 英単語の最後の l / x (hotel の l) は、次の文字と合わせて小書き文字 (lya = ゃ) にしない。
-                   !(last.Raw is "l" or "x" or "L" or "X" && EndsWithEnglishWord(LettersBefore(_units.Count))))
+                   !(last.Raw is "l" or "x" or "L" or "X" && EndsWithEnglishWordFromUnit(_units.Count)))
             {
                 pulled.Insert(0, last.Raw);
                 _units.RemoveAt(_units.Count - 1);
             }
             _pending.Insert(0, pulled.ToString());
             // 英単語 (hotel) の最後の l / x の次に打った文字は、l / x と合わせて小書き文字 (hotel + ya → ほてゃ) にしない。
-            if (_pending.Length == 1 && _pending[0] is 'l' or 'x' or 'L' or 'X' && EndsWithEnglishWord(LettersBefore(_units.Count) + _pending))
+            if (_pending.Length == 1 && _pending[0] is 'l' or 'x' or 'L' or 'X' && EndsWithEnglishWordFromUnit(_units.Count, _pending.ToString()))
             {
                 _units.Add(new CompositionUnit(_pending.ToString(), _pending.ToString()));
                 _pending.Clear();
@@ -206,6 +206,40 @@ public sealed class CompositionText
         for (var start = 0; start <= letters.Length - 4; start++)
         {
             if (_detector.IsKnownEnglishWord(letters[start..])) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 最後の count 個の単位 (の英字の並び) + extra が、4 文字以上の知っている英単語で終わっているか (ほ|て|l = hotel)。
+    /// 英単語は単位の区切りから始まるものだけを見る。音の途中から始まる語 (から|な|l の anal、だ|め|x の amex) は、
+    /// ローマ字で打っている日本語 (からなぁ・だめぇ) の一部なので英単語とみなさない。
+    /// </summary>
+    private bool EndsWithEnglishWordFromUnit(int count, string extra = "")
+    {
+        var letters = extra;
+        for (var i = count - 1; i >= 0 && _units[i].Raw.Length > 0 && _units[i].Raw.All(char.IsAsciiLetter); i--)
+        {
+            letters = _units[i].Raw + letters;
+            if (letters.Length >= 4 && _detector.IsKnownEnglishWord(letters)) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 最後の単位からさかのぼった英字 + extra が、同梱の辞書の略語・語 (vrc・vc・jc) で、ローマ字としては読めないものか。
+    /// 語は単位の区切りから始まるものだけを見る。
+    /// </summary>
+    private bool EndsWithListedAbbreviation(string extra)
+    {
+        // 大文字の略語の後ろの小文字 (ED + cyau = ちゃう) は、略語の続きではない
+        if (_units.Count > 0 && _units[^1].Raw is [.., var last] && char.IsAsciiLetterUpper(last) && extra.Any(char.IsAsciiLetterLower)) return false;
+        var letters = extra;
+        for (var i = _units.Count - 1; i >= 0 && _units[i].Raw.Length > 0 && _units[i].Raw.All(char.IsAsciiLetter); i--)
+        {
+            letters = _units[i].Raw + letters;
+            var lower = letters.ToLowerInvariant();
+            if (_detector.IsListedEnglishWord(lower) && !_detector.Romaji.Analyze(lower).IsValid) return true;
         }
         return false;
     }
@@ -319,6 +353,21 @@ public sealed class CompositionText
                         offset += token.Romaji.Length;
                     }
                 }
+                // ローマ字として読めない略語の最後の c + h / y (vrc|ya、vc|ha、jc|ha の cya・cha = ちゃ) は、c を略語に残して や・は と分ける
+                // (c が ちゃ とつながって、略語の区切りが無くなっていた。vrcyaranai が vrちゃらない になっていた)。
+                // 読める語 (mac|hi = まち) は日本語のことが多いので分けない。
+                else if (raw.Length >= 3 && char.ToLowerInvariant(raw[0]) == 'c' && char.ToLowerInvariant(raw[1]) is 'h' or 'y' &&
+                         EndsWithListedAbbreviation(raw[..1]) &&
+                         romaji.AnalyzeFragment(raw[1..].ToLowerInvariant()) is { IsValid: true, Partial: "" } after)
+                {
+                    _units.Add(new CompositionUnit(raw[..1], raw[..1]));
+                    var offset = 1;
+                    foreach (var token in after.Tokens)
+                    {
+                        _units.Add(new CompositionUnit(token.Kana, raw.Substring(offset, token.Romaji.Length)));
+                        offset += token.Romaji.Length;
+                    }
+                }
                 else _units.Add(new CompositionUnit(tokens[i].Kana, raw));
                 position += length;
             }
@@ -366,6 +415,36 @@ public sealed class CompositionText
     /// <summary>自動判定の区間分け (Mode が Auto のときに使う)。</summary>
     /// <param name="final">打ち終わった (Space・Enter で確定・変換する) ときは true。英単語の打ちかけ (amaz → amazon) を英語の根拠にしない。</param>
     public IReadOnlyList<CompositionSegment> Segments(bool final = false)
+    {
+        // 1 キーごとに、表示・打ち間違いの直し・Space の扱いなどで何度も呼ばれる。区間分けは重い (打った文字のあらゆる区間を調べる) ので、
+        // 打った内容と判定の条件が同じなら前の結果を使い回す。
+        var key = SegmentsKey(final);
+        var slot = final ? 1 : 0;
+        if (_segmentsCache[slot] is { } cached && cached.Key == key && ReferenceEquals(cached.Memory, _detector.Memory) && ReferenceEquals(cached.SpellChecker, _detector.SpellChecker))
+        {
+            return cached.Segments;
+        }
+        var result = ComputeSegments(final);
+        _segmentsCache[slot] = (key, _detector.Memory, _detector.SpellChecker, result);
+        return result;
+    }
+
+    private readonly (string Key, LanguageMemory? Memory, Detection.IWordChecker? SpellChecker, IReadOnlyList<CompositionSegment> Segments)?[] _segmentsCache = new (string, LanguageMemory?, Detection.IWordChecker?, IReadOnlyList<CompositionSegment>)?[2];
+
+    /// <summary>区間分けの結果を決めるもの (打った単位・入力途中の子音・前後・判定の強さ・学習した語の版) をつないだもの。</summary>
+    private string SegmentsKey(bool final)
+    {
+        var key = new StringBuilder();
+        foreach (var unit in _units) key.Append(unit.Kana).Append('\u0001').Append(unit.Raw).Append('\u0002');
+        key.Append('\u0003').Append(_pending).Append('\u0003')
+            .Append(PrecedingEnglish switch { true => 'E', false => 'J', null => '-' })
+            .Append(FollowingEnglish switch { true => 'E', false => 'J', null => '-' })
+            .Append(PrecedingEnglishSentence ? 'S' : '-').Append(KanaInput ? 'K' : '-').Append(final ? 'F' : '-')
+            .Append((int)EffectiveLevel).Append(':').Append(_detector.Memory?.Version ?? -1);
+        return key.ToString();
+    }
+
+    private IReadOnlyList<CompositionSegment> ComputeSegments(bool final)
     {
         var segments = _detector.Segment(_units, Pending, PrecedingEnglish, FollowingEnglish, EffectiveLevel, PrecedingEnglishSentence, KanaInput, final);
         return HalfWidthOpeners(segments) is { } adjusted
@@ -596,6 +675,8 @@ public sealed class CompositionText
         // 確定・変換の前に、数字の後ろの単位を英字のままにする (5min を 5みん にしない)。打ち間違いを直す設定に関係なく
         SplitUnitAfterNumber(final: true);
         Normalize(final: false);
+        // 英字の並びの最後の w の連続 (笑い) はそのまま残し、打ち間違いの直しの対象にもしない
+        KeepLaughter();
         if (TypoCorrector is not { } corrector || !CorrectTypos() || Mode != DisplayMode.Auto || KanaInput) return false;
         var changed = false;
         // 今の表示で英字に見えている文字 (きょうは|meeting|です の meeting)。ここは直さない
@@ -605,14 +686,14 @@ public sealed class CompositionText
         var start = 0;
         while (start < _units.Count)
         {
-            if (!IsLetters(_units[start].Raw))
+            if (!IsLetters(_units[start].Raw) || IsLaughter(_units[start]))
             {
                 offset += _units[start].Raw.Length;
                 start++;
                 continue;
             }
             var end = start;
-            while (end < _units.Count && IsLetters(_units[end].Raw)) end++;
+            while (end < _units.Count && IsLetters(_units[end].Raw) && !IsLaughter(_units[end])) end++;
             var atEnd = end == _units.Count;
             var letters = string.Concat(_units.Skip(start).Take(end - start).Select(u => u.Raw)) + (atEnd ? Pending : "");
             var runOffset = offset;
@@ -645,6 +726,61 @@ public sealed class CompositionText
             start = end;
         }
         return changed;
+    }
+
+    /// <summary>
+    /// 英字の並びの最後の w の連続は、チャットの笑い (きたw・だねww・www・ほんと？w)。ww を っw と読んだり、打ち間違いとして消したりせず、
+    /// 1 文字ずつ w のまま残す (確定・変換・記号の直前に呼ぶ)。英単語の最後の w (new・aww) はそのまま。
+    /// </summary>
+    private void KeepLaughter()
+    {
+        if (KanaInput || Mode != DisplayMode.Auto) return;
+        // 後ろの英字の並びから順に見る (前を入れ替えると後ろの位置がずれるので)
+        var end = _units.Count;
+        var withPending = _pending.Length > 0;
+        while (end > 0 || withPending)
+        {
+            if (!withPending && !IsLetters(_units[end - 1].Raw))
+            {
+                end--;
+                continue;
+            }
+            var runStart = end;
+            while (runStart > 0 && IsLetters(_units[runStart - 1].Raw)) runStart--;
+            KeepLaughterAt(end, withPending);
+            withPending = false;
+            end = runStart;
+        }
+    }
+
+    /// <summary>笑いとして w のまま残した単位 (打ち間違いの直しの対象にしない)。</summary>
+    private static bool IsLaughter(CompositionUnit unit) => unit.Raw is "w" or "W" && unit.Kana == unit.Raw;
+
+    /// <summary>end の手前で終わる英字の並び (withPending なら入力途中の子音も) の最後の w の連続を、笑いなら w の単位にする。笑いの始まりを返す。</summary>
+    private int KeepLaughterAt(int end, bool withPending)
+    {
+        var pending = withPending ? _pending.ToString() : "";
+        if (!pending.All(c => c is 'w' or 'W')) return end;
+        var start = end;
+        while (start > 0 && _units[start - 1].Raw is [var c] && c is 'w' or 'W' && _units[start - 1].Kana is "っ" or "w" or "W") start--;
+        var count = end - start + pending.Length;
+        if (count == 0) return end;
+        // 1 つだけの w は、日本語のかなの後ろ (きた + w) のときだけ笑いとみなす
+        if (count == 1 && !(start > 0 && _units[start - 1].Kana is [var kana, ..] && kana is >= 'ぁ' and <= 'ヺ')) return end;
+        // 前から続く英単語の終わり (aww・new・show) なら笑いではない。英単語とみなすのは、英字の並びの頭から始まる語か、同梱の辞書の語だけ
+        // (スペルチェッカーの短い語が音の途中から見つかる kiyagat|taw の taw で、笑いの w を英字にしていた)
+        var letters = string.Concat(_units.Skip(start).Take(end - start).Select(u => u.Raw)) + pending;
+        var laugh = letters;
+        for (var i = start - 1; i >= 0 && _units[i].Raw.Length > 0 && _units[i].Raw.All(char.IsAsciiLetter); i--)
+        {
+            letters = _units[i].Raw + letters;
+            var runStart = i == 0 || !IsLetters(_units[i - 1].Raw);
+            if (letters.Length >= 3 && (runStart ? _detector.IsKnownEnglishWord(letters) : _detector.IsListedEnglishWord(letters.ToLowerInvariant()))) return end;
+        }
+        _units.RemoveRange(start, end - start);
+        if (withPending) _pending.Clear();
+        _units.InsertRange(start, laugh.Select(w => new CompositionUnit(w.ToString(), w.ToString())));
+        return start;
     }
 
     /// <summary>
@@ -738,10 +874,11 @@ public sealed class CompositionText
         // ASCII の括弧はチャット本文でもそのまま使われるため、入力した幅を保つ。
         '(' => '(',
         ')' => ')',
-        // Discord などの会話では ! ? : を半角で使うため、入力した幅を保つ。
-        '!' => '!',
-        '?' => '?',
+        // ! ? は Microsoft IME と同じく全角 (テスターのチャットでも、日本語の後ろの ？ ！ は 96% が全角だった)。
+        // : ; | はチャット本文でも半角で使うので、入力した幅を保つ。
         ':' => ':',
+        ';' => ';',
+        '|' => '|',
         '~' => '～',
         '\'' => '’',
         '"' => '”',

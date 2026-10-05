@@ -34,13 +34,19 @@ internal static class TestRunner
         if (args.FirstOrDefault() == "--units") { DebugUnits.Run(args[1]); return 0; }
         // Discord の bot の henkan-test / japanese-henkan-test を Windows で: アプリと同じく Windows のスペルチェッカーを使い、
         // 漢字の読みは Microsoft IME の逆変換で求める。Mozc (MELTYPE_MOZC、無ければ native\mozc\bin) が無ければ Microsoft IME で変換する。
-        if (args.FirstOrDefault() is "--henkan" or "--jht")
+        if (args.FirstOrDefault() is "--henkan" or "--jht" or "--jht-batch")
         {
             if (Detection.WindowsSpellChecker.Shared.IsAvailable) CompositionTests.Detector.SpellChecker = Detection.WindowsSpellChecker.Shared;
             var bundled = Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "native", "mozc", "bin", "meltype_mozc_helper.exe");
             if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MELTYPE_MOZC")) && File.Exists(bundled)) Environment.SetEnvironmentVariable("MELTYPE_MOZC", Path.GetFullPath(bundled));
             using var ime = new Composition.MsImeKanjiConverter();
             Henkan.FallbackConverter = ime;
+            if (args[0] == "--jht-batch")
+            {
+                Jht.Batch(ime.Reading, Henkan.Keyboard, () => Henkan.EngineName);
+                Henkan.Shutdown();
+                return 0;
+            }
             var text = string.Join(" ", args.Skip(1));
             if (args[0] == "--henkan")
             {

@@ -162,6 +162,32 @@ internal static class Jht
         }
     }
 
+    /// <summary>
+    /// 標準入力から 1 行に 1 つ「出てほしい文 [/ 読み]」を読み、それぞれの結果を 1 行の JSON で返す (空行で終わり)。
+    /// 1 文ごとにプロセスと Mozc を起動し直さずに済むので、chjht のように多くの文を試すときに速い。
+    /// 打った内容の学習 (Mozc・英語 / 日本語) はしないので、前の文の結果は次の文に影響しない。
+    /// </summary>
+    public static void Batch(Func<string, string?>? readingOf, Func<CompositionTests.Keyboard> keyboard, Func<string> engine)
+    {
+        Console.InputEncoding = new UTF8Encoding(false);
+        Console.OutputEncoding = new UTF8Encoding(false);
+        while (Console.In.ReadLine() is { Length: > 0 } line)
+        {
+            var slash = line.IndexOf(" / ", StringComparison.Ordinal);
+            Henkan.Reset();
+            try
+            {
+                Run(slash >= 0 ? line[..slash] : line, slash >= 0 ? line[(slash + 3)..] : null, readingOf, keyboard, engine());
+            }
+            catch (Exception ex)
+            {
+                // 1 つの文で失敗しても、続きの文は試す
+                Console.WriteLine(JsonSerializer.Serialize(new { error = $"試せませんでした ({ex.GetType().Name})" }));
+            }
+            Console.Out.Flush();
+        }
+    }
+
     private static void RunCore(string expected, string? reading, Func<string, string?>? readingOf, Func<CompositionTests.Keyboard> keyboard, string engine)
     {
         Console.OutputEncoding = new UTF8Encoding(false);

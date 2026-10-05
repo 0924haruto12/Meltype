@@ -41,6 +41,10 @@ internal static class CompositionTests
                 "かわ" => [new("かわ", "川")],
                 "すぱいだーまっ" => [new("すぱいだーま", "スパイダーマ"), new("っ", "っ")],
                 "はしを" => [new("はしを", "橋を")],
+                // 本物の変換エンジン (Mozc) の苦手なもの: え、 → 得、、がちで → 勝ちで
+                "え、しらん" => [new("え", "得"), new("、", "、"), new("しらん", "知らん")],
+                "えかく" => [new("え", "絵"), new("かく", "描く")],
+                "がちでやばい" => [new("がちで", "勝ちで"), new("やばい", "ヤバい")],
                 _ => null,
             };
         }
@@ -324,6 +328,18 @@ internal static class CompositionTests
         var k = new Keyboard();
         k.Type("supaida-maxtu ");
         Assert.Equal("スパイダーマ|ッ", string.Join("|", k.Host.View!.Clauses!));
+    }
+
+    [Test]
+    public static void Clauses_InterjectionE_AndGachi()
+    {
+        // summary.json: 文頭の「え、」が 得、、がちで が 勝ちで になっていた (勝ち の読みは かち)
+        foreach (var (typed, expected) in new[] { ("e,shiran ", "え|、|知らん"), ("ekaku ", "絵|描く"), ("gachideyabai ", "ガチで|ヤバい") })
+        {
+            var k = new Keyboard();
+            k.Type(typed);
+            Assert.Equal(expected, string.Join("|", k.Host.View!.Clauses!), typed);
+        }
     }
 
     public static void Clauses_SelectWithArrowsAndConvertEach()

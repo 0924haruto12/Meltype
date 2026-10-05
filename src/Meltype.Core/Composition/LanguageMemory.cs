@@ -65,6 +65,9 @@ public sealed class LanguageMemory
 
     public int Count => _entries.Count;
 
+    /// <summary>覚えている内容が変わるたびに増える (判定の結果を使い回してよいかを見るのに使う)。</summary>
+    public int Version { get; private set; }
+
     /// <summary>覚えている語なら英語か (true) 日本語か (false)。覚えていなければ null。word は小文字の英字。</summary>
     public bool? Get(string word)
     {
@@ -81,6 +84,7 @@ public sealed class LanguageMemory
     {
         word = word.ToLowerInvariant();
         if (word.Length < 2 || !word.All(char.IsAsciiLetterLower)) return;
+        Version++;
         if (_entries.TryGetValue(word, out var old) && old.English == english)
         {
             old.Used = DateTime.UtcNow;
@@ -118,12 +122,15 @@ public sealed class LanguageMemory
     {
         var removed = false;
         foreach (var word in words) removed |= _entries.Remove(word);
-        if (removed) Save();
+        if (!removed) return;
+        Version++;
+        Save();
     }
 
     public void Clear()
     {
         _entries.Clear();
+        Version++;
         Save();
     }
 
