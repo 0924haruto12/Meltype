@@ -365,7 +365,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         // 同梱の辞書にない英単語 (debate, potato) はローマ字としても読めるので、スペルチェッカーの語なら日本語にしない。
         if (result.Verdict == Verdict.Japanese && letters.Length >= 4 && Detection.WindowsSpellChecker.Shared.IsWord(letters.ToLowerInvariant()))
         {
-            Log.Info($"英数状態: 「{letters}」は英単語 (スペルチェッカー) なので日本語にしない");
+            Log.Info($"英数状態: {Log.Text(letters)}は英単語 (スペルチェッカー) なので日本語にしない");
             return final ? Verdict.English : Verdict.Undecided;
         }
         if (result.Verdict == Verdict.Japanese) Log.Decision($"英数状態でローマ字を検知: {result.Describe()}");
@@ -487,7 +487,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     {
         if (summary.UserCorrected)
         {
-            Log.Decision($"誤判定のフィードバック: \"{summary.Letters}\" は {summary.Verdict} ではなかった → {summary.Outcome}");
+            Log.Decision($"誤判定のフィードバック: {Log.Text(summary.Letters)} は {summary.Verdict} ではなかった → {summary.Outcome}");
         }
         if (_settings.LearningEnabled)
         {

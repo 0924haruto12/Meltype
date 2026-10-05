@@ -385,7 +385,7 @@ public sealed class CompositionController
                     SendHeld(e);
                     return;
                 }
-                Diagnostics.Log.Decision($"英数状態でローマ字を検知: 「{_heldLetters}」(母音の後の長音)");
+                Diagnostics.Log.Decision($"英数状態でローマ字を検知: {Diagnostics.Log.Text(_heldLetters.ToString())} (母音の後の長音)");
                 SwitchHeldToJapanese();
                 return;
             }
@@ -530,7 +530,7 @@ public sealed class CompositionController
             // 英数状態: ローマ字かどうか判定する (打鍵はすぐ送る)。大文字で始まる語は英語なのでそのまま通す。
             if (_options.ClassifyDirect is null || _swallowedShift.Count > 0 || char.IsAsciiLetterUpper(c!.Value))
             {
-                Diagnostics.Log.Info($"英数状態: 「{c}」は大文字 / Shift なので英語のまま");
+                Diagnostics.Log.Info($"英数状態: {Diagnostics.Log.Text(c.ToString()!)}は大文字 / Shift なので英語のまま");
                 ReplayDown(e);
                 _options.DirectDecided?.Invoke(false);
             }
@@ -685,7 +685,7 @@ public sealed class CompositionController
         {
             verdict = Verdict.Undecided;
         }
-        Diagnostics.Log.Info($"英数状態の判定: 「{_heldLetters}」→ {verdict}{(final ? " (打ち終わり)" : "")}");
+        Diagnostics.Log.Info($"英数状態の判定: {Diagnostics.Log.Text(_heldLetters.ToString())}→ {verdict}{(final ? " (打ち終わり)" : "")}");
         if (verdict == Verdict.Japanese) SwitchHeldToJapanese();
         else if (verdict != Verdict.Undecided || final) ReleaseHeldAsEnglish();
     }
