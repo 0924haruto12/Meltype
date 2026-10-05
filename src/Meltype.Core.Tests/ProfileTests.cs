@@ -68,4 +68,38 @@ internal static class ProfileTests
         Assert.Equal(1, removed.Profiles.Count);
         Assert.True(removed.RemoveProfile("標準") is null, "最後の 1 つは消せない");
     }
+    [Test]
+    public static void Profiles_ExportAndImportBetweenUsers()
+    {
+        // A さんが「配信用」を作って書き出す
+        var a = new Settings().Normalize().AddProfile("配信用")!;
+        a.DetectionLevel = DetectionLevel.Conservative;
+        a.LiveConversion = false;
+        a.AppKinds.Add(new AppKind { Name = "チャット" });
+        a.FileLog = true;
+        var file = a.ExportProfile();
+
+        // B さんが読み込む: 新しいプロファイルとして足して切り替える。共通の項目 (ログ) は B さんのまま
+        var b = new Settings().Normalize();
+        var imported = b.ImportProfile(file)!;
+        Assert.Equal("配信用", imported.ActiveProfile);
+        Assert.Equal(DetectionLevel.Conservative, imported.DetectionLevel);
+        Assert.True(!imported.LiveConversion, "ライブ変換 OFF も入る");
+        Assert.Equal("チャット", imported.AppKinds.Single().Name);
+        Assert.True(!imported.FileLog, "ログは共通の項目なので読み込まない");
+        Assert.True(imported.SwitchProfile("標準").LiveConversion, "前からのプロファイルはそのまま");
+
+        // 同じ名前があれば (2) を付ける
+        Assert.Equal("配信用 (2)", imported.ImportProfile(file)!.ActiveProfile);
+
+        // 読めないファイル・別の JSON は読み込まない
+        Assert.True(b.ImportProfile("not json") is null, "JSON でない");
+        Assert.True(b.ImportProfile("{\"Enabled\": false}") is null, "config.json など別のファイル");
+        Assert.True(b.ImportProfile("{\"format\":\"meltype-profile\",\"values\":{\"LiveConversion\":\"yes\"}}") is null, "型の違う値");
+
+        // 知らない項目・共通の項目は無視し、範囲外の値は収める
+        var odd = b.ImportProfile("{\"format\":\"meltype-profile\",\"name\":\"x\",\"values\":{\"Enabled\":false,\"Unknown\":1,\"IdleFlushMs\":999999}}")!;
+        Assert.True(odd.Enabled, "ON/OFF は読み込まない");
+        Assert.Equal(3000, odd.IdleFlushMs, "範囲に収める");
+    }
 }

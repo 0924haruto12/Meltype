@@ -322,6 +322,60 @@ public sealed class Settings
         return current;
     }
 
+    /// <summary>書き出したプロファイルのファイルの印 (ほかの JSON と見分ける)。</summary>
+    private const string ProfileFileFormat = "meltype-profile";
+
+    /// <summary>
+    /// 使っているプロファイルを、ほかの人に渡せる形 (JSON) にする。共通の項目 (ON/OFF・ログ・更新) は入れない。
+    /// アプリ別設定 (プロセス名) は入るので、渡す前に見られてもよいか確かめてもらう。
+    /// </summary>
+    public string ExportProfile()
+    {
+        var file = new JsonObject
+        {
+            ["format"] = ProfileFileFormat,
+            ["version"] = CurrentVersion,
+            ["name"] = ActiveProfile,
+            ["values"] = ProfileValues(),
+        };
+        return file.ToJsonString(JsonOptions);
+    }
+
+    /// <summary>
+    /// 書き出したプロファイルを新しいプロファイルとして足し、それに切り替えた設定を返す。読めないファイルなら null。
+    /// 同じ名前があれば「名前 (2)」にする。知らない項目と共通の項目は無視し、値は範囲に収める (Normalize)。
+    /// </summary>
+    public Settings? ImportProfile(string json)
+    {
+        JsonObject? values;
+        string name;
+        try
+        {
+            if (JsonNode.Parse(json, documentOptions: new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true }) is not JsonObject file ||
+                file["format"]?.GetValue<string>() != ProfileFileFormat || file["values"] is not JsonObject raw) return null;
+            name = (file["name"]?.GetValue<string>() ?? "").Trim();
+            // 既定の設定に、知っている項目だけを重ねてから読み直す (型の違う値はここで例外になる)
+            var merged = JsonSerializer.SerializeToNode(new Settings().Normalize(), JsonOptions)!.AsObject();
+            foreach (var (key, value) in raw)
+            {
+                if (merged.ContainsKey(key) && !SharedKeys.Contains(key)) merged[key] = value?.DeepClone();
+            }
+            values = (merged.Deserialize<Settings>(JsonOptions) ?? new Settings()).Normalize().ProfileValues();
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or NotSupportedException)
+        {
+            return null;
+        }
+        if (name.Length == 0) name = "読み込んだプロファイル";
+        if (name.Length > 50) name = name[..50];
+        var current = Clone().Normalize();
+        var unique = name;
+        for (var i = 2; current.Profiles.Any(p => p.Name == unique); i++) unique = $"{name} ({i})";
+        current.Profiles.First(p => p.Name == current.ActiveProfile).Values = current.ProfileValues();
+        current.Profiles.Add(new SettingsProfile { Name = unique, Values = values });
+        return current.SwitchProfile(unique);
+    }
+
     public const int CurrentVersion = 5;
 
     [Category("4. セッション"), DisplayName("新しいセッションとみなす無入力時間 (ms)")]
