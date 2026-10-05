@@ -34,18 +34,37 @@ swift build -c release
 
 echo "== 3/3 Meltype.app を組み立て"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
-cp "$(swift build -c release --show-bin-path)/MeltypeIME" "$APP/Contents/MacOS/Meltype"
+BIN="$(swift build -c release --show-bin-path)"
+cp "$BIN/MeltypeIME" "$APP/Contents/MacOS/Meltype"
+# azooKey が使う llama.framework などの動的なフレームワークも同梱する。
+# 入れていなかったため、1.0.0 は起動できなかった (dyld: Library not loaded: @rpath/llama.framework、#13)。
+for framework in "$BIN"/*.framework; do
+    [[ -e "$framework" ]] && cp -R "$framework" "$APP/Contents/Frameworks/"
+done
+# 実行ファイルの隣 (@loader_path) だけでなく、Contents/Frameworks も探すようにする
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Meltype" 2>/dev/null || true
+# @rpath で読み込むライブラリが全部 Contents/Frameworks にあるか確かめる (無ければ配布しない)
+missing=0
+while read -r lib; do
+    name="${lib#@rpath/}"
+    if [[ ! -e "$APP/Contents/Frameworks/$name" ]]; then echo "同梱されていないライブラリ: $lib" >&2; missing=1; fi
+done < <(otool -L "$APP/Contents/MacOS/Meltype" | awk '/@rpath\//{print $1}')
+[[ $missing -eq 0 ]] || { echo "Meltype.app に必要なライブラリが足りません" >&2; exit 1; }
 cp "$BUILD/native/MeltypeNative.dylib" "$APP/Contents/Frameworks/libMeltypeNative.dylib"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/icon.tiff "$APP/Contents/Resources/icon.tiff"
+# システム設定の入力ソースの一覧に出す名前
+cp -R Resources/ja.lproj Resources/en.lproj "$APP/Contents/Resources/"
 # azooKey の辞書などのリソース (Swift Package のリソースバンドル)
-for bundle in "$(swift build -c release --show-bin-path)"/*.bundle; do
+for bundle in "$BIN"/*.bundle; do
     [[ -e "$bundle" ]] && cp -R "$bundle" "$APP/Contents/Resources/"
 done
 # 署名: 環境変数 MELTYPE_MAC_IDENTITY (Developer ID Application の証明書の名前) があれば配布用に署名する
 # (Hardened Runtime・タイムスタンプ付き。公証 (notarization) は mac.yml で行う)。無ければ自分の Mac で使うための署名。
 if [[ -n "${MELTYPE_MAC_IDENTITY:-}" ]]; then
-    codesign --force --sign "$MELTYPE_MAC_IDENTITY" --options runtime --timestamp "$APP/Contents/Frameworks/libMeltypeNative.dylib"
+    for item in "$APP/Contents/Frameworks/"*; do
+        codesign --force --sign "$MELTYPE_MAC_IDENTITY" --options runtime --timestamp "$item"
+    done
     codesign --force --deep --sign "$MELTYPE_MAC_IDENTITY" --options runtime --timestamp "$APP"
     echo "配布用に署名しました: $MELTYPE_MAC_IDENTITY"
 else
