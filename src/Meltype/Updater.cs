@@ -20,7 +20,7 @@ internal sealed class Updater : IDisposable
     private static string ReadyFile => Path.Combine(Directory, "ready.txt");
     private static string ApplyingFile => Path.Combine(Directory, "applying.txt");
     private static string Script => Path.Combine(AppContext.BaseDirectory, "update.ps1");
-    private static string PowerShell => Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe");
+    internal static string PowerShell => Path.Combine(Environment.SystemDirectory, @"WindowsPowerShell\v1.0\powershell.exe");
 
     private readonly System.Threading.Timer _timer;
     private readonly Func<bool> _enabled;

@@ -8,7 +8,7 @@ using Meltype.Input;
 namespace Meltype.Tests;
 
 /// <summary>
-/// Discord の bot の japanese-henkan-test (jht) で使う: 出てほしい文 (私はgoogleが好きです) を、考えられるローマ字の打ち方
+/// japanese-henkan-test (jht): 出てほしい文 (私はgoogleが好きです) を、考えられるローマ字の打ち方
 /// (watashihagooglegasukidesu・watasihagooglegasukidesu …) ですべて打ってみて、その文になるかを確かめる。
 /// 打ち方ごとに、日本語 / 英語の分かれ方・ライブ変換で Enter・Space の最初の変換・文節ごとの候補の何番目に出るかを返す。
 /// </summary>

@@ -124,7 +124,9 @@ internal sealed class SettingsForm : Form
         var add = new Button { Text = "新規...", AutoSize = true };
         var rename = new Button { Text = "名前を変更...", AutoSize = true };
         var remove = new Button { Text = "削除", AutoSize = true };
-        ShowHelpFor(_profiles, "プロファイル", "仕事用・趣味用・SNS 用など、設定の値をまとめて切り替えられます。トレイのメニューの「プロファイル」からも切り替えられます。Meltype の ON/OFF・ログ・更新の設定は、どのプロファイルでも共通です。");
+        var export = new Button { Text = "書き出す...", AutoSize = true };
+        var import = new Button { Text = "読み込む...", AutoSize = true };
+        ShowHelpFor(_profiles, "プロファイル", "仕事用・趣味用・SNS 用など、設定の値をまとめて切り替えられます。トレイのメニューの「プロファイル」からも切り替えられます。Meltype の ON/OFF・ログ・更新の設定は、どのプロファイルでも共通です。「書き出す...」でファイルにして、ほかの人に渡せます (「読み込む...」で新しいプロファイルとして足せます)。");
         _profiles.SelectedIndexChanged += (_, _) =>
         {
             if (_loadingProfiles || _profiles.SelectedItem is not string name || name == _draft.ActiveProfile) return;
@@ -170,7 +172,55 @@ internal sealed class SettingsForm : Form
             RefreshProfiles();
             RunTest();
         };
-        bar.Controls.AddRange([label, _profiles, add, rename, remove]);
+        // プロファイルを人に渡す: 書き出したファイルを、相手が「読み込む...」で新しいプロファイルとして足す
+        export.Click += (_, _) =>
+        {
+            var draft = Collect();
+            using var dialog = new SaveFileDialog
+            {
+                Title = "プロファイルを書き出す",
+                Filter = "Meltype のプロファイル (*.meltype-profile.json)|*.meltype-profile.json|すべてのファイル (*.*)|*.*",
+                FileName = $"{string.Concat(draft.ActiveProfile.Split(Path.GetInvalidFileNameChars()))}.meltype-profile.json",
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            try
+            {
+                File.WriteAllText(dialog.FileName, draft.ExportProfile());
+                MessageBox.Show(this, $"プロファイル「{draft.ActiveProfile}」を書き出しました。\nアプリ別設定 (アプリのプロセス名) も入っています。渡す前に、見られてもよいか確かめてください。", "プロファイル", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, $"書き出せませんでした: {ex.Message}", "プロファイル", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        };
+        import.Click += (_, _) =>
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Title = "プロファイルを読み込む",
+                Filter = "Meltype のプロファイル (*.meltype-profile.json)|*.meltype-profile.json|JSON (*.json)|*.json|すべてのファイル (*.*)|*.*",
+            };
+            if (dialog.ShowDialog(this) != DialogResult.OK) return;
+            Settings? next = null;
+            try
+            {
+                // プロファイルは数 KB。大きすぎるファイルは読まない
+                if (new FileInfo(dialog.FileName).Length <= 1024 * 1024) next = Collect().ImportProfile(File.ReadAllText(dialog.FileName));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+            }
+            if (next is null)
+            {
+                MessageBox.Show(this, "Meltype のプロファイルとして読めませんでした。「書き出す...」で作ったファイルを選んでください。", "プロファイル", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            _draft = next;
+            LoadFrom(_draft);
+            RefreshProfiles();
+            RunTest();
+        };
+        bar.Controls.AddRange([label, _profiles, add, rename, remove, export, import]);
         return bar;
     }
 

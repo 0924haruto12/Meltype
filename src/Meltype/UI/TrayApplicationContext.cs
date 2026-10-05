@@ -101,6 +101,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add("Meltype について...", null, (_, _) => MessageBox.Show(AppInfo.AboutText, "Meltype について", MessageBoxButtons.OK, MessageBoxIcon.Information));
         menu.Items.Add("学習した語...", null, (_, _) => ShowLearnedWords());
         menu.Items.Add("学習データをリセット", null, (_, _) => ResetLearning());
+        menu.Items.Add("アンインストール...", null, (_, _) => Uninstall());
         // 更新: 自動更新の ON/OFF、今すぐ確認、ダウンロード済みなら更新して再起動
         var updates = new ToolStripMenuItem("更新");
         _autoUpdateItem = new ToolStripMenuItem("自動で更新する", null, (_, _) => ToggleAutoUpdate());
@@ -483,6 +484,35 @@ internal sealed class TrayApplicationContext : ApplicationContext
             _composition.History.Clear();
             _composition.Languages.Clear();
         }
+    }
+
+    /// <summary>
+    /// インストール先の uninstall.ps1 (install.ps1 がコピーしたもの) でアンインストールする。
+    /// zip の Uninstall.cmd を消してしまうと消す方法が無かった (テスターの報告)。
+    /// </summary>
+    private void Uninstall()
+    {
+        var script = Path.Combine(AppContext.BaseDirectory, "uninstall.ps1");
+        if (!File.Exists(script))
+        {
+            MessageBox.Show("アンインストール用のファイルが見つかりません。Windows の「設定」→「アプリ」→「インストールされているアプリ」か、zip の中の Uninstall.cmd でアンインストールしてください。", "Meltype", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        var answer = MessageBox.Show("Meltype をアンインストールします。設定・学習データ・ユーザー辞書も削除します。よろしいですか？\n(残したいときは、先に「バックアップ」→「バックアップを書き出す...」で書き出してください)", "Meltype のアンインストール", MessageBoxButtons.OKCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
+        if (answer != DialogResult.OK) return;
+        try
+        {
+            // スクリプトが Meltype の終了を待ってからファイルを消す。インストール先を消せるように、作業フォルダーは別の場所にする。
+            var start = new ProcessStartInfo(Updater.PowerShell) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = Path.GetTempPath() };
+            foreach (var arg in new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", script, "-FromSettings" }) start.ArgumentList.Add(arg);
+            Process.Start(start);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"アンインストールを始められませんでした: {ex.Message}", "Meltype", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+        ExitThread();
     }
 
     protected override void ExitThreadCore()

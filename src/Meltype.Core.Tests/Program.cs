@@ -47,7 +47,7 @@ internal static class Program
                 Henkan.Shutdown();
                 return 0;
             case "--jht":
-                // --jht 出てほしい文 [/ 読み] (Discord の bot の japanese-henkan-test)
+                // --jht 出てほしい文 [/ 読み] (japanese-henkan-test。精度の調べもの用)
                 {
                     var text = string.Join(" ", args.Skip(1));
                     var slash = text.IndexOf(" / ", StringComparison.Ordinal);
@@ -56,7 +56,7 @@ internal static class Program
                 }
                 return 0;
             case "--jht-batch":
-                // 標準入力から 1 行に 1 つ「出てほしい文 [/ 読み]」を受け取り、1 行ずつ結果を返す (Discord の bot の chjht。起動の待ちを省く)
+                // 標準入力から 1 行に 1 つ「出てほしい文 [/ 読み]」を受け取り、1 行ずつ結果を返す (多くの文を続けて試すとき。起動の待ちを省く)
                 Jht.Batch(null, Henkan.Keyboard, () => Henkan.EngineName);
                 Henkan.Shutdown();
                 return 0;

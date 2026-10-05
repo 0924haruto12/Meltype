@@ -102,7 +102,7 @@ internal static class Checks
 }
 
 /// <summary>
-/// Discord の bot の henkan-test で使う: 打ったキーを Meltype キーボードで打ち、変換ボックスの表示・Enter で確定した結果・Space で変換した結果を JSON で返す。
+/// henkan-test: 打ったキーを Meltype キーボードで打ち、変換ボックスの表示・Enter で確定した結果・Space で変換した結果を JSON で返す。
 /// 環境変数 MELTYPE_MOZC に Mozc の変換ヘルパーの場所があれば、アプリと同じく Mozc で漢字に変換する。無ければ日本語 / 英語の判定だけ (漢字にしない)。
 ///   dotnet run --project src/Meltype.Core.Tests -- --henkan kyouhagoogledekensaku
 /// </summary>

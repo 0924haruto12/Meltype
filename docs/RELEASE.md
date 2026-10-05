@@ -8,7 +8,12 @@
 3. GitHub Actions が Windows (build.yml)・Mac (mac.yml)・Linux (linux.yml) の zip を作り、リリースに添付する。
 4. 公開版 (1.0.0 以降) なら、利用者の Meltype が自動で更新する (Windows)。
 
-## コード署名 (公開版の前に)
+## コード署名 (任意。1.0.0 の後でよい)
+
+署名しなくても配布できます (README に「詳細情報」→「実行」の案内と、zip の SHA-256 の確かめ方を書いている)。
+費用をかけない方法として、オープンソース向けに無料で署名する SignPath Foundation (要申し込み・審査、GitHub Actions でのビルドが前提) がある。
+ウイルス対策ソフトに誤検知されたら、Microsoft のサイトから誤検知として報告する (無料)。
+
 
 署名の無い実行ファイルは、Windows の SmartScreen が「発行元が不明」と警告し、キーボードを扱うソフトなのでウイルス対策ソフトに誤検知されやすい。
 Mac は署名と公証 (notarization) が無いと、Gatekeeper が開かせない。
@@ -66,9 +71,12 @@ winget・Scoop で入れた場合は Install.cmd を使わないので、Windows
 ## 公開版 (1.0.0) の前の確認
 
 - [ ] 判定・変換の精度 (v0.3.1〜v0.3.3 で変換のバグ修正・辞書の拡張)
-- [ ] 協力者のお名前を載せる (v0.3.3)
-- [ ] コード署名 (Windows・Mac)
+- [x] 協力者のお名前を載せる (README の「協力してくださった方々」)
 - [ ] リポジトリを Public にし、上の GitHub の設定をする
-- [ ] 不具合報告のフォームをつなぐ
-- [ ] Mac 版・Linux 版を「プレビュー版」と明記 (README・リリースノート)
-- [ ] リリースの zip の名前を `Meltype-<版>-windows.zip` などに (今は `Meltype-test-<日時>.zip`。自動更新は `Meltype-test-*.zip` を探すので、変えるなら packaging/update.ps1 も合わせる)
+- [x] Mac 版・Linux 版を「プレビュー版」と明記 (README。リリースノートにも書く)
+- [x] リリースの zip の名前を `Meltype-<版>-windows.zip`・`-mac.zip`・`-linux.zip` に (タグのビルドだけ。テスト版は `Meltype-test-<日時>.zip` のまま。自動更新は両方の名前を探す)
+- [x] Discord の bot (tools/discord-bot) を消す (テスター用だったため)
+- [ ] リリースノートに zip の SHA-256 を載せる (GitHub のリリースのページにも出る)
+- [x] README を一般の人向けにし、詳しい使い方を docs/USAGE.md、開発の話を docs/DEVELOPMENT.md に分ける
+
+1.0.0 の後でよいもの: コード署名 (Windows・Mac。上の「コード署名」)、不具合報告のフォーム (無い間は「不具合の報告・提案...」が GitHub の Issue の画面を開く)、winget・Scoop・Homebrew への登録。
