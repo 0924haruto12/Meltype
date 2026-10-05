@@ -77,7 +77,6 @@ winget・Scoop で入れた場合は Install.cmd を使わないので、Windows
 - [x] リリースの zip の名前を `Meltype-<版>-windows.zip`・`-mac.zip`・`-linux.zip` に (タグのビルドだけ。テスト版は `Meltype-test-<日時>.zip` のまま。自動更新は両方の名前を探す)
 - [x] Discord の bot (tools/discord-bot) を消す (テスター用だったため)
 - [ ] リリースノートに zip の SHA-256 を載せる (GitHub のリリースのページにも出る)
-
 - [x] README を一般の人向けにし、詳しい使い方を docs/USAGE.md、開発の話を docs/DEVELOPMENT.md に分ける
 
 1.0.0 の後でよいもの: コード署名 (Windows・Mac。上の「コード署名」)、不具合報告のフォーム (無い間は「不具合の報告・提案...」が GitHub の Issue の画面を開く)、winget・Scoop・Homebrew への登録。
