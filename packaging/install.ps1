@@ -10,6 +10,13 @@ $source = Join-Path $PSScriptRoot 'app'
 $target = Join-Path $env:LOCALAPPDATA 'Programs\Meltype'
 $exe = Join-Path $target 'Meltype.exe'
 
+# zip の中身がそろっているか (展開の途中で止まった・app フォルダーを差し替えた などで Meltype.exe が無いと、起動のところで分かりにくいエラーになる)
+if (-not (Test-Path -LiteralPath (Join-Path $source 'Meltype.exe'))) {
+    Write-Host "インストールするファイルが見つかりません: $(Join-Path $source 'Meltype.exe')"
+    Write-Host 'zip をすべて展開し直してから、展開したフォルダーの Install.cmd を実行してください。'
+    exit 1
+}
+
 # 動いている Meltype を止める。管理者として動いている Meltype は Stop-Process では止められないので、
 # まず Meltype.exe --exit で終了の合図を送る (新しい版の Meltype なら、権限に関係なく終了する)。
 function Stop-Meltype {
@@ -40,6 +47,14 @@ $oldProgram = Join-Path $env:LOCALAPPDATA 'Programs\AutoIME'
 if (Test-Path -LiteralPath $oldProgram) { Remove-Item -LiteralPath $oldProgram -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $target | Out-Null
 Copy-Item -Path (Join-Path $source '*') -Destination $target -Recurse -Force
+
+# コピーした直後にウイルス対策ソフトが Meltype.exe を隔離することがある (キーボードの入力を扱うソフトなので誤検知されやすい)
+if (-not (Test-Path -LiteralPath $exe)) {
+    Write-Host "コピーした Meltype.exe が見つかりません: $exe"
+    Write-Host 'ウイルス対策ソフトが Meltype を止めた可能性があります。'
+    Write-Host 'Windows セキュリティ →「ウイルスと脅威の防止」→「保護の履歴」で Meltype を「許可」してから、もう一度 Install.cmd を実行してください。'
+    exit 1
+}
 
 $startup = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'
 $shell = New-Object -ComObject WScript.Shell
