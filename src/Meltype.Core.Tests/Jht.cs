@@ -174,6 +174,7 @@ internal static class Jht
         while (Console.In.ReadLine() is { Length: > 0 } line)
         {
             var slash = line.IndexOf(" / ", StringComparison.Ordinal);
+            Henkan.Reset();
             try
             {
                 Run(slash >= 0 ? line[..slash] : line, slash >= 0 ? line[(slash + 3)..] : null, readingOf, keyboard, engine());

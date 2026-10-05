@@ -57,8 +57,8 @@ internal static class FeedbackTests
     [Test]
     public static void ShiftedSymbols_StartComposition()
     {
-        Assert.Equal("!", Showing("!"));
-        Assert.Equal("?", Showing("?"));
+        Assert.Equal("！", Showing("!"));
+        Assert.Equal("？", Showing("?"));
         Assert.Equal(":", Showing(":"));
         Assert.Equal("～", Showing("~"));
         Assert.Equal("!", Showing("!", before: "Hello"), "英文の後は半角");
@@ -490,7 +490,7 @@ internal static class LanguageLearningTests
                 // summary.json (2026-10-05): 音の途中から始まる英単語 (kara|na|l の anal、da|me|x の amex) で小書き文字が崩れていた
                 ("yakaranala", "やからなぁ"), ("damexe", "だめぇ"), ("hotelya", "hotelや"),
                 // 笑いの w (文末の w が消えていた、ww が っw になっていた)。英単語の最後の w はそのまま
-                ("kiyagattaw", "きやがったw"), ("daneww", "だねww"), ("toottawwwww", "とおったwwwww"), ("wwww", "wwww"), ("kitaww!", "きたww!"), ("new", "new"), ("aww", "aww"),
+                ("kiyagattaw", "きやがったw"), ("daneww", "だねww"), ("toottawwwww", "とおったwwwww"), ("wwww", "wwww"), ("kitaww!", "きたww！"), ("new", "new"), ("aww", "aww"),
                 // 読めない略語の最後の c + は・や (vrc|ya が vr|ちゃ になっていた)。読める語 (まち) と大文字の略語の後ろ (EDちゃう) は分けない
                 ("vrcyaranai", "vrcやらない"), ("vchairu", "vcはいる"), ("pcha", "pcは"), ("machi", "まち"), ("ochaire", "おちゃいれ"), ("EDchau", "EDちゃう"),
                 ("everyonenohatsugen", "everyoneのはつげん"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),

@@ -72,3 +72,4 @@ London Paris Berlin Madrid Rome Moscow Beijing Shanghai Seoul Singapore Bangkok 
 America Europe Africa Australia Canada Mexico Brazil Germany France Italy Spain England Ireland Scotland Sweden Norway Finland Denmark Netherlands Belgium Switzerland Austria Poland Russia Ukraine India China Korea Taiwan Vietnam Thailand Philippines Indonesia Malaysia
 # テスターのチャット (summary.json) で英字のまま打たれていた名前
 ReVanced Lavalink Skeb FANBOX Ryzen RTX Zenfone IntelliSense Unix
+Suica DCafe ProBot Carlbot Disboard TaCZ NSFW

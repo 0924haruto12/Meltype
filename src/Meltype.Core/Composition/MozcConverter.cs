@@ -154,6 +154,16 @@ public sealed class MozcConverter : IKanjiConverter, ILearningConverter, IDispos
         }
     }
 
+    /// <summary>候補の控えと変換の結果の控えを捨てる (前の入力の控えを次の入力に持ち越さない。テストで文ごとに使う)。</summary>
+    public void ClearCache()
+    {
+        lock (_gate)
+        {
+            _candidates.Clear();
+            _conversions.Clear();
+        }
+    }
+
     /// <summary>変換の結果を覚えておく (_gate の中で呼ぶ)。</summary>
     private List<(string Reading, IReadOnlyList<string> Candidates)>? Remember(string key, List<(string Reading, IReadOnlyList<string> Candidates)>? segments)
     {
