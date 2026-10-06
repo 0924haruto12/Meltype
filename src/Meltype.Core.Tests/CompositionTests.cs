@@ -511,6 +511,7 @@ internal static class CompositionTests
         Assert.True(extra.Lookup("かちで").Contains("ガチで"), "かちで → ガチで");
         Assert.True(extra.Lookup("いんゆめ").Contains("淫夢"), "いんゆめ → 淫夢");
         Assert.True(extra.Lookup("いん").Contains("淫"), "文節が分かれた いん + ゆめ でも 淫夢 にできる");
+        Assert.True(extra.Lookup("おとこのこ").Contains("男の娘"), "おとこのこ → 男の娘");
     }
 
     [Test]
