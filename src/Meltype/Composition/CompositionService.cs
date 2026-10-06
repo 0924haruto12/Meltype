@@ -64,8 +64,10 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             RomajiTypos = options.RomajiTypos ?? RomajiTypoCorrector.Load(detector.Romaji),
             CorrectTypos = options.CorrectTypos,
             TranslationHistory = options.TranslationHistory ?? new TranslationHistory(Config.AppPaths.TranslationHistoryFile),
+            SpaceAroundEnglish = options.SpaceAroundEnglish,
         };
         _hybrid = new HybridConverter(options.Engine, _mozc, _converter, reading => _windowsCandidates.Get(reading));
+        _resolved = resolved;
         Controller = new CompositionController(Gate, detector, _hybrid, this, resolved);
         if (options.Engine() != Config.ConversionEngine.System && _mozc.IsInstalled) _mozc.WarmUp();
         _showIndicator = options.ModeIndicator;
@@ -81,6 +83,15 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     }
 
     public CaptureGate Gate { get; }
+
+    private readonly CompositionOptions _resolved;
+
+    /// <summary>
+    /// Meltype IME (TSF) の入力欄 1 つ分の入力の本体を作る。辞書・学習データ・変換エンジンは変換ボックスと共有する
+    /// (UI スレッドからだけ使うので排他は要らない)。英数状態は IME の ON/OFF で決まるので、フック用の英数の判定は外す。
+    /// </summary>
+    public MeltypeSession CreateSession(Func<Config.Settings> settings) =>
+        new(_detector, _hybrid, _resolved with { DirectMode = () => false, ClassifyDirect = null, DirectDecided = null }, settings);
 
     public CompositionController Controller { get; }
 
