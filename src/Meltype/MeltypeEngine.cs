@@ -191,6 +191,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             if (e.IsDown)
             {
                 lock (_swallowedToggleUps) _swallowedToggleUps.Add(e.Vk);
+                MaskAltRelease();
                 // コードの行 (コメント・文字列の外) では、この行だけ日本語にする / 戻す。
                 if (!_keyboardDirect && IsCodeApp(settings) && (_codeJapanese || InCode(settings)))
                 {
@@ -210,6 +211,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             if (e.IsDown)
             {
                 lock (_swallowedToggleUps) _swallowedToggleUps.Add(e.Vk);
+                MaskAltRelease();
                 Log.Info("変換キー: Meltype キーボードの使用中は Microsoft IME の再変換を使わない (選択した文字が消えるため)");
             }
             return true;
@@ -223,6 +225,15 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         if (!swallowed && e.IsDown && !VirtualKeys.IsModifier(e.Vk)) composition.ForgetLastCommit();
         if (!swallowed && !e.Injected) TrackLine(e);
         return swallowed;
+    }
+
+    /// <summary>
+    /// Alt を押したまま打ったキー (US 配列の Alt + ` = 半角/全角) を飲み込むと、アプリには Alt だけを押して離したように見え、
+    /// メニューバーに移ってしまう。何もしないキー (0xE8、割り当てなし) を送って、Alt の単独押しにしない。
+    /// </summary>
+    private static void MaskAltRelease()
+    {
+        if (IsDown(VirtualKeys.Menu)) ThreadPool.QueueUserWorkItem(_ => KeyInjector.SendKey(0xE8));
     }
 
     // ---- アプリの種類「コード」: コメント・文字列の中だけ日本語 ----
