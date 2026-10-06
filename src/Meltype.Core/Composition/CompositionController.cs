@@ -126,6 +126,9 @@ public sealed class CompositionOptions
     /// <summary>ローマ字の打ち間違いを直すか (設定)。</summary>
     public Func<bool> CorrectTypos { get; init; } = () => true;
 
+    /// <summary>確定するときに、日本語と英単語の間に半角スペースを入れるか (設定)。</summary>
+    public Func<bool> SpaceAroundEnglish { get; init; } = () => false;
+
     /// <summary>ユーザーが英字 / かなに直した語の学習。</summary>
     public LanguageMemory? Languages { get; init; }
 
@@ -1470,6 +1473,7 @@ public sealed class CompositionController
         _converting = false;
         _clauses = [];
         if (text.Length == 0) return;
+        if (_options.SpaceAroundEnglish()) text = AddSpacesAroundEnglish(text, _precedingText, _followingText);
         CorrectPreviousCommit(raw, english);
         // 英語とも日本語とも読める語を、文脈を決めずに (選び直さずに) 確定したときだけ、後で確定し直せるようにしておく。
         if (!chosen && _detector.IsAmbiguousWord(raw))
@@ -1486,6 +1490,49 @@ public sealed class CompositionController
         _lastCommitTime = Environment.TickCount64;
         _host.CommitText(text);
         Committed?.Invoke(text);
+    }
+
+    /// <summary>
+    /// 日本語 (かな・漢字) と英単語の間に半角スペースを入れる (今日はGitHubにpush → 今日は GitHub に push)。
+    /// 英字を 1 つ以上含む英数字の並び (iPhone15、C++) を英単語とみなす。数字だけ (3時) と記号 (、。「」) の隣には入れない。
+    /// 確定する文字列の端は、入力欄のキャレットの前後の文字 (before・after) との間も見る。
+    /// </summary>
+    internal static string AddSpacesAroundEnglish(string text, string? before, string? after)
+    {
+        static bool IsJapanese(char c) => c is (>= '\u3040' and <= '\u30FF') or (>= '\u3400' and <= '\u4DBF') or (>= '\u4E00' and <= '\u9FFF') or (>= '\uF900' and <= '\uFAFF');
+        static bool IsWordChar(char c) => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '+' or '#' or '.' or '\'' or '@';
+        var previous = string.IsNullOrEmpty(before) ? '\0' : before[^1];
+        var next = string.IsNullOrEmpty(after) ? '\0' : after[0];
+        var builder = new StringBuilder(text.Length + 8);
+        // 前に確定した英単語のすぐ後ろに日本語を続けるとき (GitHub|に)
+        if (IsJapanese(text[0]) && char.IsAsciiLetter(previous)) builder.Append(' ');
+        var i = 0;
+        while (i < text.Length)
+        {
+            if (!IsWordChar(text[i]))
+            {
+                builder.Append(text[i++]);
+                continue;
+            }
+            var end = i;
+            while (end < text.Length && IsWordChar(text[end])) end++;
+            // 語の端の記号 (. ' -) は語に含めない (Hello. の . の後ろに日本語が続いても、. の前に入れない)
+            var start = i;
+            var stop = end;
+            while (stop > start && text[stop - 1] is '.' or '\'' or '-' or '@' or '_') stop--;
+            var word = text[start..stop];
+            var left = start > 0 ? text[start - 1] : previous;
+            var right = stop < text.Length ? text[stop] : next;
+            var isWord = word.Any(char.IsAsciiLetter);
+            if (isWord && IsJapanese(left) && (builder.Length == 0 || builder[^1] != ' ')) builder.Append(' ');
+            builder.Append(word);
+            if (isWord && IsJapanese(right)) builder.Append(' ');
+            builder.Append(text, stop, end - stop);
+            i = end;
+        }
+        // 確定した日本語のすぐ後ろが英単語のとき (キャレットの後ろの文字)
+        if (IsJapanese(text[^1]) && char.IsAsciiLetter(next)) builder.Append(' ');
+        return builder.ToString();
     }
 
     /// <summary>変換ボックスの最後が英語の区間か (Space を空白として扱うか)。</summary>

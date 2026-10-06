@@ -213,6 +213,19 @@ internal static class KanaInputTests
     }
 
     [Test]
+    public static void KanaInput_SpaceAroundEnglish()
+    {
+        // かな入力でも、確定した英単語の前後に半角スペースが入る
+        var k = Kana();
+        k.SpaceAroundEnglish = true;
+        k.TypeKanaKeys("google");
+        k.Type("\n");
+        k.TypeKanaKeys("byiaf");
+        k.Type("\n");
+        Assert.Equal("google こんにちは", k.Host.Document);
+    }
+
+    [Test]
     public static void KanaInput_FollowsLevels()
     {
         var manual = Kana(DetectionLevel.Manual);
