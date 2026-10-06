@@ -1420,6 +1420,38 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void EnglishVerb_PlusSuru()
+    {
+        // Twitter の報告: 「commitしてpushして」が こっみつぃてぷっして になる
+        // (英単語の最後の t + s が つ になる / 末尾の pushsite は site も英単語なので全部英字になる)
+        foreach (var (typed, expected) in new[]
+        {
+            ("commitsitepushsite", "commitしてpushして"),
+            ("commitsuru", "commitする"),
+            ("commitsitekara", "commitしてから"),
+            ("pushsite", "pushして"),
+            ("gitpushsite", "gitpushして"),
+            ("website", "website"),
+            ("websitewomiru", "websiteをみる"),
+            ("tetsudou", "てつどう"),
+        })
+        {
+            // 実際と同じく、辞書にない英単語 (website) はスペルチェッカーで見る
+            Detector.SpellChecker = Detection.BuiltInWordChecker.Shared;
+            try
+            {
+                var k = new Keyboard();
+                k.Type(typed + "\n");
+                Assert.Equal(expected, k.Host.Document, typed);
+            }
+            finally
+            {
+                Detector.SpellChecker = null;
+            }
+        }
+    }
+
+    [Test]
     public static void SpaceAroundEnglish_AddsHalfWidthSpaces()
     {
         // Twitter の要望: 半角英語の前後に半角スペース (設定、最初は OFF)
