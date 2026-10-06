@@ -203,6 +203,17 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
                 return true;
             }
         }
+        // 変換キーは Microsoft IME に渡さない。渡すと IME が ON になって選択した文字の再変換を始め、
+        // Meltype キーボードが IME を OFF に戻すときに、再変換中の文字 (選択していた文字) が消える (#19)。
+        if (settings.Enabled && e.Vk == VirtualKeys.Convert && !e.Injected && !composition.Gate.IsCaptured)
+        {
+            if (e.IsDown)
+            {
+                lock (_swallowedToggleUps) _swallowedToggleUps.Add(e.Vk);
+                Log.Info("変換キー: Meltype キーボードの使用中は Microsoft IME の再変換を使わない (選択した文字が消えるため)");
+            }
+            return true;
+        }
         // 英数状態で英語と判定した単語は、区切りのキー (Space・記号など) が来たら終わり。次の単語はまた判定する。
         // @ と _ の後ろはユーザー名 (@kuraido、upah_setu) なので判定しない (ローマ字として読めても日本語にしない)。
         if (_keyboardDirect && e.IsDown && !VirtualKeys.IsLetter(e.Vk) && !VirtualKeys.IsModifier(e.Vk))

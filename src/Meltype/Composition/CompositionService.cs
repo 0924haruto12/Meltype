@@ -440,8 +440,12 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         // 検索の画面の右に出す。
         if (ShellSearchBounds() is { } search)
         {
-            Diagnostics.Log.Info($"Windows の検索の画面: {search} (変換ボックスはその右に出す)");
-            _window.ShowView(view, new Point(search.Right + 8, (caret?.Bottom ?? search.Bottom) - 4));
+            // 右に入らなければ左に出す (はみ出した分を画面の中に戻すと、スタートメニューの裏に隠れる)。
+            var screen = Screen.FromRectangle(search).WorkingArea;
+            var width = _window.Width;
+            var left = search.Right + 8 + width <= screen.Right || search.Left - 8 - width < screen.Left ? search.Right + 8 : search.Left - 8 - width;
+            Diagnostics.Log.Info($"Windows の検索の画面: {search} (変換ボックスはその{(left > search.Left ? "右" : "左")}に出す)");
+            _window.ShowView(view, new Point(left, (caret?.Bottom ?? search.Bottom) - 4));
             return;
         }
         // 入力位置に重ねる: 変換ボックスの文字の行を、入力位置の行の高さの真ん中にそろえる。
@@ -467,22 +471,64 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         "SearchHost", "SearchApp", "SearchUI", "StartMenuExperienceHost",
     };
 
-    /// <summary>前面が Windows の検索・スタートメニューなら、その画面の四角形。それ以外は null。</summary>
+    /// <summary>
+    /// 前面が Windows の検索・スタートメニューなら、その画面の四角形。それ以外は null。
+    /// スタートメニューは、検索の欄 (SearchHost) と、その横の画面 (「モバイル デバイスを表示」の欄など、StartMenuExperienceHost) に
+    /// 分かれていることがあるので、同じ画面に出ている両方の窓を合わせた四角形にする (片方の右に出すと、もう片方の裏に隠れる、#18)。
+    /// </summary>
     private static Rectangle? ShellSearchBounds()
     {
         var foreground = Native.GetForegroundWindow();
-        Native.GetWindowThreadProcessId(foreground, out var processId);
+        if (!IsShellSearchWindow(foreground) || !Native.GetWindowRect(foreground, out var rect)) return null;
+        var bounds = Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+        var screen = Screen.FromRectangle(bounds).Bounds;
+        var union = bounds;
+        var shell = ShellSearchProcessIds();
+        Native.EnumWindows((hwnd, _) =>
+        {
+            Native.GetWindowThreadProcessId(hwnd, out var pid);
+            if (hwnd != foreground && shell.Contains(pid) && Native.IsWindowVisible(hwnd) && !IsCloaked(hwnd) && Native.GetWindowRect(hwnd, out var r))
+            {
+                var other = Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
+                // 画面の外に置いてある窓・大きさの無い窓・画面全体の窓 (隠れている検索の画面) は含めない
+                if (other.Width > 0 && other.Height > 0 && screen.IntersectsWith(other) && other != screen) union = Rectangle.Union(union, Rectangle.Intersect(other, screen));
+            }
+            return true;
+        }, IntPtr.Zero);
+        return union;
+    }
+
+    private static bool IsShellSearchWindow(IntPtr hwnd)
+    {
+        Native.GetWindowThreadProcessId(hwnd, out var processId);
         try
         {
             using var process = System.Diagnostics.Process.GetProcessById((int)processId);
-            if (!ShellSearchProcesses.Contains(process.ProcessName) || !Native.GetWindowRect(foreground, out var rect)) return null;
-            return Rectangle.FromLTRB(rect.Left, rect.Top, rect.Right, rect.Bottom);
+            return ShellSearchProcesses.Contains(process.ProcessName);
         }
         catch
         {
-            return null;
+            return false;
         }
     }
+
+    private static HashSet<uint> ShellSearchProcessIds()
+    {
+        var ids = new HashSet<uint>();
+        foreach (var name in ShellSearchProcesses)
+        {
+            foreach (var process in System.Diagnostics.Process.GetProcessesByName(name))
+            {
+                ids.Add((uint)process.Id);
+                process.Dispose();
+            }
+        }
+        return ids;
+    }
+
+    /// <summary>見えない窓 (スタートメニューを閉じているときの窓など) は、表示中でも DWM が「隠している」(cloaked)。</summary>
+    private static bool IsCloaked(IntPtr hwnd) =>
+        Native.DwmGetWindowAttribute(hwnd, Native.DWMWA_CLOAKED, out var cloaked, sizeof(int)) == 0 && cloaked != 0;
 
     /// <summary>
     /// キャレット (入力位置) の画面上の四角形。Windows のキャレット (メモ帳など) → UI Automation (Chrome・Discord など) の順に試す。

@@ -10,6 +10,17 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 INSTALL=1
+# 入力ソースの「+」の一覧に Meltype が出ない Mac がある (自分で署名した版、macOS 26、#21)。
+# ことえりと同じ形で、有効な入力ソースの一覧 (AppleEnabledInputSources) に入れておく。もう入っていれば何もしない。
+enable_input_source() {
+    local id=io.github.yksr-melt.inputmethod.Meltype
+    defaults read com.apple.HIToolbox AppleEnabledInputSources 2>/dev/null | grep -q "$id" && return 0
+    defaults write com.apple.HIToolbox AppleEnabledInputSources -array-add \
+        "<dict><key>Bundle ID</key><string>$id</string><key>InputSourceKind</key><string>Keyboard Input Method</string></dict>" \
+        "<dict><key>Bundle ID</key><string>$id</string><key>Input Mode</key><string>$id.Japanese</string><key>InputSourceKind</key><string>Input Mode</string></dict>"
+    killall TextInputMenuAgent 2>/dev/null || true
+    echo "入力ソースに Meltype を追加しました"
+}
 [[ "${1:-}" == "--no-install" ]] && INSTALL=0
 
 case "$(uname -m)" in
@@ -41,6 +52,16 @@ cp "$BIN/MeltypeIME" "$APP/Contents/MacOS/Meltype"
 for framework in "$BIN"/*.framework; do
     [[ -e "$framework" ]] && cp -R "$framework" "$APP/Contents/Frameworks/"
 done
+# Swift 6.2 以降は、古い macOS 向けの互換ライブラリ (libswiftCompatibilitySpan.dylib など) を @rpath で読む。
+# macOS 26 は OS に入っているが、13〜15 では無いので、ツールチェーンから同梱する (#20)。
+TOOLCHAIN_SWIFT_LIBS="$(dirname "$(xcrun --find swift)")/../lib"
+while read -r lib; do
+    name="${lib#@rpath/}"
+    [[ "$name" == libswift*.dylib && ! -e "$APP/Contents/Frameworks/$name" ]] || continue
+    for dylib in "$TOOLCHAIN_SWIFT_LIBS"/swift-*/macosx/"$name" "$TOOLCHAIN_SWIFT_LIBS"/swift/macosx/"$name"; do
+        [[ -e "$dylib" ]] && { cp "$dylib" "$APP/Contents/Frameworks/"; break; }
+    done
+done < <(otool -L "$BIN/MeltypeIME" | awk '/@rpath\//{print $1}')
 # 実行ファイルの隣 (@loader_path) だけでなく、Contents/Frameworks も探すようにする
 install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Meltype" 2>/dev/null || true
 # @rpath で読み込むライブラリが全部 Contents/Frameworks にあるか確かめる (無ければ配布しない)
@@ -79,6 +100,7 @@ if [[ $INSTALL -eq 1 ]]; then
     rm -rf "$TARGET/Meltype.app"
     cp -R "$APP" "$TARGET/"
     echo "インストールしました: $TARGET/Meltype.app"
+    enable_input_source
     echo "初めてのときは、いったんログアウトしてログインし直してから、"
     echo "システム設定 → キーボード → 入力ソース →「編集…」→「+」→ 日本語 → Meltype を追加してください。"
 fi
