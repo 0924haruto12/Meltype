@@ -20,7 +20,7 @@ Windows 版のほか、Mac 版・Linux 版のプレビュー版があります (
 
 1. [Releases](https://github.com/yksr-melt/Meltype/releases) から `Meltype-<version>-windows.zip` をダウンロードして展開する
    (Mac 版は `Meltype-<version>-mac.zip`、Linux 版は `Meltype-<version>-linux.zip`。どちらもプレビュー版)
-2. `Install.cmd` をダブルクリックする (管理者権限は不要)
+2. `Install.cmd` をダブルクリックする (管理者権限は不要。入力欄に直接入力する Meltype IME を入れるときだけ、管理者権限の確認が出ます。断っても、変換ボックスで入力する方式で使えます)
    - Meltype はコード署名をしていないので、「Windows によって PC が保護されました」と出ることがあります。「詳細情報」→「実行」で入れられます。
    - キーボードの入力を受け持つソフトなので、ウイルス対策ソフトが誤って止めることがあります。そのときは、お使いのウイルス対策ソフトで Meltype のフォルダーを許可してください。
    - ダウンロードした zip が本物か確かめたいときは、リリースのページに出ている SHA-256 と比べてください (PowerShell: `Get-FileHash .\Meltype-<version>-windows.zip`)。
@@ -35,7 +35,8 @@ Windows 版のほか、Mac 版・Linux 版のプレビュー版があります (
 
 メモ帳やブラウザーの入力欄で、IME を気にせずそのままローマ字で打ってください。
 
-- 日本語はかなで、英単語は英字のまま、カーソルの下の変換ボックスに出ます
+- インストールで Meltype IME を入れた場合は、**Win + Space** で「Meltype」を選びます。打った文字は入力欄にそのまま下線付きで入り、変換の候補は入力位置の下に一覧で出ます ([使い方](docs/USAGE.md#meltype-ime))
+- Meltype IME を入れていない場合は、日本語はかなで、英単語は英字のまま、カーソルの下の変換ボックスに出ます
 - **Enter** で確定、**Space** で漢字に変換 (英単語のときは確定して空白)
 - 変換中は ← → で文節を選び、Space / ↓ で候補を切り替え
 - **F7** でカタカナ、**F10** で英字。英字にして確定した語は、次から英字になります
