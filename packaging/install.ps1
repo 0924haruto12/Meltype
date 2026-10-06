@@ -4,7 +4,7 @@
 $ErrorActionPreference = 'Stop'
 
 # Meltype のインストール。ビルド済みの app フォルダーを %LOCALAPPDATA%\Programs\Meltype にコピーし、
-# スタートアップに登録して起動する。管理者権限は不要。.NET は app の dotnet フォルダーに同梱しているので、インストール不要。
+# スタートアップとスタートメニューに登録して起動する。管理者権限は不要。.NET は app の dotnet フォルダーに同梱しているので、インストール不要。
 
 $source = Join-Path $PSScriptRoot 'app'
 $target = Join-Path $env:LOCALAPPDATA 'Programs\Meltype'
@@ -83,13 +83,18 @@ if (Test-Path -LiteralPath $uninstallSource) {
     Set-ItemProperty -Path $key -Name EstimatedSize -Value $size -Type DWord
 }
 
-$startup = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'
+# 自動起動と、スタートメニュー・Windows 検索からの起動用 (現在のユーザー)
 $shell = New-Object -ComObject WScript.Shell
-$shortcut = $shell.CreateShortcut((Join-Path $startup 'Meltype.lnk'))
-$shortcut.TargetPath = $exe
-$shortcut.WorkingDirectory = $target
-$shortcut.Description = 'Meltype: 日本語と英語を自動で打ち分ける'
-$shortcut.Save()
+foreach ($folderName in 'Startup', 'Programs') {
+    $folder = [Environment]::GetFolderPath($folderName)
+    New-Item -ItemType Directory -Force -Path $folder | Out-Null
+    $shortcut = $shell.CreateShortcut((Join-Path $folder 'Meltype.lnk'))
+    $shortcut.TargetPath = $exe
+    $shortcut.WorkingDirectory = $target
+    $shortcut.IconLocation = "$exe,0"
+    $shortcut.Description = 'Meltype: 日本語と英語を自動で打ち分ける'
+    $shortcut.Save()
+}
 
 # 管理者として実行していても、Meltype はふつうの権限で起動する (エクスプローラーから起動すると、ふつうの権限になる)。
 # 管理者として動かすと、次のインストール・アンインストールでも管理者権限が必要になってしまう。
