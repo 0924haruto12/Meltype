@@ -91,7 +91,7 @@ bash ~/Documents/github/other/Meltype/mac/update.sh
 ```bash
 mac/build/Meltype.app/Contents/MacOS/Meltype --check-inputs mac/Resources/InputChecks.tsv
 mac/build/Meltype.app/Contents/MacOS/Meltype --self-test
-python3 tests/test_mac_scripts.py
+sbcl --script tests/test_mac_scripts.lisp
 ```
 
 `--self-test` は1000回の入力・候補選択・確定・直接入力切り替えを含みます。
