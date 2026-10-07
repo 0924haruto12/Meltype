@@ -53,7 +53,7 @@ final class MeltypeInputController: IMKInputController {
         if event.keyCode == kVK_Space, event.characters == "　" || event.characters == "\u{00A0}",
            event.modifierFlags.intersection([.command, .control]).isEmpty {
             apply(NativeCore.shared.commit(session), to: client)
-            client.insertText(" ", replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
+            client.insertText(" ", replacementRange: NSRange(location: NSNotFound, length: 0))
             return true
         }
 
@@ -205,7 +205,7 @@ final class MeltypeInputController: IMKInputController {
     private func apply(_ result: SessionResult?, to client: IMKTextInput) {
         guard let result else { return }
         for edit in result.commits {
-            var range = NSRange(location: NSNotFound, length: NSNotFound)
+            var range = NSRange(location: NSNotFound, length: 0)
             if edit.deleteBefore > 0 {
                 // 確定し直し: キャレット (変換中の文字があればその先頭) の前の文字を置き換える。
                 let marked = client.markedRange()
@@ -240,7 +240,7 @@ final class MeltypeInputController: IMKInputController {
         } else {
             addMark(kTSMHiliteRawText, to: text, range: NSRange(location: 0, length: length))
         }
-        client.setMarkedText(text, selectionRange: NSRange(location: length, length: 0), replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
+        client.setMarkedText(NSAttributedString(attributedString: text), selectionRange: NSRange(location: length, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
         hasMarkedText = length > 0
         updateCandidates(view)
         showSuggestion(view.suggestion, client: client)
@@ -248,7 +248,8 @@ final class MeltypeInputController: IMKInputController {
 
     private func hideComposition(client: IMKTextInput) {
         if hasMarkedText {
-            client.setMarkedText("", selectionRange: NSRange(location: 0, length: 0), replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
+            // Keep the payload type consistent when clearing marked text.
+            client.setMarkedText(NSAttributedString(string: ""), selectionRange: NSRange(location: 0, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
             hasMarkedText = false
         }
         candidateList = []
