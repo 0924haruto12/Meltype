@@ -166,7 +166,7 @@ internal static class DetectionTests
         Assert.Equal("し", romaji.AnalyzeFragment("ci").Kana);
         Assert.True(!romaji.Analyze("ci").IsValid, "ci は変換ボックス専用");
         Assert.True(romaji.Analyze("ky").IsValid, "入力途中の子音は有効");
-        Assert.True(!romaji.Analyze("th").IsValid, "th は不正");
+        Assert.True(romaji.Analyze("th").IsValid, "th は有効な部分ローマ字 (tha/thu/tho の前置詞)");
         Assert.True(!romaji.Analyze("np").IsValid, "語頭の ん は不正");
         Assert.True(!romaji.Analyze("kkk").IsValid, "語頭の っ は不正");
         Assert.True(romaji.Analyze("kyou").StrongYouon == 1, "拗音");
