@@ -51,11 +51,13 @@ if (Test-Path -LiteralPath $oldProgram) { Remove-Item -LiteralPath $oldProgram -
 New-Item -ItemType Directory -Force -Path $target | Out-Null
 Copy-Item -Path (Join-Path $source '*') -Destination $target -Recurse -Force
 
-# コピーした直後にウイルス対策ソフトが Meltype.exe を隔離することがある (キーボードの入力を扱うソフトなので誤検知されやすい)
+# コピーした直後にウイルス対策ソフトが Meltype.exe を隔離することがある。誤検知かどうかはここでは判断できない。
 if (-not (Test-Path -LiteralPath $exe)) {
     Write-Host "コピーした Meltype.exe が見つかりません: $exe"
     Write-Host 'ウイルス対策ソフトが Meltype を止めた可能性があります。'
-    Write-Host 'Windows セキュリティ →「ウイルスと脅威の防止」→「保護の履歴」で Meltype を「許可」してから、もう一度 Install.cmd を実行してください。'
+    Write-Host 'Windows セキュリティ →「ウイルスと脅威の防止」→「保護の更新」で定義を更新し、公式の ZIP を再ダウンロードして再検査してください。'
+    Write-Host 'Windows セキュリティ →「ウイルスと脅威の防止」→「保護の履歴」で検出名を確認してください。誤検知かどうかは、この状態だけでは判断できません。'
+    Write-Host '保護を無効にしたり「許可」に変更したりせず、版と検出名を https://github.com/yksr-melt/Meltype/issues に報告してください (個人名やパスは隠してください)。'
     exit 1
 }
 
