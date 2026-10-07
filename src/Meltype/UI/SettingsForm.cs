@@ -20,6 +20,7 @@ internal sealed class SettingsForm : Form
 
     private readonly MeltypeEngine _engine;
     private readonly List<Binding> _bindings = [];
+    private readonly TableLayoutPanel _body = new() { Dock = DockStyle.Fill, ColumnCount = 1, AutoScroll = true, Padding = new Padding(8, 8, SystemInformation.VerticalScrollBarWidth + 4, 8) };
     private readonly Label _help = new() { Dock = DockStyle.Fill, ForeColor = SystemColors.GrayText, Padding = new Padding(8, 4, 8, 4) };
     // 説明の欄。長い説明でも見切れないよう、説明の長さに合わせて高さを変える
     private readonly Panel _helpPanel = new() { Dock = DockStyle.Bottom, Height = HelpMinHeight, BorderStyle = BorderStyle.FixedSingle };
@@ -51,23 +52,16 @@ internal sealed class SettingsForm : Form
         Font = new Font("Yu Gothic UI", 9.5F);
 
         // 1 列の表に分類ごとの枠を縦に並べる (どの枠も画面の幅いっぱいにそろう)。
-        var body = new TableLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            ColumnCount = 1,
-            AutoScroll = true,
-            Padding = new Padding(8, 8, SystemInformation.VerticalScrollBarWidth + 4, 8),
-        };
-        body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        _body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         foreach (var group in BuildGroups())
         {
             group.Dock = DockStyle.Fill;
-            body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            body.Controls.Add(group);
+            _body.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            _body.Controls.Add(group);
         }
         // 自動スクロールの表は、最後の行の下の余白を含めないことがあり、一番下の枠が少し見切れる。空の行で余白を取る
-        body.RowStyles.Add(new RowStyle(SizeType.Absolute, 16));
-        body.Controls.Add(new Panel { Height = 16, Margin = Padding.Empty });
+        _body.RowStyles.Add(new RowStyle(SizeType.Absolute, 16));
+        _body.Controls.Add(new Panel { Height = 16, Margin = Padding.Empty });
 
         _helpPanel.Controls.Add(_help);
         _helpPanel.Resize += (_, _) => FitHelp();
@@ -104,7 +98,7 @@ internal sealed class SettingsForm : Form
         var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 42, Padding = new Padding(6) };
         buttons.Controls.AddRange([cancel, ok, defaults]);
 
-        Controls.Add(body);
+        Controls.Add(_body);
         Controls.Add(BuildProfileBar());
         Controls.Add(_helpPanel);
         Controls.Add(testPanel);
@@ -534,10 +528,16 @@ internal sealed class SettingsForm : Form
     /// <summary>説明の欄の高さを、説明が全部見える高さにする (上限を超える分はツールチップで見られる)。</summary>
     private void FitHelp()
     {
+        // ここでBodyのスクロールがリセットされるので、一旦スクロール位置を保存してあげる
+        var currentBodyScroll = _body.AutoScrollPosition;
+
         var width = Math.Max(100, _helpPanel.ClientSize.Width - _help.Padding.Horizontal);
         var size = TextRenderer.MeasureText(_help.Text, _help.Font, new Size(width, int.MaxValue), TextFormatFlags.WordBreak);
         var height = Math.Clamp(size.Height + _help.Padding.Vertical + 6, HelpMinHeight, HelpMaxHeight);
         if (_helpPanel.Height != height) _helpPanel.Height = height;
+
+        // スクロール位置はYのみ-で帰ってくるので反転して復元
+        _body.AutoScrollPosition = new(currentBodyScroll.X, -currentBodyScroll.Y);
     }
 
     private void LoadFrom(Settings settings)
