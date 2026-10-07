@@ -173,6 +173,32 @@ internal static class DetectionTests
     }
 
     [Test]
+    public static void Romaji_NewConversions()
+    {
+        var romaji = new RomajiDetector();
+        // 新しく追加したローマ字ペア (Issue #92 対応)
+        Assert.Equal("てゃ", romaji.Analyze("tha").Kana);
+        Assert.Equal("てゅ", romaji.Analyze("thu").Kana);
+        Assert.Equal("てょ", romaji.Analyze("tho").Kana);
+        Assert.Equal("でゃ", romaji.Analyze("dha").Kana);
+        Assert.Equal("でゅ", romaji.Analyze("dhu").Kana);
+        Assert.Equal("でょ", romaji.Analyze("dho").Kana);
+        Assert.Equal("にぃ", romaji.Analyze("nyi").Kana);
+        Assert.Equal("にぇ", romaji.Analyze("nye").Kana);
+        Assert.Equal("とぁ", romaji.Analyze("twa").Kana);
+        Assert.Equal("とぃ", romaji.Analyze("twi").Kana);
+        Assert.Equal("とぇ", romaji.Analyze("twe").Kana);
+        Assert.Equal("とぅ", romaji.Analyze("twu").Kana);
+        Assert.Equal("どぁ", romaji.Analyze("dwa").Kana);
+        Assert.Equal("どぃ", romaji.Analyze("dwi").Kana);
+        Assert.Equal("どぇ", romaji.Analyze("dwe").Kana);
+        Assert.Equal("どぅ", romaji.Analyze("dwu").Kana);
+        Assert.Equal("くぃ", romaji.Analyze("qi").Kana);
+        Assert.Equal("くぇ", romaji.Analyze("qe").Kana);
+        Assert.Equal("くぉ", romaji.Analyze("qo").Kana);
+    }
+
+    [Test]
     public static void Romaji_SpellingVariants()
     {
         var variants = new RomajiDetector().SpellingVariants("shigoto");
@@ -205,7 +231,7 @@ internal static class DetectionTests
     [Test]
     public static void Describe_HidesTypedText_UnlessRecordTextIsOn()
     {
-        // ログに出す判定の説明に、打った文字 (「kyouha」や、理由の中の「kyou」と一致 など) を出さない (入力した文字をログに出す設定が OFF のとき)
+        // ログに出す判定の説明に、打った文字 (「kyouha」や、理由の中の「kyou」と一致 など) を出さない (入力した文字をログに出す設定が OFF の[...]
         var result = Engine.Evaluate(new DetectionInput("kyouha", "KYOUHA".Select(c => (int)c).ToArray(), true));
         var before = Diagnostics.Log.RecordText;
         try

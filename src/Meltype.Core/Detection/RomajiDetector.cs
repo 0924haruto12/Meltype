@@ -90,6 +90,9 @@ public sealed class RomajiDetector
         // 歴史的仮名 (Microsoft IME と同じ綴り。wi / we は ウィンドウ・ウェブ の うぃ / うぇ)
         ("ゐ", ["wyi"]), ("ゑ", ["wye"]),
         ("てぃ", ["thi"]), ("でぃ", ["dhi"]), ("てゅ", ["thu"]), ("でゅ", ["dhu"]), ("とぅ", ["twu"]), ("どぅ", ["dwu"]),
+        ("てゃ", ["tha"]), ("てょ", ["tho"]), ("でゃ", ["dha"]), ("でょ", ["dho"]),
+        ("にぃ", ["nyi"]), ("にぇ", ["nye"]), ("とぁ", ["twa"]), ("とぃ", ["twi"]), ("とぇ", ["twe"]),
+        ("どぁ", ["dwa"]), ("どぃ", ["dwi"]), ("どぇ", ["dwe"]), ("くぃ", ["qi"]), ("くぇ", ["qe"]), ("くぉ", ["qo"]),
         // c 行 (Microsoft IME と同じ。cake や code まで日本語として読めてしまうので判定には使わない)
         ("か", ["ca"]), ("し", ["ci"]), ("く", ["cu"]), ("こ", ["co"]),
         ("ちぃ", ["cyi", "tyi"]),
@@ -127,7 +130,7 @@ public sealed class RomajiDetector
 
     public RomajiAnalysis Analyze(string letters) => Analyze(letters, strictStart: true, composition: false);
 
-    /// <summary>c 行 (ca / cu / co) を k 行に読み替える (ch は そのまま)。英数状態の判定で、fucarete を fukarete として調べるのに使う。</summary>
+    /// <summary>c 行 (ca / cu / co = か く こ) を k 行に読み替える (ch は そのまま)。英数状態の判定で、fucarete を fukarete として調べるのに使う。</summary>
     public static string ReadCRow(string letters)
     {
         if (!letters.Contains('c')) return letters;
