@@ -33,8 +33,10 @@ final class MeltypeConverter {
 
     private init() {
         // azooKey の学習データ・ユーザー辞書の置き場所 (Meltype では学習しない設定にしているので、ほぼ使わない)。
-        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Meltype/azooKey", isDirectory: true)
+        let directory = (NativeCore.shared.dataDirectory.map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("Meltype", isDirectory: true))
+            .appendingPathComponent("azooKey", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         options = ConvertRequestOptions(
             requireJapanesePrediction: .disabled,

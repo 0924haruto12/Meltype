@@ -71,7 +71,7 @@ final class MeltypeInputController: IMKInputController {
 
     /// フォーカスが外れた・クリックで別の場所に移ったときなど。未確定の内容をそのまま確定する。
     override func commitComposition(_ sender: Any!) {
-        guard let client = (sender as? IMKTextInput) ?? (self.client() as? IMKTextInput) else { return }
+        guard let client = (sender as? IMKTextInput) ?? self.client() else { return }
         apply(NativeCore.shared.commit(session), to: client)
     }
 
@@ -88,7 +88,7 @@ final class MeltypeInputController: IMKInputController {
     }
 
     override func candidateSelected(_ candidateString: NSAttributedString!) {
-        guard let client = self.client() as? IMKTextInput,
+        guard let client = self.client(),
               let string = candidateString?.string,
               let index = candidateList.firstIndex(of: string) else { return }
         // クリックした候補が候補ウィンドウで選ばれているので、覚えている位置も合わせる。
@@ -105,7 +105,7 @@ final class MeltypeInputController: IMKInputController {
         let mouseTypes: [NSEvent.EventType] = [.leftMouseDown, .leftMouseUp, .leftMouseDragged]
         guard !selectingFromCore,
               let type = NSApp.currentEvent?.type, mouseTypes.contains(type),
-              let client = self.client() as? IMKTextInput,
+              let client = self.client(),
               let string = candidateString?.string,
               let index = candidateList.firstIndex(of: string) else { return }
         windowIndex = index

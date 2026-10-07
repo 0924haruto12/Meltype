@@ -16,7 +16,10 @@ public enum DisplayMode { Auto, Hiragana, Katakana, FullWidthAlphanumeric, HalfW
 public readonly record struct CompositionUnit(string Kana, string Raw);
 
 /// <summary>表示上のひとまとまり。英語と判定した区間は英字のまま、それ以外は日本語 (かな/漢字)。</summary>
-public readonly record struct CompositionSegment(bool IsEnglish, string Kana, string Raw);
+public readonly record struct CompositionSegment(bool IsEnglish, string Kana, string Raw)
+{
+    public bool IsProtected { get; init; }
+}
 
 /// <summary>
 /// 未確定の入力。打ったそばからローマ字をかな 1 音ずつの単位にしていき、まだ音にならない子音
@@ -257,7 +260,8 @@ public sealed class CompositionText
     public void RemoveLast()
     {
         // 保護範囲 (メンション・URL・パス) の中は、1 音 (く・ら…) ではなく打った原文の 1 文字ずつ消す。
-        if (!KanaInput && HasProtectedTail)
+        if (!KanaInput && (HasProtectedTail || _pending.Length == 0 && _units.Count > 0 &&
+            ProtectedSpans().Any(span => span.End > Raw.Length - _units[^1].Raw.Length)))
         {
             var raw = Raw;
             if (raw.Length > 0)
@@ -469,16 +473,82 @@ public sealed class CompositionText
             .Append(PrecedingEnglish switch { true => 'E', false => 'J', null => '-' })
             .Append(FollowingEnglish switch { true => 'E', false => 'J', null => '-' })
             .Append(PrecedingEnglishSentence ? 'S' : '-').Append(KanaInput ? 'K' : '-').Append(final ? 'F' : '-')
+            .Append(PrecedingEnglishName ? 'N' : '-')
             .Append((int)EffectiveLevel).Append(':').Append(_detector.Memory?.Version ?? -1);
         return key.ToString();
     }
 
     private IReadOnlyList<CompositionSegment> ComputeSegments(bool final)
     {
-        var segments = _detector.Segment(_units, Pending, PrecedingEnglish, FollowingEnglish, EffectiveLevel, PrecedingEnglishSentence, KanaInput, final);
+        // 名前を紹介する英文では、辞書にないローマ字の名前も英字で残す。
+        // 手動・かな入力・明示的な日本語学習・後ろの日本語は優先する。
+        var raw = Raw;
+        if (!KanaInput && PrecedingEnglishName && FollowingEnglish != false && EffectiveLevel != DetectionLevel.Manual &&
+            raw.Length > 0 && raw.All(char.IsAsciiLetter) && _detector.Memory?.Get(raw.ToLowerInvariant()) != false)
+            return [new CompositionSegment(true, "", raw)];
+        var segments = SegmentWithProtection(_units, final);
         return HalfWidthOpeners(segments) is { } adjusted
-            ? _detector.Segment(adjusted, Pending, PrecedingEnglish, FollowingEnglish, EffectiveLevel, PrecedingEnglishSentence, KanaInput, final)
+            ? SegmentWithProtection(adjusted, final)
             : segments;
+    }
+
+    private IReadOnlyList<CompositionSegment> SegmentWithProtection(IReadOnlyList<CompositionUnit> units, bool final)
+    {
+        var spans = ProtectedSpans();
+        if (spans.Count == 0)
+            return _detector.Segment(units, Pending, PrecedingEnglish, FollowingEnglish, EffectiveLevel, PrecedingEnglishSentence, KanaInput, final);
+        var raw = Raw;
+        var result = new List<CompositionSegment>();
+        var start = 0;
+        foreach (var span in spans)
+        {
+            AddGap(start, span.Start);
+            result.Add(new CompositionSegment(true, "", raw.Substring(span.Start, span.Length)) { IsProtected = true });
+            start = span.End;
+        }
+        AddGap(start, raw.Length);
+        return result;
+
+        void AddGap(int from, int to)
+        {
+            if (from == to) return;
+            var gapUnits = UnitsInRawRange(units, from, to, out var pending);
+            var segments = _detector.Segment(gapUnits, pending, from == 0 ? PrecedingEnglish : false,
+                to == raw.Length ? FollowingEnglish : false, EffectiveLevel,
+                from == 0 && PrecedingEnglishSentence, KanaInput, final);
+            // 内部の区切りの子音は後の保護文字列とは結合しない。末尾の Pending は表示側が扱う。
+            if (to < raw.Length && pending.Length > 0 && !segments[^1].IsEnglish)
+                segments = [.. segments.Take(segments.Count - 1), segments[^1] with
+                    { Kana = segments[^1].Kana + _detector.Romaji.ConvertLenient(pending.ToLowerInvariant(), final: true) }];
+            result.AddRange(segments);
+        }
+    }
+
+    private List<CompositionUnit> UnitsInRawRange(IReadOnlyList<CompositionUnit> units, int from, int to, out string pending)
+    {
+        var selected = new List<CompositionUnit>();
+        var offset = 0;
+        var partial = false;
+        foreach (var unit in units)
+        {
+            var end = offset + unit.Raw.Length;
+            if (offset < to && end > from)
+            {
+                partial |= offset < from || end > to;
+                selected.Add(unit);
+            }
+            offset = end;
+        }
+        if (partial)
+        {
+            // 構造の境界がローマ字単位の途中に入った場合だけ、その区間の原文を読み直す。
+            var fragment = new CompositionText(_detector);
+            foreach (var c in Raw[from..to]) fragment.Append(c);
+            pending = fragment.Pending;
+            return [.. fragment.Units];
+        }
+        pending = to > offset ? Raw[Math.Max(from, offset)..to] : "";
+        return selected;
     }
 
     /// <summary>英数字以外の半角の記号 1 文字か (! . , ? など)。</summary>
@@ -546,6 +616,7 @@ public sealed class CompositionText
 
     /// <summary>キャレットの前が英文の途中 ("I want ") か。日本語の文の中の英単語 (GitHub の) より強い英語の根拠。</summary>
     public bool PrecedingEnglishSentence { get; set; }
+    public bool PrecedingEnglishName { get; set; }
 
     /// <summary>キャレットの後ろの文字が英語なら true、日本語なら false、分からなければ null。</summary>
     public bool? FollowingEnglish { get; set; }
@@ -570,21 +641,11 @@ public sealed class CompositionText
         if (KanaInput) return null;
         var segments = Segments(final: true);
         if (segmentIndex < 0 || segmentIndex >= segments.Count) return null;
-        // 区間ごとに単位を割り当てる (区間の Raw の長さぶんの単位)。
-        var unit = 0;
-        for (var s = 0; s < segmentIndex; s++)
-        {
-            var remaining = segments[s].Raw.Length;
-            while (unit < _units.Count && remaining > 0) remaining -= _units[unit++].Raw.Length;
-        }
+        var from = segments.Take(segmentIndex).Sum(s => s.Raw.Length);
+        var units = UnitsInRawRange(_units, from, from + segments[segmentIndex].Raw.Length, out var pending);
         var pieces = new List<(string Kana, string Raw)>();
-        var rawLength = segments[segmentIndex].Raw.Length - (segmentIndex == segments.Count - 1 ? _pending.Length : 0);
-        while (unit < _units.Count && rawLength > 0)
-        {
-            pieces.Add((_units[unit].Kana, _units[unit].Raw));
-            rawLength -= _units[unit++].Raw.Length;
-        }
-        if (segmentIndex == segments.Count - 1 && _pending.Length > 0) pieces.Add((PendingText(final: true), Pending));
+        foreach (var unit in units) pieces.Add((unit.Kana, unit.Raw));
+        if (pending.Length > 0) pieces.Add((_detector.Romaji.ConvertLenient(pending.ToLowerInvariant(), final: true), pending));
 
         var builder = new StringBuilder();
         var position = 0;
@@ -653,8 +714,6 @@ public sealed class CompositionText
     public string RenderSegments(bool final, Func<string, string>? convert)
     {
         // 保護範囲 (技術的な文字列) は、幅変換・かな化・漢字変換をせずに原文のまま出す (INV-01)。
-        // 原文全体が保護区間のときだけ適用する。通常の日本語と混ざった入力を
-        // 丸ごと保護してしまうことを避けるためで、混在文の部分保護は今後の課題とする。
         if (VerifyProtectedRaw()) return Raw;
         var builder = new StringBuilder();
         var segments = Segments(final);
@@ -876,7 +935,7 @@ public sealed class CompositionText
             // 5 文字以上の知っている語 (meeting) か、同梱の英語の辞書の 2〜4 文字の語 (user・rta・av)
             // 4 文字の知っている語で、ローマ字として読めないもの (help・milk) も英語 (help|pe-ji → へおっぺーじ にしない)
             var lower = segment.Raw.ToLowerInvariant();
-            var word = segment.IsEnglish && (segment.Raw.Length >= 5 && _detector.IsKnownEnglishWord(segment.Raw) || segment.Raw.Length is >= 2 and <= 4 && _detector.IsListedEnglishWord(lower) ||
+            var word = segment.IsProtected || segment.IsEnglish && (segment.Raw.Length >= 5 && _detector.IsKnownEnglishWord(segment.Raw) || segment.Raw.Length is >= 2 and <= 4 && _detector.IsListedEnglishWord(lower) ||
                 segment.Raw.Length == 4 && _detector.IsKnownEnglishWord(lower) && !_detector.Romaji.Analyze(lower).IsValid);
             for (var i = 0; i < segment.Raw.Length; i++) mask.Add(word);
         }

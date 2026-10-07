@@ -47,10 +47,10 @@ class NativeBoundaryTests(unittest.TestCase):
         self.assertIn("SettingsVersion", json.loads((Path(self.data.name) / "config.json").read_text()),
                       "legacy synthetic config was not migrated and saved")
 
-    def key(self, scalar, vk=None, after=None):
+    def key(self, scalar, vk=None, after=None, before=None):
         if vk is None:
             vk = scalar - 0x20 if ord("a") <= scalar <= ord("z") else 0x07
-        pointer = self.lib.meltype_handle_key(self.session, vk, scalar, 0, None,
+        pointer = self.lib.meltype_handle_key(self.session, vk, scalar, 0, None if before is None else before.encode("utf-8"),
                                              None if after is None else after.encode("utf-8"))
         self.assertTrue(pointer, "C ABI returned NULL")
         try:
@@ -154,6 +154,38 @@ class NativeBoundaryTests(unittest.TestCase):
         result = self.key(0, vk=0x0D)
         self.assertTrue(result["consumed"])
         self.assertEqual([{"deleteBefore": 0, "text": "か "}], result["commits"])
+
+    def test_name_context_keeps_unknown_name(self):
+        for char in "taro":
+            self.key(ord(char), before="my name is ")
+        self.assertEqual("taro", self.key(0, vk=0x0D)["commits"][0]["text"])
+
+    def test_english_term_particle_tail(self):
+        self.type_text("apinoerror")
+        self.assertEqual("api の error", self.key(0, vk=0x0D)["commits"][0]["text"])
+
+    def test_mixed_protection_preserves_tokens_and_japanese(self):
+        for token in ("@kuraido", "https://sakura.jp/kana", "taro@example.com", "./shumire-shon", r"C:\tools\kana"):
+            for action in (0x0D, 0x20, 0x09):
+                with self.subTest(token=token, action=action):
+                    self.type_text("kyouha「" + token + "」ashita")
+                    result = self.key(0, vk=action)
+                    if action == 0x20:
+                        result = self.key(0, vk=0x0D)
+                    self.assertEqual([{"deleteBefore": 0, "text": "きょうは「" + token + "」あした"}], result["commits"])
+                    self.assertIsNone(result["view"])
+
+    def test_backspace_keeps_protected_char_of_crossing_unit(self):
+        for raw in ("./z]", "./z[", "@z]", "@z["):
+            with self.subTest(raw=raw):
+                self.type_text(raw)
+                result = self.key(0, vk=0x08)
+                self.assertEqual(raw[:-1], result["view"]["text"])
+                self.assertEqual(raw[:-1], self.key(0, vk=0x0D)["commits"][0]["text"])
+
+    def test_mixed_protected_typo_is_not_autocorrected(self):
+        self.type_text("kyouha「@onegaishimsu」ashita")
+        self.assertEqual("きょうは「@onegaishimsu」あした", self.key(0, vk=0x0D)["commits"][0]["text"])
 
     def test_saved_language_choice_is_loaded_by_new_session(self):
         path = Path(self.data.name) / "languages.json"

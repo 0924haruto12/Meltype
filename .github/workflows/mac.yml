@@ -14,6 +14,7 @@ on:
       - 'dictionaries/**'
       - 'tools/test-native-boundaries.py'
       - 'tools/test-mac-boundaries.*'
+      - 'tools/test-mac-events.*'
       - '.github/workflows/mac.yml'
 
 jobs:
@@ -64,6 +65,7 @@ jobs:
         run: |
           python3 tools/test-native-boundaries.py mac/build/Meltype.app/Contents/Frameworks/libMeltypeNative.dylib
           python3 tools/test-mac-boundaries.py mac/build/Meltype.app/Contents/Frameworks/libMeltypeNative.dylib
+          python3 tools/test-mac-events.py mac/build/Meltype.app/Contents/Frameworks/libMeltypeNative.dylib
       # 公証 (notarization): 署名したときだけ。秘密 NOTARY_APPLE_ID・NOTARY_TEAM_ID・NOTARY_PASSWORD (App 用パスワード)
       - name: Notarize
         if: env.MELTYPE_MAC_IDENTITY != ''

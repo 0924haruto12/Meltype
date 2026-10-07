@@ -261,6 +261,73 @@ internal static class ProtectionTests
     }
 
     [Test]
+    public static void MixedProtectedSpans_KeepRawWhileSurroundingJapaneseConverts()
+    {
+        foreach (var token in new[] { "@kuraido", "https://example.com/nihongo", "taro@example.com", "./shumire-shon", @"C:\Users\taro" })
+        {
+            var text = new CompositionText(CompositionTests.Detector);
+            foreach (var c in "kyouha「" + token + "」ashita") text.Append(c);
+            var calls = new List<string>();
+            var shown = text.Display(final: true, convert: kana =>
+            {
+                calls.Add(kana);
+                return kana.Replace("きょうは", "今日は").Replace("あした", "明日");
+            });
+            Assert.Equal("今日は「" + token + "」明日", shown, token);
+            Assert.True(calls.All(kana => !kana.Contains(token)), "保護原文を漢字変換へ渡さない");
+            Assert.Equal(token, text.ConversionSegments().Single(s => s.IsProtected).Raw);
+        }
+    }
+
+    [Test]
+    public static void MixedProtectedSpans_CommitAndBackspaceKeepRaw()
+    {
+        foreach (var token in new[] { "@kuraido", "https://example.com/nihongo", "taro@example.com", "./shumire-shon" })
+        foreach (var operation in new[] { VirtualKeys.Return, VirtualKeys.Space, VirtualKeys.Tab, 0 })
+        {
+            var session = Create();
+            TypeText(session, "kyouha「" + token + "」ashita");
+            var result = operation == 0 ? session.CommitPending() : session.HandleKey(operation, null, false, false, false, false);
+            if (operation == VirtualKeys.Space)
+                result = session.HandleKey(VirtualKeys.Return, null, false, false, false, false);
+            Assert.Equal("きょうは「" + token + "」あした", result.Commits.Single().Text, token);
+            Assert.True(result.View is null, "確定後は表示を消す");
+        }
+        var pending = Create();
+        TypeText(pending, "kyouha「@kuraido");
+        var erased = pending.HandleKey(VirtualKeys.Back, null, false, false, false, false);
+        Assert.Equal("きょうは「@kuraid", erased.View!.Text);
+        Assert.Equal("きょうは「@kuraid", pending.CommitPending().Commits.Single().Text);
+    }
+
+    [Test]
+    public static void MixedProtectedSpans_DoNotAutocorrectRomajiTypos()
+    {
+        foreach (var token in new[] { "@onegaishimsu", "https://example.com/onegaishimsu", "./onegaishimsu" })
+        foreach (var action in new[] { VirtualKeys.Return, VirtualKeys.Space })
+        {
+            var session = Create();
+            TypeText(session, "kyouha「" + token + "」ashita");
+            var result = session.HandleKey(action, null, false, false, false, false);
+            if (action == VirtualKeys.Space) result = session.HandleKey(VirtualKeys.Return, null, false, false, false, false);
+            Assert.Equal("きょうは「" + token + "」あした", result.Commits.Single().Text, token);
+        }
+    }
+
+    [Test]
+    public static void Backspace_PreservesProtectedPartOfCrossingUnit()
+    {
+        foreach (var raw in new[] { "./z]", "./z[", "@z]", "@z[" })
+        {
+            var session = Create();
+            TypeText(session, raw);
+            var removed = session.HandleKey(VirtualKeys.Back, null, false, false, false, false);
+            Assert.Equal(raw[..^1], removed.View!.Text, raw);
+            Assert.Equal(raw[..^1], session.CommitPending().Commits.Single().Text, raw);
+        }
+    }
+
+    [Test]
     public static void ExplicitOverride_WinsOverProtection()
     {
         // F10 (半角英数) を明示したら、保護していてもその指定を優先する。

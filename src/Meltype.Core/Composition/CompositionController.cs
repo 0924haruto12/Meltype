@@ -623,6 +623,7 @@ public sealed class CompositionController
         _followingText = null;
         _text.PrecedingEnglish = _lastCommitEnglish;
         _text.PrecedingEnglishSentence = _lastCommitEnglish == true && IsEnglishSentence(_lastCommitText);
+        _text.PrecedingEnglishName = _lastCommitEnglish == true && IsEnglishNameContext(_lastCommitText);
         _text.FollowingEnglish = null;
         _host.RequestSurroundingText((before, after) =>
         {
@@ -633,6 +634,7 @@ public sealed class CompositionController
                 _precedingText = before;
                 if (LanguageOf(before) is { } english) _text.PrecedingEnglish = english;
                 _text.PrecedingEnglishSentence = IsEnglishSentence(before);
+                _text.PrecedingEnglishName = IsEnglishNameContext(before);
             }
             _followingText = after;
             _text.FollowingEnglish = LanguageOfStart(after);
@@ -665,6 +667,15 @@ public sealed class CompositionController
         // 行の始めの、' で縮めた英語 (I'll・We're・don't) も 1 語で英文の始まり ("I'll " の後の go)。ローマ字には ' が入らない
         if (lineStart && words is [var contraction] && System.Text.RegularExpressions.Regex.IsMatch(contraction, @"^[A-Za-z]+['’][A-Za-z]{1,2}$")) return true;
         return words.Length >= 2 && words.All(w => w.Any(char.IsAsciiLetter) && w.All(c => char.IsAsciiLetterOrDigit(c) || c is ',' or '.' or '\'' or '-' or '!' or '?' or ':' or ';'));
+    }
+
+    internal static bool IsEnglishNameContext(string? text)
+    {
+        if (!IsEnglishSentence(text)) return false;
+        var words = text!.TrimEnd().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var last = words[^1].ToLowerInvariant();
+        return last is "called" or "named" || words.Length >= 2 && last == "is" &&
+            words[^2].ToLowerInvariant() is "name" or "surname" or "nickname";
     }
 
     /// <summary>確定済みの文字列の最後の (空白以外の) 文字が英数字なら英語、かな・漢字・全角記号なら日本語。</summary>
@@ -884,6 +895,11 @@ public sealed class CompositionController
             var segment = segments[s];
             if (segment.IsEnglish)
             {
+                if (segment.IsProtected && !preferJapanese)
+                {
+                    clauses.Add(new Clause(segment.Raw, true, [segment.Raw]));
+                    continue;
+                }
                 var english = EnglishCandidates(segment.Raw);
                 var romaji = RomajiCandidates(segment.Raw);
                 clauses.Add(new Clause(segment.Raw, true, preferJapanese && romaji.Count > 0

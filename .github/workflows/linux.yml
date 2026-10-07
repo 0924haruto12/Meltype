@@ -34,7 +34,8 @@ jobs:
       - name: Packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld pkg-config zlib1g-dev python3 \
+          sudo apt-get install -y clang lld pkg-config zlib1g-dev python3 python3-gi gir1.2-ibus-1.0 \
+            ibus dbus-x11 xvfb xauth \
             libdbus-1-dev libglib2.0-dev libgtk-3-dev libibus-1.0-dev libxcb-xfixes0-dev qt6-base-dev
       - uses: actions/cache@v4
         with:
@@ -57,6 +58,10 @@ jobs:
         run: linux/build.sh
       - name: NativeAOT boundary tests
         run: python3 tools/test-native-boundaries.py linux/build/Meltype-linux/libMeltypeNative.so
+      - name: IBus and real Mozc integration tests
+        run: timeout 120 python3 linux/tests/test_integration.py linux/build/Meltype-linux
+      - name: Private IBus daemon tests
+        run: timeout 120 xvfb-run -a dbus-run-session -- python3 linux/tests/test_daemon.py linux/build/Meltype-linux
       - name: Package
         run: |
           # タグ (v1.0.0) なら Meltype-1.0.0-linux.zip、それ以外はテスト版の名前
