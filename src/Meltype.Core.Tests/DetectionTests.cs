@@ -111,8 +111,8 @@ internal static class DetectionTests
     {
         // 待ち時間を減らすため、ローマ字として成立しなくなった時点で英語と確定する。
         Assert.Equal("hel", Classify(Engine, "hello").Text);
-        // the → てぇ 追加により th は部分ローマ字として有効。英語辞書で "the" 全体が英語と確定する。
-        Assert.Equal("the", Classify(Engine, "the").Text);
+        // the → てぇ を追加しても、th は英語辞書の接頭辞 (the) で EN+3 となり、th 時点で英語確定する。
+        Assert.Equal("th", Classify(Engine, "the").Text);
         Assert.Equal("np", Classify(Engine, "npm").Text);
     }
 
