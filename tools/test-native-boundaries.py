@@ -155,6 +155,29 @@ class NativeBoundaryTests(unittest.TestCase):
         self.assertTrue(result["consumed"])
         self.assertEqual([{"deleteBefore": 0, "text": "か "}], result["commits"])
 
+    def test_saved_language_choice_is_loaded_by_new_session(self):
+        path = Path(self.data.name) / "languages.json"
+        previous = path.read_bytes() if path.exists() else None
+        try:
+            # 2 回の明示的な選択を記録した、公開形式の合成データ。
+            path.write_text(json.dumps({"sushi": {"English": True, "Count": 2, "Explicit": True,
+                                                   "Used": "2026-10-07T00:00:00Z"}}), encoding="utf-8")
+            restored = self.lib.meltype_create()
+            self.assertTrue(restored)
+            original = self.session
+            self.session = restored
+            try:
+                self.type_text("sushi")
+                self.assertEqual("sushi", self.key(0, vk=0x0D)["commits"][0]["text"])
+            finally:
+                self.session = original
+                self.lib.meltype_destroy(restored)
+        finally:
+            if previous is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(previous)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

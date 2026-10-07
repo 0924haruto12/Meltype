@@ -35,9 +35,10 @@ public static class ProtectedSpanScanner
         var spans = new List<ProtectedSpan>();
         if (string.IsNullOrEmpty(raw)) return spans;
         var index = 0;
+        var schemeEnd = 0;
         while (index < raw.Length)
         {
-            var span = MatchAt(raw, index, spans.Count > 0 ? spans[^1].End : 0);
+            var span = MatchAt(raw, index, spans.Count > 0 ? spans[^1].End : 0, ref schemeEnd);
             if (span is { } found)
             {
                 spans.Add(found);
@@ -66,32 +67,28 @@ public static class ProtectedSpanScanner
         return true;
     }
 
-    private static ProtectedSpan? MatchAt(string raw, int start, int previousEnd)
+    private static ProtectedSpan? MatchAt(string raw, int start, int previousEnd, ref int schemeEnd)
     {
         // 長い構造 (URL / パス / メール) を優先し、メンションは最後に回す。
-        foreach (var candidate in new[]
-                 {
-                     TryUrl(raw, start),
-                     TryWindowsPath(raw, start),
-                     TryEmail(raw, start),
-                     TryMention(raw, start),
-                     TryPosixPath(raw, start),
-                 })
-        {
-            // メールのローカル部は @ から左へ探す。先に保護したメンション等の文字を再利用しない。
-            if (candidate is { } span && span.Start >= previousEnd) return span;
-        }
-        return null;
+        if (TryUrl(raw, start, ref schemeEnd) is { } url) return url;
+        if (TryWindowsPath(raw, start) is { } windowsPath) return windowsPath;
+        // メールのローカル部は @ から左へ探す。先に保護したメンション等の文字を再利用しない。
+        if (TryEmail(raw, start) is { } email && email.Start >= previousEnd) return email;
+        return TryMention(raw, start) ?? TryPosixPath(raw, start);
     }
 
     // ---- URL ----
-    private static ProtectedSpan? TryUrl(string raw, int start)
+    private static ProtectedSpan? TryUrl(string raw, int start, ref int schemeEnd)
     {
         if (!char.IsAsciiLetter(raw[start])) return null;
-        var scheme = start + 1;
-        while (scheme < raw.Length && (char.IsAsciiLetterOrDigit(raw[scheme]) || raw[scheme] is '+' or '-' or '.')) scheme++;
-        if (scheme + 2 >= raw.Length || raw[scheme] != ':' || raw[scheme + 1] != '/' || raw[scheme + 2] != '/') return null;
-        var end = scheme + 3;
+        // 同じ英字列の途中から、残り全文を何度も走査しない。scheme 候補の末尾は Scan ごとに使い回す。
+        if (start >= schemeEnd)
+        {
+            schemeEnd = start + 1;
+            while (schemeEnd < raw.Length && (char.IsAsciiLetterOrDigit(raw[schemeEnd]) || raw[schemeEnd] is '+' or '-' or '.')) schemeEnd++;
+        }
+        if (schemeEnd + 2 >= raw.Length || raw[schemeEnd] != ':' || raw[schemeEnd + 1] != '/' || raw[schemeEnd + 2] != '/') return null;
+        var end = schemeEnd + 3;
         while (end < raw.Length && IsUrlChar(raw[end])) end++;
         return new ProtectedSpan(start, end - start, ProtectedKind.Url);
     }

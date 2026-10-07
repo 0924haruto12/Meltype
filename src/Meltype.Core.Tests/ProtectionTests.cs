@@ -190,6 +190,40 @@ internal static class ProtectionTests
     }
 
     [Test]
+    public static void Protected_TabDoesNotApplyKanaMisspellingToPath()
+    {
+        foreach (var raw in new[] { "./shumire-shon", "/tmp/buresureddo", "https://example.com/shumire-shon" })
+        {
+            var session = Create();
+            TypeText(session, raw);
+            var tab = session.HandleKey(VirtualKeys.Tab, null, false, false, false, false);
+            Assert.True(!tab.Consumed, $"保護原文の Tab は誤字補正に使わずアプリへ通す: {raw}");
+            Assert.Equal(raw, tab.Commits.Single().Text);
+            Assert.True(tab.View is null, "確定後は変換ボックスを閉じる");
+        }
+    }
+
+    [Test]
+    public static void Protected_ExplicitConversionCommitsSelectedCandidate()
+    {
+        foreach (var operation in new[] { VirtualKeys.Return, VirtualKeys.Tab, 0 })
+        {
+            var session = Create();
+            TypeText(session, "@kuraido");
+            var conversion = session.HandleKey(VirtualKeys.Space, null, true, false, false, false);
+            Assert.True(conversion.View is { Converting: true }, "Shift+Space は明示的な変換");
+            var candidates = conversion.View!.Candidates;
+            var index = Enumerable.Range(0, candidates.Count).First(i => candidates[i].Contains('＠'));
+            var selected = session.SelectCandidate(index).View!.Text;
+            Assert.True(selected != "@kuraido", "原文と異なる候補を選んでいる");
+            var result = operation == 0 ? session.CommitPending() :
+                session.HandleKey(operation, null, false, false, false, false);
+            Assert.Equal(selected, result.Commits.Single().Text, "明示的に選んだ候補を確定する");
+            Assert.Equal(operation != VirtualKeys.Tab, result.Consumed);
+        }
+    }
+
+    [Test]
     public static void Protected_FocusCommitsRaw()
     {
         var session = Create();

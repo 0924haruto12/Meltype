@@ -691,6 +691,18 @@ public sealed class CompositionText
     {
         if (Mode != DisplayMode.Auto || _units.Count == 0) return null;
         var english = UnitIsEnglish();
+        // 保護区間の ASCII 原文を、日本語の誤字候補としてかなへ書き換えない。
+        // 英語と同じく検索対象から外す。保護区間の外の日本語は従来どおり検査する。
+        var spans = ProtectedSpans();
+        var rawOffset = 0;
+        var spanIndex = 0;
+        for (var i = 0; i < _units.Count; i++)
+        {
+            var end = rawOffset + _units[i].Raw.Length;
+            while (spanIndex < spans.Count && spans[spanIndex].End <= rawOffset) spanIndex++;
+            if (spanIndex < spans.Count && spans[spanIndex].Start < end) english[i] = true;
+            rawOffset = end;
+        }
         // 日本語の単位が続く範囲ごとに探す。
         var start = 0;
         while (start < _units.Count)

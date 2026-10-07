@@ -1359,7 +1359,7 @@ public sealed class CompositionController
     }
 
     /// <summary>今の未確定入力が、自動では変換してはいけない保護区間か (F9/F10 などの明示指定は除く)。</summary>
-    private bool IsProtectedInput => _text.Mode == DisplayMode.Auto && _text.HasProtectedTail;
+    private bool IsProtectedInput => !_converting && _text.Mode == DisplayMode.Auto && _text.HasProtectedTail;
 
     private void Commit(string suffix = "", bool fixEnglish = false, bool preserveText = false)
     {

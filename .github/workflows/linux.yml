@@ -14,6 +14,7 @@ on:
       - 'src/Meltype.Core/**'
       - 'src/Meltype.Mac.Native/**'
       - 'dictionaries/**'
+      - 'tools/test-native-boundaries.py'
       - '.github/workflows/linux.yml'
 
 jobs:
@@ -54,6 +55,8 @@ jobs:
         run: BAZEL="$HOME/tools/bazelisk" native/mozc/build-mozc-helper.sh "$HOME/mozc" "$HOME/bazel-cache"
       - name: Build
         run: linux/build.sh
+      - name: NativeAOT boundary tests
+        run: python3 tools/test-native-boundaries.py linux/build/Meltype-linux/libMeltypeNative.so
       - name: Package
         run: |
           # タグ (v1.0.0) なら Meltype-1.0.0-linux.zip、それ以外はテスト版の名前

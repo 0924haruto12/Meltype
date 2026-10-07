@@ -50,7 +50,7 @@ final class MeltypeInputController: IMKInputController {
         // 元のイベントを 1 回アプリへ通す (本体側の pass-through 契約と対にする)。
         let scalars = Array((event.characters ?? "").unicodeScalars)
         if scalars.count > 1 {
-            apply(NativeCore.shared.commit(session), to: client)
+            apply(NativeCore.shared.commitBeforeExternalText(session, text: event.characters ?? ""), to: client)
             return false
         }
         let character: Int32 = scalars.count == 1 ? Int32(scalars[0].value) : 0
