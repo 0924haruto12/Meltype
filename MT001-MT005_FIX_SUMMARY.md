@@ -78,9 +78,10 @@ python3 tools/benchmark-composition.py /path/to/baseline-checkout --output /path
 
 mac/linuxワークフローにも追加検証を組み込んだ。GitHub Actionsの実行結果は未取得。
 Windows実行、通常のIMK/IBus登録とデスクトップアプリの入力欄はNOT_RUN。
-Push・GitHubコメント・レビュー投稿・マージ・常用IMEのインストールは未実施。
-PRのheadは `ac8b504`、最新mainは `55c8a29`。競合解消と修正はローカルだけに存在する。
-日時・SHA・入力およびログのハッシュは作業フォルダの `../validation/verification-complete.json` に記録する。
+検証対象のソースは `4ce7ca89fb702f6db13e4f2d6a4020e74e0a9642`、取り込み済みmainは `55c8a29`。
+この節はPush前の検証記録。公開後のheadとコメントは対象PRで確認できる。
+レビュー投稿・マージ・常用IMEのインストールは未実施。
+日時・SHA・入力およびログのハッシュを記録した検証ログはローカルで保管し、公開していない。
 
 ## 2026-10-07 再確認（20:22 JST、履歴）
 
@@ -126,7 +127,7 @@ python3 tools/test-mac-boundaries.py build-check/native/MeltypeNative.dylib
 実際の `InputController.handle` に OS イベントを渡した検証、IMK / IBus GUI、実変換エンジン、Windows 実機は NOT_RUN。
 GitHub の PR は head `ac8b504` のままで競合表示が残る。競合解消と追加修正はローカルのみ。
 Push・コメント・レビュー投稿・インストールは実施していない。
-検証ログと日時・SHA・ハッシュは、この作業フォルダの `../validation/verification-recheck.json` に記録する。
+検証ログと日時・SHA・ハッシュはローカルで保管し、公開していない。
 
 ## 2026-10-07 初回ローカル検証（20:00 JST、履歴）
 
