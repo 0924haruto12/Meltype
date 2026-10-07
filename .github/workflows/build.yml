@@ -136,7 +136,7 @@ jobs:
         timeout-minutes: 15
         run: |
           $packages = @(Get-ChildItem -LiteralPath dist -Filter 'Meltype-*.zip' -File)
-          if ($packages.Count -ne 1) { throw '検査する配布 ZIP が一つではありません。' }
+          if ($packages.Count -ne 1) { throw 'Expected one Meltype-*.zip file but found ' + $packages.Count }
           .\tools\Scan-WindowsPackage.ps1 -Path @('.\dist\Meltype', $packages[0].FullName)
       - uses: actions/upload-artifact@v4
         with:
