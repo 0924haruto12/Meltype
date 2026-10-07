@@ -1547,7 +1547,6 @@ public sealed class CompositionController
         _converting = false;
         _clauses = [];
         if (text.Length == 0) return;
-        if (_options.AutomaticEnglishSpacing()) text = text.Replace('\u3000', ' ').Replace('\u00A0', ' ');
         if (formatEnglish) text = EnglishPhraseSpacing.Format(text);
         var corrected = CorrectPreviousCommit(raw, english);
         if (_options.SpaceAroundEnglish()) text = AddSpacesAroundEnglish(text, corrected ?? _precedingText, _followingText);

@@ -78,11 +78,36 @@ public sealed class CompositionDetector
     public IReadOnlyList<CompositionSegment> Segment(IReadOnlyList<CompositionUnit> units, string pending, bool? precedingEnglish = null, bool? followingEnglish = null,
         DetectionLevel level = DetectionLevel.Balanced, bool englishSentence = false, bool kanaInput = false, bool final = false)
     {
+        var token = Raw(units, 0, units.Count) + pending;
+        // Structured Latin tokens are opaque; their components are not Japanese readings.
+        if (!kanaInput && token.All(c => c is >= '!' and <= '~') &&
+            (token.Contains('@') && token.Any(char.IsAsciiLetter) || token.Contains('_') || token.Contains("://", StringComparison.Ordinal) ||
+             System.Text.RegularExpressions.Regex.Matches(token, "[a-z][A-Z][a-z]").Count >= 2))
+            return [new CompositionSegment(true, "", token)];
         // A romaji token can cross an English boundary (reflect + sa becomes tsa).
         // Recognize an unambiguous English verb before parsing its Japanese conjugation.
         if (!kanaInput && level != DetectionLevel.Manual)
         {
             var raw = Raw(units, 0, units.Count) + pending;
+            // Require two recognized words around a particle: never split arbitrary names
+            // or identifiers merely because they contain a romaji particle.
+            if (raw.All(char.IsAsciiLetter) && !IsKnownEnglishWord(raw))
+            {
+                for (var end = raw.Length - 3; end >= 3; end--)
+                {
+                    var word = raw[..end];
+                    if (!IsKnownEnglishWord(word) || _romaji.AnalyzeFragment(word.ToLowerInvariant()).IsValid) continue;
+                    foreach (var particle in TrailingParticles)
+                    {
+                        var rest = raw[end..];
+                        if (!rest.StartsWith(particle, StringComparison.Ordinal) ||
+                            !IsKnownEnglishWord(rest[particle.Length..])) continue;
+                        return [new CompositionSegment(true, "", word),
+                            new CompositionSegment(false, _romaji.ConvertLenient(particle, final: true), particle),
+                            new CompositionSegment(true, "", rest[particle.Length..])];
+                    }
+                }
+            }
             for (var end = raw.Length - 2; end >= 4; end--)
             {
                 var word = raw[..end];

@@ -67,3 +67,36 @@ cd mac
 - 設定画面・トレイ・ユーザー辞書の画面はありません (`config.json` を直接編集)
 - VS Code などのアプリの種類 (コード / 一般) の判定は、まだ Mac では使っていません
 - 英数状態でローマ字を検知して日本語に戻す機能は、まだありません
+
+## ターミナルからの更新と検証
+
+VS Code のターミナルを含め、どのディレクトリからでも実行できます。
+
+```bash
+bash ~/Documents/github/other/Meltype/mac/build-cli.sh --test --build
+# 使用中の入力ソースを入れ替えてよいときだけ:
+bash ~/Documents/github/other/Meltype/mac/update.sh
+```
+
+`--build` はビルドのみで、インストール・プロセス停止・入力ソース切り替えを行いません。
+更新は `update.sh → build-cli.sh --test --install → build.sh` を通ります。
+通常の更新では LaunchServices の `open Meltype.app` を使わず実行ファイルを直接起動し、登録・選択を行います。
+設定画面を開くコマンドはありません。設定画面へ移動したという報告の原因はまだ確定していません。
+
+日本語と英語の境目には既定で空白を追加しません。`seeyouagain` のような登録済み英語フレーズ内には半角空白を補います。
+手入力の空白は保持します。ローマ字と同じ綴りの未知の単語は意図を一意に判別できないため、英数の直接入力・コード入力も利用できます。
+
+ビルドしたアプリで、インストールせずに検証できます。
+
+```bash
+mac/build/Meltype.app/Contents/MacOS/Meltype --check-inputs mac/Resources/InputChecks.tsv
+mac/build/Meltype.app/Contents/MacOS/Meltype --self-test
+python3 tests/test_mac_scripts.py
+```
+
+`--self-test` は1000回の入力・候補選択・確定・直接入力切り替えを含みます。
+これは本体と変換エンジンの検証で、Chrome/VS Code の IMK クライアントや実際のOS入力ソース切り替えの検証ではありません。
+実機では両アプリで長時間の混在入力、Enter確定、候補クリック、入力ソース往復、フォーカス移動を確認してください。
+既存の属性付き marked text と置換範囲の修正を保持し、確定文字も属性付き文字列に統一しています。
+最近の「クラッシュしない」という報告を踏まえ、過去のログだけで再発・原因・解消を断定しません。
+Code Helper のディスク書き込み `.diag` と stickersd の JetsamEvent は VS Code クラッシュの証拠として扱いません。

@@ -39,6 +39,37 @@ internal static class SessionFacadeTests
     }
 
     [Test]
+    public static void MacMixedInputRegression()
+    {
+        foreach (var (input, expected) in new[] {
+            ("wsldeshell", "wslでshell"),
+            ("kyouhagoogledekensaku", "今日はgoogleで検索"),
+            ("seeyouagain", "see you again"),
+            ("I want to go to the park", "I want to go to the park"),
+            ("Zorgblax", "Zorgblax"),
+            ("stackoverflow", "stackoverflow"),
+            ("https://example.com", "https://example.com"),
+            ("alice@example.com", "alice@example.com"),
+            ("getUserName", "getUserName"),
+            ("google  shell", "google  shell"),
+            ("google\u3000shell", "google\u3000shell"),
+            ("get_user_name", "get_user_name") })
+        {
+            var session = new MeltypeSession(CompositionDetector.CreateDefault(), new CompositionTests.FakeConverter(),
+                new CompositionOptions { LiveConversion = () => true, AutomaticEnglishSpacing = () => true }, () => new Settings());
+            var results = Type(session, input + "\n");
+            var output = "";
+            for (var i = 0; i < results.Count; i++)
+            {
+                foreach (var edit in results[i].Commits)
+                    output = output[..Math.Max(0, output.Length - edit.DeleteBefore)] + edit.Text;
+                if (!results[i].Consumed) output += (input + "\n")[i];
+            }
+            Assert.Equal(expected, output, input);
+        }
+    }
+
+    [Test]
     public static void Romaji_ComposesAndEnterCommits()
     {
         var session = Create();

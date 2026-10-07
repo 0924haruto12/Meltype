@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# Run from any directory:
+#   bash "$HOME/Documents/github/other/Meltype/mac/update.sh"
+# Show help without starting the input method:
+#   bash "$HOME/Documents/github/other/Meltype/mac/update.sh" --help
+# This updates and starts Meltype. Avoid running while investigating crashes.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -15,14 +20,14 @@ esac
 [[ $# -le 1 ]] || { echo "Too many arguments" >&2; exit 1; }
 [[ "$(uname)" == Darwin ]] || { echo "This updater requires macOS." >&2; exit 1; }
 
-bash "$here/build-cli.sh" --test --install
+MELTYPE_SKIP_START=1 bash "$here/build-cli.sh" --test --install
 
 # Native checks exit the input-method process; restore it even if a check fails.
 restore_input() {
     local result=$?
     trap - EXIT
+    "$app/Contents/MacOS/Meltype" >/dev/null 2>&1 &
     if ! "$app/Contents/MacOS/Meltype" --register-input-source ||
-       ! open -g "$app" ||
        ! swift "$here/select-input-source.swift"; then
         echo "Could not select Meltype. Choose it from the input menu." >&2
         [[ $result -ne 0 ]] || result=1

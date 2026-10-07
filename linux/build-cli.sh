@@ -5,10 +5,15 @@
 # WSL / Linux の CLI から Meltype をビルドするための入口。
 #   linux/build-cli.sh --setup --test --package
 #   linux/build-cli.sh --install
+# From any directory in Ubuntu/WSL:
+#   bash "$HOME/Meltype/linux/build-cli.sh" --setup --all
+# Subsequent builds:
+#   bash "$HOME/Meltype/linux/build-cli.sh" --build
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(dirname "$here")"
+export PATH="$HOME/.dotnet:$HOME/.local/bin:$PATH"
 
 setup=0
 test_core=0
@@ -27,6 +32,7 @@ Options:
   --setup                 Install Ubuntu/WSL build dependencies with apt.
   --test                  Run Meltype.Core.Tests.
   --mozc                  Build the Linux Mozc helper.
+  --build                 Build the Mozc helper and Linux package.
   --package               Build linux/build/Meltype-linux.
   --install               Install the built IBus engine into Linux.
   --all                   Run --test --mozc --package. This is the default.
@@ -54,6 +60,7 @@ while [[ $# -gt 0 ]]; do
         --setup) setup=1; all=0 ;;
         --test) test_core=1; all=0 ;;
         --mozc) build_mozc=1; all=0 ;;
+        --build) build_mozc=1; package=1; all=0 ;;
         --package) package=1; all=0 ;;
         --install) install=1; all=0 ;;
         --all) all=1 ;;
@@ -79,6 +86,11 @@ if [[ $all -eq 1 ]]; then
     package=1
 fi
 
+if [[ "$(uname -s)" != Linux ]]; then
+    echo "Run this script inside Linux/WSL. For macOS use mac/build-cli.sh." >&2
+    exit 1
+fi
+
 if [[ $setup -eq 1 ]]; then
     if ! command -v apt-get >/dev/null 2>&1; then
         echo "--setup supports apt-based distros such as Ubuntu on WSL." >&2
@@ -86,8 +98,9 @@ if [[ $setup -eq 1 ]]; then
     fi
     sudo apt-get update
     sudo apt-get install -y \
-        build-essential clang curl git ibus libibus-1.0-dev pkg-config python3 python3-gi \
-        gir1.2-ibus-1.0 zlib1g-dev
+        build-essential clang lld curl git ibus libibus-1.0-dev pkg-config python3 python3-gi \
+        gir1.2-ibus-1.0 zlib1g-dev libdbus-1-dev libglib2.0-dev libgtk-3-dev \
+        libxcb-xfixes0-dev qt6-base-dev
     if ! command -v dotnet >/dev/null 2>&1; then
         curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
         bash /tmp/dotnet-install.sh --channel 10.0 --install-dir "$HOME/.dotnet"
@@ -121,16 +134,16 @@ if [[ $build_mozc -eq 1 ]]; then
     need clang
     need bazel
     if [[ -n "$bazel_cache" ]]; then
-        "$root/native/mozc/build-mozc-helper.sh" "$mozc_source" "$bazel_cache"
+        bash "$root/native/mozc/build-mozc-helper.sh" "$mozc_source" "$bazel_cache"
     else
-        "$root/native/mozc/build-mozc-helper.sh" "$mozc_source"
+        bash "$root/native/mozc/build-mozc-helper.sh" "$mozc_source"
     fi
 fi
 
 if [[ $package -eq 1 ]]; then
     need dotnet
     need clang
-    "$root/linux/build.sh"
+    bash "$root/linux/build.sh"
 fi
 
 if [[ $install -eq 1 ]]; then

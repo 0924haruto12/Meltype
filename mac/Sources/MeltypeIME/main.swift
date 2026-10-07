@@ -68,7 +68,7 @@ if CommandLine.arguments.contains("--self-test") || CommandLine.arguments.contai
             exit(1)
         }
     }
-    for (input, expected) in [("kyouhagoogledekensaku \n", "今日は google で検索"),
+    for (input, expected) in [("kyouhagoogledekensaku \n", "今日はgoogleで検索"),
                                ("I want to go to the park\n", "I want to go to the park"),
                                ("google github hello\n", "google github hello"),
                                ("seeyouagain\n", "see you again")] {
@@ -80,7 +80,7 @@ if CommandLine.arguments.contains("--self-test") || CommandLine.arguments.contai
     }
     let englishSession = NativeCore.shared.createSession()
     let (reflected, _) = type("reflectsareta\n", session: englishSession)
-    check("issue 77: reflect + Japanese", reflected == "reflect された")
+    check("issue 77: reflect + Japanese", reflected == "reflectされた")
     NativeCore.shared.destroySession(englishSession)
     let sentence = "kyouhagoogledekensakusitekekkawomiru\n"
     let started = Date()
@@ -134,6 +134,21 @@ if CommandLine.arguments.contains("--self-test") || CommandLine.arguments.contai
     let (_, comment) = type("kyouha", session: session, before: "// ")
     check("comment composes Japanese", comment?.view?.text.contains("きょう") == true || comment?.view?.text.contains("今日") == true)
     NativeCore.shared.destroySession(session)
+    let stressSession = NativeCore.shared.createSession()
+    let stressStart = Date()
+    for iteration in 0..<1000 {
+        _ = type("kyouhagoogledekensaku ", session: stressSession)
+        _ = NativeCore.shared.selectCandidate(stressSession, index: iteration % 2)
+        let committed = NativeCore.shared.commit(stressSession)
+        check("stress commit \(iteration)", committed?.view == nil)
+        NativeCore.shared.setDirect(stressSession, true)
+        _ = type("hello", session: stressSession)
+        NativeCore.shared.setDirect(stressSession, false)
+        let (output, _) = type("wsldeshell\n", session: stressSession)
+        check("stress mode switch \(iteration)", output == "wslでshell")
+    }
+    NativeCore.shared.destroySession(stressSession)
+    print("1000 native input/candidate/commit/mode cycles in \(Date().timeIntervalSince(stressStart))s")
     exit(failures == 0 ? 0 : 1)
 }
 

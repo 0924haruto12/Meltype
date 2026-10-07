@@ -53,7 +53,7 @@ final class MeltypeInputController: IMKInputController {
         if event.keyCode == kVK_Space, event.characters == "　" || event.characters == "\u{00A0}",
            event.modifierFlags.intersection([.command, .control]).isEmpty {
             apply(NativeCore.shared.commit(session), to: client)
-            client.insertText(" ", replacementRange: NSRange(location: NSNotFound, length: 0))
+            client.insertText(NSAttributedString(string: " "), replacementRange: NSRange(location: NSNotFound, length: 0))
             return true
         }
 
@@ -215,7 +215,7 @@ final class MeltypeInputController: IMKInputController {
                     range = NSRange(location: caret - length, length: length)
                 }
             }
-            client.insertText(edit.text.replacingOccurrences(of: "　", with: " ").replacingOccurrences(of: "\u{00A0}", with: " "), replacementRange: range)
+            client.insertText(NSAttributedString(string: edit.text), replacementRange: range)
             hasMarkedText = false
         }
         if let view = result.view {
@@ -227,7 +227,7 @@ final class MeltypeInputController: IMKInputController {
 
     /// 変換中の文字を入力欄に下線付きで出す (変換中は文節ごと、選んでいる文節は太い下線)。
     private func showComposition(_ view: CompositionView, client: IMKTextInput) {
-        let text = NSMutableAttributedString(string: view.text.replacingOccurrences(of: "　", with: " ").replacingOccurrences(of: "\u{00A0}", with: " "))
+        let text = NSMutableAttributedString(string: view.text)
         let length = (view.text as NSString).length
         if view.converting && !view.clauses.isEmpty {
             var location = 0
@@ -256,6 +256,7 @@ final class MeltypeInputController: IMKInputController {
         candidatesWindow?.hide()
         suggestionPanel?.orderOut(nil)
         displayedSuggestion = nil
+        meaningKey = nil
     }
 
     private func showSuggestion(_ suggestion: String?, client: IMKTextInput) {
