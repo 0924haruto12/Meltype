@@ -64,8 +64,6 @@ jobs:
       - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: 10.0.x
-          cache: true
-          cache-dependency-path: '**/*.csproj'
       - name: 品質テスト (Pull Request)
         run: dotnet run --project src/Meltype.Core.Tests -c Release -- --eval-json "$RUNNER_TEMP/pr.json"
       - name: 品質テスト (main)
@@ -100,8 +98,6 @@ jobs:
         uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: 10.0.x
-          cache: true
-          cache-dependency-path: '**/*.csproj'
       - if: steps.cases.outputs.count != '0'
         run: |
           dotnet run --project src/Meltype.Core.Tests -c Release -- --expect "$RUNNER_TEMP/cases.txt" "$RUNNER_TEMP/cases.json"
