@@ -70,6 +70,11 @@ cd mac
 
 ## ターミナルからの更新と検証
 
+ほかのMacへ渡す配布ZIPは、ビルド後に `bash mac/package.sh` で作れます。
+`dist/` のZIPを全体ごと展開し、`Install Meltype.command` または `bash install.sh` を実行します。
+配布インストーラーもGUIセッションで起動・準備完了を確認してから入力ソースを選択します。
+ビルドしたCPU向けのアプリが入るため、Appleシリコン版とIntel版は互換ではありません。
+
 VS Code のターミナルを含め、どのディレクトリからでも実行できます。
 
 ```bash

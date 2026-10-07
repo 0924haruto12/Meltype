@@ -96,6 +96,46 @@
     (assert (not (member "select" lines :test #'equal)))
     (assert (not (member "app:--register-input-source" lines :test #'equal)))))
 
+(defun replace-text (text old new)
+  (with-output-to-string (out)
+    (loop with start = 0
+          for position = (search old text :start2 start)
+          do (write-string text out :start start :end position)
+          while position
+          do (write-string new out)
+             (setf start (+ position (length old))))))
+
+(defun test-distributed-install (work)
+  (let ((source (uiop:read-file-string (merge-pathnames "mac/install.sh" *root*))))
+    (write-file (merge-pathnames "install.sh" work)
+                (replace-text
+                 (replace-text source "$HOME/Library/Input Methods"
+                               (namestring (merge-pathnames "installed" work)))
+                 "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+                 "lsregister")))
+  (fake-tool work "Meltype.app/Contents/MacOS/Meltype"
+             "echo \"app:$*\" >> \"$MELTYPE_TEST_LOG\"")
+  (fake-tool work "start-input-method.sh"
+             "echo started >> \"$MELTYPE_TEST_LOG\"")
+  (write-file (merge-pathnames "select-input-source.swift" work) "// fake selector")
+  (fake-tool work "swift" "echo selected >> \"$MELTYPE_TEST_LOG\"")
+  (dolist (name '("pkill" "killall" "xattr" "lsregister"))
+    (fake-tool work name "exit 0"))
+  (fake-tool work "open" "echo UNEXPECTED_OPEN >> \"$MELTYPE_TEST_LOG\"; exit 1")
+  (run-script work "install.sh" nil)
+  (assert (equal '("app:--register-input-source" "started" "selected")
+                 (uiop:read-file-lines (merge-pathnames "calls" work)))))
+
+(defun test-incomplete-package (work)
+  (test-distributed-install work)
+  (write-file (merge-pathnames "calls" work) "")
+  (delete-file (merge-pathnames "start-input-method.sh" work))
+  (let ((failed nil))
+    (handler-case (run-script work "install.sh" nil)
+      (uiop:subprocess-error () (setf failed t)))
+    (assert failed))
+  (assert (null (uiop:read-file-lines (merge-pathnames "calls" work)))))
+
 (handler-case
     (progn
       (call-with-work-directory #'test-build-only)
@@ -105,7 +145,11 @@
       (call-with-work-directory #'test-launchd-start)
       (format t "PASS launchd startup~%")
       (call-with-work-directory #'test-failed-start-does-not-select)
-      (format t "PASS failed startup keeps input source~%4/4 passed~%"))
+      (format t "PASS failed startup keeps input source~%")
+      (call-with-work-directory #'test-distributed-install)
+      (format t "PASS distributed installer~%")
+      (call-with-work-directory #'test-incomplete-package)
+      (format t "PASS incomplete package preflight~%6/6 passed~%"))
   (error (condition)
     (format *error-output* "FAIL: ~A~%" condition)
     (uiop:quit 1)))

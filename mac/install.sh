@@ -11,6 +11,9 @@ if [[ ! -d Meltype.app ]]; then
     echo "Meltype.app が見つかりません。zip を展開したフォルダーで実行してください。" >&2
     exit 1
 fi
+for helper in start-input-method.sh select-input-source.swift; do
+    [[ -f "$helper" ]] || { echo "必要なファイルがありません: ${helper}。zip 全体を展開してください。" >&2; exit 1; }
+done
 
 # 入力ソースの「+」の一覧に Meltype が出ない Mac がある (macOS 26、#21)。
 # アプリ内の登録処理で、有効な入力ソースを追加し、Meltype の重複だけを整理する。
@@ -31,9 +34,7 @@ xattr -dr com.apple.quarantine "$TARGET/Meltype.app" 2>/dev/null || true
 echo "インストールしました: $TARGET/Meltype.app"
 enable_input_source
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$TARGET/Meltype.app"
-open -g "$TARGET/Meltype.app"
+bash ./start-input-method.sh "$TARGET/Meltype.app"
+swift ./select-input-source.swift
 echo
-echo "初めてのときは:"
-echo "  1. いったんログアウトしてログインし直す"
-echo "  2. メニューバーの入力メニューで Meltype を選ぶ"
-echo "     (出ていなければ、システム設定 → キーボード → 入力ソース →「編集…」→「+」→ 日本語 → Meltype を追加)"
+echo "Meltype を起動し、入力ソースとして選択しました。"
