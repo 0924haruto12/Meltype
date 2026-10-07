@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 Yukishiro
+// Copyright (C) 2026 Konayukiw
 
 namespace Meltype.Config;
 
@@ -11,6 +11,7 @@ namespace Meltype.Config;
 /// この誤判定は「同じ wParam VK_PACKETのkeydownが続く」ことが条件なので、
 /// 文字をキーとして送らない貼り付けなら原理的に起きない (参考: tdesktop#26643、WinCompose#512)。
 /// </summary>
+
 public static class PastePolicy
 {
         public static bool IsQtWindowClass(string? className) =>

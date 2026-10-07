@@ -260,7 +260,11 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     public void CommitText(string text)
     {
         EnsureSystemImeClosed();
-        if (PasteCommit() && TryPaste(text)) return;
+        if (PasteCommit() && TryPaste(text))
+        {
+            Diagnostics.Log.Info($"確定した文字を貼り付けで入力しました ({text.Length} 文字)。");
+            return;
+        }
         var inputs = new List<Native.INPUT>(text.Length * 2);
         foreach (var c in text)
         {
