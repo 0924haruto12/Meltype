@@ -62,7 +62,7 @@ yabai maji majide sugee usso ussou ikou yarimashou kudasai kudasaimasen itadakem
 onegaishimasu wakatta ryoukai ryou shouchi kashikomarimashita shoushou omachikudasai
 
 # 関西弁
-nannya donai seehen ikehen ikahen iwahen akan orahen oran kettai sounan usoyan nukui miehen matehen yousan youke eena eede eeyan eewa sunmasen ahoya usoya maido muttya moraehen omoro 
+nannya donai seehen ikehen ikahen iwahen akan orahen oran kettai sounan usoyan nukui miehen matehen yousan youke eena eede eeyan eewa sunmasen ahoya usoya maido muttya moraehen omoro
 okihen okihin
 # ---- v2 で追加 ----
 # 体調・気分
