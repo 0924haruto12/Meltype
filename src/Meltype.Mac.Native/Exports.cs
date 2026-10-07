@@ -73,7 +73,7 @@ public static unsafe class Exports
         {
             var session = s_mozc is { } mozc
                 ? MeltypeSession.CreateDefault(mozc, mozc.Candidates, s_isWord == null ? null : new CallbackWordChecker())
-                : MeltypeSession.CreateDefault(new CallbackConverter(), MoreCandidates, s_isWord == null ? null : new CallbackWordChecker());
+                : MeltypeSession.CreateDefault(new CallbackConverter(), MoreCandidates, s_isWord == null ? null : new CallbackWordChecker(), autoSpacing: true);
             return GCHandle.ToIntPtr(GCHandle.Alloc(session));
         }
         catch (Exception ex)
@@ -114,6 +114,12 @@ public static unsafe class Exports
     public static void SetDirect(IntPtr handle, int direct)
     {
         if (handle != IntPtr.Zero && GCHandle.FromIntPtr(handle).Target is MeltypeSession session) session.Direct = direct != 0;
+    }
+
+    [UnmanagedCallersOnly(EntryPoint = "meltype_set_code_input")]
+    public static void SetCodeInput(IntPtr handle, int enabled)
+    {
+        if (handle != IntPtr.Zero && GCHandle.FromIntPtr(handle).Target is MeltypeSession session) session.CodeInput = enabled != 0;
     }
 
     /// <summary>データの保存場所 (設定・学習・ユーザー辞書)。meltype_free で解放する。</summary>

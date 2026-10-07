@@ -78,6 +78,22 @@ public sealed class CompositionDetector
     public IReadOnlyList<CompositionSegment> Segment(IReadOnlyList<CompositionUnit> units, string pending, bool? precedingEnglish = null, bool? followingEnglish = null,
         DetectionLevel level = DetectionLevel.Balanced, bool englishSentence = false, bool kanaInput = false, bool final = false)
     {
+        // A romaji token can cross an English boundary (reflect + sa becomes tsa).
+        // Recognize an unambiguous English verb before parsing its Japanese conjugation.
+        if (!kanaInput && level != DetectionLevel.Manual)
+        {
+            var raw = Raw(units, 0, units.Count) + pending;
+            for (var end = raw.Length - 2; end >= 4; end--)
+            {
+                var word = raw[..end];
+                var rest = raw[end..].ToLowerInvariant();
+                if (!rest.StartsWith("s", StringComparison.Ordinal)) continue;
+                var analysis = _romaji.AnalyzeFragment(rest);
+                if (analysis.IsValid && IsSuruForm(analysis.Kana) && word.All(char.IsAsciiLetter) &&
+                    !_romaji.AnalyzeFragment(word.ToLowerInvariant()).IsValid && IsKnownEnglishWord(word))
+                    return [new CompositionSegment(true, "", word), new CompositionSegment(false, analysis.Kana + analysis.Partial, raw[end..])];
+            }
+        }
         var segments = FindSpans(units, pending, precedingEnglish, followingEnglish, level, englishSentence && precedingEnglish == true, kanaInput, final);
         if (kanaInput) return segments;
         // 辞書にない英単語 (stackoverflow など) を最初から打っているなら全体を英語にする。
@@ -394,7 +410,7 @@ public sealed class CompositionDetector
         }
         // ローマ字として最後まで読めても、日本語の語にならない英単語 (feature = ふぇあつれ、remote = れもて。dictionaries/english-readable.txt、#12)。
         // 日本語の語の始まりにもならない語だけを入れているので、後ろに日本語が続いても (feature|wo) 英語。
-        if (lower.Length >= 4 && ReadableEnglish.Value.ContainsWord(lower)) return true;
+        if (lower.Length >= 3 && ReadableEnglish.Value.ContainsWord(lower)) return true;
         // c 行の綴りで読める語 (care = かれ、can = かん) が日本語の途中にあるなら、日本語を打っている (fucarete → ふかれて、shoucanshi → しょうかんし)。
         // 入力全体がその語だけのときは英語。
         if (!(startOfInput && atEnd))

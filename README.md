@@ -103,4 +103,4 @@ General Public License for more details.
 
 ## 開発に参加する
 
-ソースからのビルド・テスト・動作の仕組みは [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)、不具合の報告・辞書の追加・Pull Request の送り方は [CONTRIBUTING.md](CONTRIBUTING.md) を見てください。
+ソースからのビルド・テスト・動作の仕組みは [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)、Mac の CLI ビルドは [docs/MAC-CLI.md](docs/MAC-CLI.md)、WSL / Linux の CLI ビルドは [docs/WSL.md](docs/WSL.md)、不具合の報告・辞書の追加・Pull Request の送り方は [CONTRIBUTING.md](CONTRIBUTING.md) を見てください。
