@@ -100,6 +100,33 @@ internal static class DetectionTests
     }
 
     [Test]
+    public static void ObviousEnglishKeysRemainKanaInKanaCapableStyles()
+    {
+        var expectedKana = new Dictionary<int, string>
+        {
+            [0x51] = "た", // Q
+            [0x58] = "さ", // X
+            [0x56] = "ひ", // V
+            [0x4C] = "り", // L
+        };
+
+        foreach (var style in new[] { InputStyle.Kana, InputStyle.Both })
+        {
+            var settings = DefaultSettings();
+            settings.InputStyle = style;
+            var engine = CreateEngine(settings);
+
+            foreach (var (key, kana) in expectedKana)
+            {
+                var letter = char.ToLowerInvariant((char)key).ToString();
+                var result = engine.Evaluate(new DetectionInput(letter, [key], true));
+                Assert.True(result.Verdict != Verdict.English, $"{style}: {letter.ToUpperInvariant()} は JIS かな入力の {kana} として扱う: {result.Describe()}");
+                Assert.Equal(kana, KanaDetector.ToKana([key]));
+            }
+        }
+    }
+
+    [Test]
     public static void EnglishIsDecidedEarly()
     {
         Assert.Equal("hel", Classify(Engine, "hello").Text);

@@ -70,14 +70,15 @@ public sealed class ScoreEngine
             return Result(input.IsFinal ? Verdict.Unknown : Verdict.Undecided, letters, contributions, "入力なし");
         }
 
-        // 明らかな英字キー (q, x, v, l) はローマ字の一部として読めても、英語として確定する。
-        if (letters.Length == 1 && letters is "l" or "q" or "v" or "x")
+        var useRomaji = settings.InputStyle != InputStyle.Kana;
+        var useKana = settings.InputStyle != InputStyle.Romaji;
+
+        // ローマ字入力の l/v/x は一文字で英語とする。q は qi/qe/qo の先頭にもなるため、ここでは確定しない。
+        // JIS かな入力では Q/X/V/L がかなキーなので、かな判定に渡す。
+        if (useRomaji && !useKana && letters.Length == 1 && letters is "l" or "v" or "x")
         {
             return Result(Verdict.English, letters, contributions, "明らかな英字キー");
         }
-
-        var useRomaji = settings.InputStyle != InputStyle.Kana;
-        var useKana = settings.InputStyle != InputStyle.Romaji;
 
         var romajiValid = false;
         var japaneseDictionaryPrefix = false;
