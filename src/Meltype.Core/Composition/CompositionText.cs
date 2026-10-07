@@ -942,6 +942,30 @@ public sealed class CompositionText
         return new string(chars);
     }
 
+    /// <summary>全角カタカナを半角カタカナにする。濁点・半濁点は半角の ﾞ / ﾟ に分ける。</summary>
+    public static string ToHalfWidthKatakana(string katakana)
+    {
+        const string full = "。「」、・ヲァィゥェォャュョッーアイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワンヵヶ";
+        const string half = "｡｢｣､･ｦｧｨｩｪｫｬｭｮｯｰｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝｶｹ";
+        var builder = new StringBuilder(katakana.Length);
+        foreach (var c in katakana.Normalize(NormalizationForm.FormD))
+        {
+            if (c is '\u3099' or '゛')
+            {
+                builder.Append('ﾞ');
+                continue;
+            }
+            if (c is '\u309A' or '゜')
+            {
+                builder.Append('ﾟ');
+                continue;
+            }
+            var index = full.IndexOf(c);
+            builder.Append(index >= 0 ? half[index] : c);
+        }
+        return builder.ToString();
+    }
+
     public static string ToFullWidth(string text)
     {
         var chars = text.ToCharArray();

@@ -1148,7 +1148,7 @@ public sealed class CompositionController
     }
 
     /// <summary>
-    /// 文節の候補: 文の中での変換結果 → その文節だけでの変換結果 → 補助辞書の同音異義語 → ひらがな → カタカナ。
+    /// 文節の候補: 文の中での変換結果 → その文節だけでの変換結果 → 補助辞書の同音異義語 → ひらがな → 全角カタカナ → 半角カタカナ。
     /// </summary>
     private List<string> JapaneseCandidates(string reading, string? inContext)
     {
@@ -1160,7 +1160,8 @@ public sealed class CompositionController
         {
             if (!candidates.Contains(extra)) candidates.Add(extra);
         }
-        foreach (var kana in new[] { reading, CompositionText.ToKatakana(reading) })
+        var katakana = CompositionText.ToKatakana(reading);
+        foreach (var kana in new[] { reading, katakana, CompositionText.ToHalfWidthKatakana(katakana) })
         {
             if (!candidates.Contains(kana)) candidates.Add(kana);
         }
