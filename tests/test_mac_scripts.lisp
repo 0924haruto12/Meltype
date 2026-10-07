@@ -22,6 +22,7 @@
                  (concatenate 'string "PATH=" (namestring work) ":" (uiop:getenv "PATH"))
                  (concatenate 'string "MELTYPE_TEST_LOG="
                               (namestring (merge-pathnames "calls" work)))
+                 (concatenate 'string "MELTYPE_START_LOG_DIR=" (namestring work))
                  "bash" (namestring (merge-pathnames name work)))
            (when argument (list argument)))
    :output *standard-output* :error-output *error-output*))
@@ -58,6 +59,8 @@
   (fake-tool work "build-cli.sh"
              "echo \"build:$MELTYPE_SKIP_START:$*\" >> \"$MELTYPE_TEST_LOG\"")
   (fake-tool work "uname" "echo Darwin")
+  (fake-tool work "start-input-method.sh"
+             "echo app: >> \"$MELTYPE_TEST_LOG\"")
   (fake-tool work "swift" "echo select >> \"$MELTYPE_TEST_LOG\"")
   (fake-tool work "open" "echo UNEXPECTED_OPEN >> \"$MELTYPE_TEST_LOG\"; exit 1")
   (run-script work "update.sh" nil)
@@ -68,12 +71,41 @@
       (assert (member expected lines :test #'equal)))
     (assert (not (member "UNEXPECTED_OPEN" lines :test #'equal)))))
 
+(defun test-launchd-start (work)
+  (write-file (merge-pathnames "start-input-method.sh" work)
+              (uiop:read-file-string (merge-pathnames "mac/start-input-method.sh" *root*)))
+  (fake-tool work "launchctl"
+             (format nil "echo \"$*\" >> \"$MELTYPE_TEST_LOG\"~%case \"$1\" in~% list) echo '\"PID\" = 123; Meltype_Connection' ;;~%esac"))
+  (run-script work "start-input-method.sh" "/tmp/Meltype.app")
+  (let ((lines (uiop:read-file-lines (merge-pathnames "calls" work))))
+    (assert (equal "remove io.github.yksr-melt.Meltype.manual" (first lines)))
+    (assert (uiop:string-prefix-p "submit -l io.github.yksr-melt.Meltype.manual -o " (second lines)))
+    (assert (search "Meltype.stdout.log -e " (second lines)))
+    (assert (search "Meltype.stderr.log -- /tmp/Meltype.app/Contents/MacOS/Meltype" (second lines)))
+    (assert (equal "list io.github.yksr-melt.Meltype.manual" (third lines)))))
+
+(defun test-failed-start-does-not-select (work)
+  (test-update work)
+  (write-file (merge-pathnames "calls" work) "")
+  (fake-tool work "start-input-method.sh" "exit 1")
+  (let ((failed nil))
+    (handler-case (run-script work "update.sh" nil)
+      (uiop:subprocess-error () (setf failed t)))
+    (assert failed))
+  (let ((lines (uiop:read-file-lines (merge-pathnames "calls" work))))
+    (assert (not (member "select" lines :test #'equal)))
+    (assert (not (member "app:--register-input-source" lines :test #'equal)))))
+
 (handler-case
     (progn
       (call-with-work-directory #'test-build-only)
       (format t "PASS build-only routing~%")
       (call-with-work-directory #'test-update)
-      (format t "PASS update routing~%2/2 passed~%"))
+      (format t "PASS update routing~%")
+      (call-with-work-directory #'test-launchd-start)
+      (format t "PASS launchd startup~%")
+      (call-with-work-directory #'test-failed-start-does-not-select)
+      (format t "PASS failed startup keeps input source~%4/4 passed~%"))
   (error (condition)
     (format *error-output* "FAIL: ~A~%" condition)
     (uiop:quit 1)))

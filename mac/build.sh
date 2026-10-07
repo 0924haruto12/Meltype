@@ -109,7 +109,7 @@ if [[ $INSTALL -eq 1 ]]; then
     enable_input_source
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$TARGET/Meltype.app"
     if [[ "${MELTYPE_SKIP_START:-0}" != 1 ]]; then
-        "$TARGET/Meltype.app/Contents/MacOS/Meltype" >/dev/null 2>&1 &
+        bash "$PWD/start-input-method.sh" "$TARGET/Meltype.app"
     fi
     echo "初めてのときは、いったんログアウトしてログインし直してから、"
     echo "システム設定 → キーボード → 入力ソース →「編集…」→「+」→ 日本語 → Meltype を追加してください。"

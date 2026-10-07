@@ -80,7 +80,8 @@ bash ~/Documents/github/other/Meltype/mac/update.sh
 
 `--build` はビルドのみで、インストール・プロセス停止・入力ソース切り替えを行いません。
 更新は `update.sh → build-cli.sh --test --install → build.sh` を通ります。
-通常の更新では LaunchServices の `open Meltype.app` を使わず実行ファイルを直接起動し、登録・選択を行います。
+通常の更新では LaunchServices の `open Meltype.app` を使わず、`start-input-method.sh` が GUI セッションの launchd 管理下で起動します。
+プロセスと IMK 接続の準備完了を確認してから登録・選択します。起動できなければ入力ソースを選択せずエラーにします。
 設定画面を開くコマンドはありません。設定画面へ移動したという報告の原因はまだ確定していません。
 
 日本語と英語の境目には既定で空白を追加しません。`seeyouagain` のような登録済み英語フレーズ内には半角空白を補います。

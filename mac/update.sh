@@ -26,8 +26,8 @@ MELTYPE_SKIP_START=1 bash "$here/build-cli.sh" --test --install
 restore_input() {
     local result=$?
     trap - EXIT
-    "$app/Contents/MacOS/Meltype" >/dev/null 2>&1 &
-    if ! "$app/Contents/MacOS/Meltype" --register-input-source ||
+    if ! bash "$here/start-input-method.sh" "$app" ||
+       ! "$app/Contents/MacOS/Meltype" --register-input-source ||
        ! swift "$here/select-input-source.swift"; then
         echo "Could not select Meltype. Choose it from the input menu." >&2
         [[ $result -ne 0 ]] || result=1
