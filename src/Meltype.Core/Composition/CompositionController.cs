@@ -761,6 +761,9 @@ public sealed class CompositionController
         var shift = _swallowedShift.Count > 0 || _host.IsShiftDown();
         if (Detection.KanaDetector.KanaForKey(e.Vk, shift) is not { } kana) return null;
         var raw = _host.CharFromKey(e, _swallowedShift.Count > 0) ?? kana;
+        // Shift で打った小書き文字 (っ = Shift+Z、ぃ = Shift+E) は、大文字で打った英語 (Z・E) ではない
+        // (きのうはたのしかった が たのしかZq になっていた)。
+        if (shift && kana != Detection.KanaDetector.KanaForKey(e.Vk, false)) raw = char.ToLowerInvariant(raw);
         return (raw, kana);
     }
 
