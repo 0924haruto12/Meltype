@@ -73,9 +73,9 @@ internal sealed class SettingsForm : Form
         testPanel.Controls.Add(_testInput);
         testPanel.Controls.Add(testLabel);
 
-        var ok = new Button { Text = "OK", Width = 90 };
-        var cancel = new Button { Text = "キャンセル", Width = 90, DialogResult = DialogResult.Cancel };
-        var defaults = new Button { Text = "既定値に戻す", Width = 110 };
+        var ok = new Button { Text = "OK", AutoSize = true, Padding = new Padding(13, 4, 13, 4) };
+        var cancel = new Button { Text = "キャンセル", AutoSize = true, DialogResult = DialogResult.Cancel, Padding = new Padding(13, 4, 13, 4) };
+        var defaults = new Button { Text = "既定値に戻す", AutoSize = true, Padding = new Padding(13, 4, 13, 4) };
         // OK と × (閉じる) は保存する。変更を捨てるのは キャンセル だけ。
         var discard = false;
         ok.Click += (_, _) => Close();
@@ -95,8 +95,8 @@ internal sealed class SettingsForm : Form
             LoadFrom(new Settings());
             RunTest();
         };
-        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, Height = 42, Padding = new Padding(6) };
-        buttons.Controls.AddRange([cancel, ok, defaults]);
+        var buttons = new FlowLayoutPanel { Dock = DockStyle.Bottom, FlowDirection = FlowDirection.RightToLeft, AutoSize = true, Padding = new Padding(6) };
+        buttons.Controls.AddRange(cancel, ok, defaults);
 
         Controls.Add(_body);
         Controls.Add(BuildProfileBar());
