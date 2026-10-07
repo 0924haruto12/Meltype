@@ -13,7 +13,7 @@ public enum InputStyle
     /// <summary>ローマ字入力。</summary>
     [Description("ローマ字入力")] Romaji,
     /// <summary>JIS かな入力。</summary>
-    [Description("かな入力 (JIS)")] Kana,
+    [Description("かな入力 (JIS、α版)")] Kana,
     /// <summary>両方を判定する。</summary>
     [Description("両方を判定")] Both,
 }
@@ -143,6 +143,10 @@ public sealed class Settings
     [Category("1. 全般"), DisplayName("Meltype を有効にする")]
     public bool Enabled { get; set; } = true;
 
+    [Category("1. 全般"), DisplayName("日本語キーボードのときだけ動作"),
+     Description("Windows の入力言語が日本語のときだけ動作します。韓国語・英語などでは入力処理と IME の自動制御を停止し、日本語に戻すと再開します。物理キーボードの JIS / US 配列や IME の「あ」「A」の状態は問いません。全プロファイル共通です。")]
+    public bool JapaneseKeyboardOnly { get; set; }
+
     [Category("1. 全般"), DisplayName("動作モード"),
      Description("Keyboard = Meltype の変換ボックスで入力 (英単語は自動で英字、Space で変換、Enter で確定) / AutoSwitch = 入力開始時に判定して Microsoft IME を自動で ON にする")]
     public InputMode Mode { get; set; } = InputMode.Keyboard;
@@ -158,6 +162,10 @@ public sealed class Settings
     [Category("1. 全般"), DisplayName("英数状態でもローマ字を検知"),
      Description("Keyboard モードの英数 (直接入力) 状態でも単語の打ち始めを判定し、ローマ字 (日本語) なら自動で日本語入力に戻します。")]
     public bool DirectModeAutoDetect { get; set; } = true;
+
+    [Category("1. 全般"), DisplayName("英単語の前後に半角スペース"),
+     Description("確定するときに、日本語と英単語の間に半角スペースを入れます (今日はGitHubにpushした → 今日は GitHub に push した)。数字だけの語 (3時) には入れません。")]
+    public bool SpaceAroundEnglish { get; set; }
 
     [Category("1. 全般"), DisplayName("ライブ変換"),
      Description("Keyboard モードで、Space を押さなくても打ったそばから漢字に変換して表示します。")]
@@ -203,7 +211,7 @@ public sealed class Settings
      Description("新しい版が公開されたら自動でダウンロードし、次に Meltype を起動したとき (Windows にサインインしたとき) に更新します。トレイの「更新して再起動」で今すぐ更新もできます。設定・学習データはそのまま残ります。")]
     public bool AutoUpdate { get; set; } = true;
 
-    [Category("1. 全般"), DisplayName("入力方式"), Description("ローマ字入力 / かな入力 (JIS) / 両方を判定。Meltype キーボードでは、かな入力を選ぶと JIS かな配列で入力し (Shift+E = ぃ, Shift+Z = っ, Shift+ね = 、)、打ったキーの英字が英単語なら英字で見せます。「両方を判定」は IME 自動切替のみ (Meltype キーボードではローマ字入力)。")]
+    [Category("1. 全般"), DisplayName("入力方式"), Description("ローマ字入力 / かな入力 (JIS、α版: 試験中) / 両方を判定。Meltype キーボードでは、かな入力を選ぶと JIS かな配列で入力し (Shift+E = ぃ, Shift+Z = っ, Shift+ね = 、)、打ったキーの英字が英単語なら英字で見せます。「両方を判定」は IME 自動切替のみ (Meltype キーボードではローマ字入力)。")]
     public InputStyle InputStyle { get; set; } = InputStyle.Romaji;
 
     [Category("2. 判定"), DisplayName("自動判定の強さ"),
@@ -258,7 +266,7 @@ public sealed class Settings
     private static readonly HashSet<string> SharedKeys =
     [
         nameof(Profiles), nameof(ActiveProfile), nameof(SettingsVersion), nameof(WelcomeShown),
-        nameof(Enabled), nameof(FileLog), nameof(LogTypedText), nameof(AutoUpdate),
+        nameof(Enabled), nameof(JapaneseKeyboardOnly), nameof(FileLog), nameof(LogTypedText), nameof(AutoUpdate),
     ];
 
     /// <summary>今の設定の値のうち、プロファイルに入れるもの。</summary>
@@ -395,6 +403,24 @@ public sealed class Settings
 
     [Category("6. IME"), DisplayName("IME 操作のタイムアウト (ms)")]
     public int ImeTimeoutMs { get; set; } = 300;
+
+    [Category("7. アプリ"), DisplayName("貼り付けで入力するアプリ"),
+     Description("確定した文字を 1 文字ずつ送ると取り違えるアプリ (DaVinci Resolve で「あいうえお」→「あああああ」)。ここに書いたアプリ (プロセス名、カンマ区切り) では、クリップボードを使って貼り付けで入れます (元のクリップボードの中身は戻します)。Qt アプリはここに書かなくても自動で貼り付けになります。")]
+    public string PasteApps { get; set; } = "Resolve.exe";
+
+    [Category("7. アプリ"), DisplayName("貼り付けを使わないアプリ"),
+     Description("Qt アプリ (LINE・OBS など) では、確定した文字をクリップボード経由 (貼り付け) で入れます。1 文字ずつキーとして送ると、keyup がアプリに届かない環境で最初の 1 文字が繰り返されるためです。ここに書いたアプリ (プロセス名、カンマ区切り) では貼り付けを使わず、これまでどおり 1 文字ずつ送ります (Ctrl+V が貼り付けではないアプリなど)。")]
+    public string NoPasteApps { get; set; } = "";
+
+    /// <summary>このアプリでは確定した文字を貼り付けで入れるか (<see cref="PasteApps"/>)。</summary>
+    public bool UsesPaste(string? processName) => ContainsApp(PasteApps, processName);
+
+    /// <summary>このアプリでは貼り付けを使わないか (<see cref="NoPasteApps"/>)。</summary>
+    public bool UsesNoPaste(string? processName) => ContainsApp(NoPasteApps, processName);
+
+    private static bool ContainsApp(string? list, string? processName) =>
+        !string.IsNullOrEmpty(processName) &&
+        (list ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries).Any(app => string.Equals(app.Trim(), processName, StringComparison.OrdinalIgnoreCase));
 
     [Category("7. アプリ"), DisplayName("全画面アプリでは無効"), Description("ゲームや動画など全画面のウィンドウではキーを保留しません。")]
     public bool ExcludeFullscreen { get; set; } = true;

@@ -115,8 +115,11 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     public void AttachComposition(Composition.CompositionService composition)
     {
         _composition = composition;
+        composition.PasteCommit = () => PastePolicy.ShouldPaste(_settings, _foreground.Current.ProcessName, IsQt(_foreground.Current.Window));
+        composition.InputAllowed = () => KeyboardLayoutPolicy.AllowsInput(_settings);
         // 変換ボックスで確定した文字と、Meltype が送り直したキーも、今の行の追いかけに入れる (自分で送ったキーはフックに届かない)。
         composition.Controller.Committed += text => _line.Append(text);
+        composition.Controller.ReconversionCommitted += () => InvalidateLine();
         composition.KeyReplayed += e => TrackLine(e);
         composition.MouseReplayed += () => InvalidateLine();
         composition.Focus.Invalidate();
@@ -132,7 +135,18 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     }
 
     /// <summary>Meltype キーボードが入力を受け付ける状態か (半角/全角 で直接入力にしていない)。</summary>
-    public bool IsKeyboardActive => _settings.Enabled && _settings.Mode == InputMode.Keyboard && !_keyboardDirect;
+    public bool IsKeyboardActive => _settings.Enabled && _settings.Mode == InputMode.Keyboard && !_keyboardDirect && KeyboardLayoutPolicy.AllowsInput(_settings);
+
+    /// <summary>
+    /// #95の対応として、Qtアプリでは確定した文字を貼り付けで入れる。
+    /// </summary>
+    private static bool IsQt(IntPtr window)
+    {
+        if (window == IntPtr.Zero) return false;
+        var className = new System.Text.StringBuilder(64);
+        Native.GetClassName(window, className, className.Capacity);
+        return PastePolicy.IsQtWindowClass(className.ToString());
+    }
 
     public bool KeyboardDirect
     {
@@ -151,8 +165,22 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     private bool OnKey(KeyEvent e)
     {
         var settings = _settings;
+        // 飲み込んだ切替キーの解放は、入力言語が変わっても対にして処理する。
+        if (e.IsUp && !e.Injected)
+        {
+            if (_toggleKeyDown.Remove(e.Vk)) return true;
+            lock (_swallowedToggleUps) if (_swallowedToggleUps.Remove(e.Vk)) return true;
+        }
+        if (!KeyboardLayoutPolicy.AllowsInput(settings))
+        {
+            SuspendForInputLanguage(e.TimeMs);
+            // 既に保留中なら順序を保って送り直す。それ以外の打鍵はそのまま通す。
+            if (settings.Mode == InputMode.Keyboard)
+                return _composition?.Gate.OnKey(e, _ => false) == true;
+            return _session.State == SessionState.Flushing && _session.OnKey(e);
+        }
         // Ctrl + 半角/全角: Meltype 全体の有効/無効 (どちらのモードでも)。変換ボックスの後始末が要るので切り替え自体は UI スレッドで行う。
-        if (VirtualKeys.IsHankakuZenkaku(e.Vk) && !e.Injected && (e.IsUp ? _toggleKeyDown.Remove(e.Vk) : IsDown(VirtualKeys.Control)))
+        if (VirtualKeys.IsHankakuZenkaku(e.Vk) && !e.Injected && e.IsDown && IsDown(VirtualKeys.Control))
         {
             if (e.IsDown)
             {
@@ -175,6 +203,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             if (e.IsDown)
             {
                 lock (_swallowedToggleUps) _swallowedToggleUps.Add(e.Vk);
+                MaskAltRelease();
                 // コードの行 (コメント・文字列の外) では、この行だけ日本語にする / 戻す。
                 if (!_keyboardDirect && IsCodeApp(settings) && (_codeJapanese || InCode(settings)))
                 {
@@ -186,7 +215,20 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
                 KeyboardDirect = !_keyboardDirect;
                 return true;
             }
-            lock (_swallowedToggleUps) if (_swallowedToggleUps.Remove(e.Vk)) return true;
+        }
+        // 変換キーは Microsoft IME に渡さない。渡すと IME が ON になって選択した文字の再変換を始め、
+        // Meltype キーボードが IME を OFF に戻すときに、再変換中の文字 (選択していた文字) が消える (#19)。
+        if (settings.Enabled && e.Vk == VirtualKeys.Convert && !e.Injected && !composition.Gate.IsCaptured)
+        {
+            // 変換キーは Meltype に渡す。選択文字の取得・再変換は UI スレッドで行う。
+            if (composition.Gate.OnKey(e, StartsComposition)) return true;
+            if (e.IsDown)
+            {
+                lock (_swallowedToggleUps) _swallowedToggleUps.Add(e.Vk);
+                MaskAltRelease();
+                Log.Info("変換キー: この入力先では Meltype の再変換を開始できません。");
+            }
+            return true;
         }
         // 英数状態で英語と判定した単語は、区切りのキー (Space・記号など) が来たら終わり。次の単語はまた判定する。
         // @ と _ の後ろはユーザー名 (@kuraido、upah_setu) なので判定しない (ローマ字として読めても日本語にしない)。
@@ -197,6 +239,15 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         if (!swallowed && e.IsDown && !VirtualKeys.IsModifier(e.Vk)) composition.ForgetLastCommit();
         if (!swallowed && !e.Injected) TrackLine(e);
         return swallowed;
+    }
+
+    /// <summary>
+    /// Alt を押したまま打ったキー (US 配列の Alt + ` = 半角/全角) を飲み込むと、アプリには Alt だけを押して離したように見え、
+    /// メニューバーに移ってしまう。何もしないキー (0xE8、割り当てなし) を送って、Alt の単独押しにしない。
+    /// </summary>
+    private static void MaskAltRelease()
+    {
+        if (IsDown(VirtualKeys.Menu)) ThreadPool.QueueUserWorkItem(_ => KeyInjector.SendKey(0xE8));
     }
 
     // ---- アプリの種類「コード」: コメント・文字列の中だけ日本語 ----
@@ -306,20 +357,21 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     {
         if (!e.IsDown || e.Injected) return false;
         var settings = _settings;
-        if (!settings.Enabled || settings.Mode != InputMode.Keyboard) return false;
+        if (!settings.Enabled || settings.Mode != InputMode.Keyboard || !KeyboardLayoutPolicy.AllowsInput(settings)) return false;
         var letter = VirtualKeys.IsLetter(e.Vk);
+        var reconvert = e.Vk == VirtualKeys.Convert;
         // 句読点・かぎかっこ・長音・数字・記号のキー (Shift を押して打つ ＃＄％（）＠ なども) でも変換ボックスを開く。
         // 日本語の中では全角、英語の中では半角になる。
         var punctuation = e.Vk is >= 0x30 and <= 0x39 or >= 0xBA and <= 0xC0 or >= 0xDB and <= 0xDF or 0xE2;
         // かな入力 (JIS): かなのキー (数字・記号のキーも含む) はすべて入力を始める。
         if (settings.InputStyle == InputStyle.Kana && !_keyboardDirect && KanaDetector.IsKanaKey(e.Vk)) punctuation = true;
-        if (_keyboardDirect)
+        if (_keyboardDirect && !reconvert)
         {
             // 英数状態: ローマ字かどうかを判定するために、単語の打ち始めの英字だけを受け取る。
             // 英語と分かった単語の続きは、区切り (Space など) まで素通しする。
             if (!letter || !settings.DirectModeAutoDetect || settings.ForApp(_foreground.Current.ProcessName).DetectionLevel == DetectionLevel.Manual || _directEnglishWord) return false;
         }
-        else if (!letter && !punctuation)
+        else if (!reconvert && !letter && !punctuation)
         {
             return false;
         }
@@ -328,7 +380,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         // 文字入力欄 (パスワード以外) にフォーカスがあるときだけ。ショートカットキーやゲームの操作を横取りしない。
         if (_composition?.Focus.CanCapture != true && _composition?.Focus.CanCaptureWaiting() != true) return false;
         // コードエディター・ターミナル: コードの中は英数のまま通す (補完もそのまま効く)。コメント・文字列の中は日本語を判定する。
-        if (!_keyboardDirect && IsCodeApp(settings))
+        if (!reconvert && !_keyboardDirect && IsCodeApp(settings))
         {
             var code = InCode(settings);
             var kind = code ? LineKind.Code : LineKind.Comment;
@@ -350,7 +402,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         // 同梱の辞書にない英単語 (debate, potato) はローマ字としても読めるので、スペルチェッカーの語なら日本語にしない。
         if (result.Verdict == Verdict.Japanese && letters.Length >= 4 && Detection.WindowsSpellChecker.Shared.IsWord(letters.ToLowerInvariant()))
         {
-            Log.Info($"英数状態: 「{letters}」は英単語 (スペルチェッカー) なので日本語にしない");
+            Log.Info($"英数状態: {Log.Text(letters)}は英単語 (スペルチェッカー) なので日本語にしない");
             return final ? Verdict.English : Verdict.Undecided;
         }
         if (result.Verdict == Verdict.Japanese) Log.Decision($"英数状態でローマ字を検知: {result.Describe()}");
@@ -395,8 +447,10 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         {
             try
             {
-                if (!IsKeyboardActive || ForegroundTracker.IsOwnWindow(Native.GetForegroundWindow()) || ImeTarget.FromForeground() is not { } target) return;
+                if (!IsKeyboardActive || ForegroundTracker.IsOwnWindow(Native.GetForegroundWindow()) || ImeTarget.FromForeground() is not { } target ||
+                    !KeyboardLayoutPolicy.AllowsInput(_settings, target)) return;
                 var state = _imm32.GetState(target);
+                if (!KeyboardLayoutPolicy.AllowsInput(_settings, state.KeyboardLayout)) return;
                 if (state.Mode == IME.ImeMode.Open && _imm32.TrySetOpen(target, false, null, _settings.ImeTimeoutMs))
                 {
                     Log.Info("Meltype キーボードを使うため Microsoft IME を OFF にしました。");
@@ -414,7 +468,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         var next = settings.Clone().Normalize();
         var previous = _settings;
         _settings = next;
-        if (!next.Enabled || next.Mode != InputMode.Keyboard) _composition?.Flush();
+        if (!next.Enabled || next.Mode != InputMode.Keyboard || !KeyboardLayoutPolicy.AllowsInput(next)) _composition?.Flush();
         if (next.Mode == InputMode.Keyboard && (previous.Mode != InputMode.Keyboard || !previous.Enabled)) CloseSystemImeAsync();
         if (!next.Enabled) FlushAbandoned(_session.Abort());
         Log.SetFileOutput(next.FileLog ? AppPaths.LogFile : null);
@@ -438,6 +492,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
 
     CollectPermission ISessionEnvironment.CanCollect()
     {
+        if (!KeyboardLayoutPolicy.AllowsInput(_settings)) return CollectPermission.Deny("入力言語が日本語ではない");
         var permission = _foreground.Check(_settings);
         // コードエディター・ターミナルのコードの中 (コメント・文字列の外) では判定しない。
         if (permission.Allowed && InCode(_settings)) permission = CollectPermission.Deny("コードの中 (コメント・文字列の外)");
@@ -469,7 +524,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     {
         if (summary.UserCorrected)
         {
-            Log.Decision($"誤判定のフィードバック: \"{summary.Letters}\" は {summary.Verdict} ではなかった → {summary.Outcome}");
+            Log.Decision($"誤判定のフィードバック: {Log.Text(summary.Letters)} は {summary.Verdict} ではなかった → {summary.Outcome}");
         }
         if (_settings.LearningEnabled)
         {
@@ -485,6 +540,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         {
             try
             {
+                if (!KeyboardLayoutPolicy.AllowsInput(_settings)) continue;
                 if (request.Result.Verdict == Verdict.Japanese && _settings.DetectionLevel == DetectionLevel.Manual)
                 {
                     // 手動: 切り替えずに提案だけ出す。
@@ -532,6 +588,16 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     }
 
     // ---- フック・タイマーからの通知 ----
+
+    private void SuspendForInputLanguage(long now)
+    {
+        _session.OnContextChanged(now);
+        _directEnglishWord = false;
+        _codeJapanese = false;
+        _line.Invalidate();
+        Interlocked.Increment(ref _lineVersion);
+        _lastLineKind = null;
+    }
 
     private void OnFocusChanged()
     {
@@ -583,6 +649,12 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             if (ForegroundTracker.IsOwnWindow(Native.GetForegroundWindow())) return;
             var target = ImeTarget.FromForeground();
             if (target is null) return;
+            if (!KeyboardLayoutPolicy.AllowsInput(_settings, target))
+            {
+                _imeSnapshot = null;
+                SuspendForInputLanguage(Environment.TickCount64);
+                return;
+            }
             var state = _imm32.GetState(target);
             _imeSnapshot = new ImeSnapshot(target.TopLevel, state, Environment.TickCount64);
             if (_settings.Mode == InputMode.Keyboard) KeepSystemImeClosed(target, state);
@@ -608,6 +680,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     /// </summary>
     private void KeepSystemImeClosed(ImeTarget target, ImeState state)
     {
+        if (!KeyboardLayoutPolicy.AllowsInput(_settings, target) || !KeyboardLayoutPolicy.AllowsInput(_settings, state.KeyboardLayout)) return;
         var layout = Native.GetKeyboardLayout(target.ThreadId);
         if (layout != _lastLayout)
         {

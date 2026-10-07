@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 Yukishiro
-
 using Meltype.Config;
 using Meltype.Learning;
 
@@ -72,6 +69,12 @@ public sealed class ScoreEngine
 
         var useRomaji = settings.InputStyle != InputStyle.Kana;
         var useKana = settings.InputStyle != InputStyle.Romaji;
+
+        // ローマ字専用では l/q/v/x を一文字で英語とする。かな入力を有効にした設定では、Q/X/V/L はかなキーとして判定する。
+        if (useRomaji && !useKana && letters.Length == 1 && letters is "l" or "q" or "v" or "x")
+        {
+            return Result(Verdict.English, letters, contributions, "明らかな英字キー");
+        }
 
         var romajiValid = false;
         var japaneseDictionaryPrefix = false;

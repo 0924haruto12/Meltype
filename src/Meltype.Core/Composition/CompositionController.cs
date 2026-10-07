@@ -26,6 +26,12 @@ public sealed record CompositionView(
 /// <summary>CompositionController が外界とやり取りする口。テストでは偽物に差し替える。</summary>
 public interface ICompositionHost
 {
+    /// <summary>選択中の確定済み文字と、その読み。取得できなければ null。</summary>
+    ReconversionSelection? GetReconversionSelection() => null;
+
+    /// <summary>元の選択範囲が維持されている場合だけ置換する。</summary>
+    bool TryReplaceSelection(ReconversionSelection selection, string text) => false;
+
     /// <summary>確定した文字列を、フォーカスのあるテキストボックスへ入力する。</summary>
     void CommitText(string text);
 
@@ -53,6 +59,8 @@ public interface ICompositionHost
 
     void Hide();
 }
+
+public sealed record ReconversionSelection(string Text, string Reading);
 
 /// <summary>CompositionController の設定と、外の判定器へのつなぎ。</summary>
 public sealed class CompositionOptions
@@ -126,6 +134,9 @@ public sealed class CompositionOptions
     /// <summary>ローマ字の打ち間違いを直すか (設定)。</summary>
     public Func<bool> CorrectTypos { get; init; } = () => true;
 
+    /// <summary>確定するときに、日本語と英単語の間に半角スペースを入れるか (設定)。</summary>
+    public Func<bool> SpaceAroundEnglish { get; init; } = () => false;
+
     /// <summary>ユーザーが英字 / かなに直した語の学習。</summary>
     public LanguageMemory? Languages { get; init; }
 
@@ -189,6 +200,7 @@ public sealed class CompositionController
     private string? _followingText;
     private long _lastCommitTime = long.MinValue / 2;
     private int _compositionId;
+    private ReconversionSelection? _reconversion;
 
     // 英数状態で判定中の語。打鍵はすぐアプリに送り (待たせない)、ローマ字と分かったら消して変換ボックスに入れ直す。
     private readonly StringBuilder _heldLetters = new();
@@ -240,6 +252,9 @@ public sealed class CompositionController
     /// <summary>直近に確定した文字列 (テスト・ログ用)。</summary>
     public event Action<string>? Committed;
 
+    /// <summary>選択範囲を置換した。入力先の行を読み直すための通知。</summary>
+    public event Action? ReconversionCommitted;
+
     /// <summary>キューにたまった入力をすべて処理する。UI スレッドで呼ぶ。</summary>
     public void Pump()
     {
@@ -252,6 +267,8 @@ public sealed class CompositionController
             }
             UpdateView();
             if (IsComposing) return;
+            // 読みをすべて削除した場合も、元の選択範囲は置換せず再変換を終了する。
+            if (_reconversion is not null) ClearComposition();
             if (_gate.TryRelease())
             {
                 // 以降のキーアップはフックを素通りしてアプリに直接届くので、追跡をやめる。
@@ -310,13 +327,23 @@ public sealed class CompositionController
     /// <summary>例外からの復旧用。未確定の内容と追跡中の状態をすべて捨てる (次の入力で同じ例外を繰り返さないように)。</summary>
     public void Reset()
     {
-        _text.Clear();
-        _converting = false;
-        _clauses = [];
+        ClearComposition();
         ClearHeld();
         _swallowedShift.Clear();
         _replayedDown.Clear();
         _capturedDown.Clear();
+    }
+
+    /// <summary>変換中の文節・候補・選択中の文節をすべて消す。再変換の状態も消す。</summary>
+    //追加処理に伴って、整理のための関数追加
+    private void ClearComposition()
+    {
+        _reconversion = null;
+        ++_compositionId;
+        _text.Clear();
+        _converting = false;
+        _clauses = [];
+        _spaceStartedConversion = false;
     }
 
     /// <summary>フォーカスが変わったときなど。前の入力欄の文脈を持ち越さない。</summary>
@@ -325,6 +352,20 @@ public sealed class CompositionController
         _lastCommitEnglish = null;
         _lastCommitText = null;
         _correctable.Clear();
+    }
+
+    /// <summary>入力言語が対象外になったとき。判定を止め、未処理のキー・クリックは順番どおりに通す。</summary>
+    public void SuspendInput()
+    {
+        Abandon("入力言語が日本語ではなくなった");
+        Reset();
+        ResetContext();
+        foreach (var input in _gate.Abort())
+        {
+            if (input.Key is { } key) _host.Replay(key);
+            else if (input.Mouse is { } mouse) _host.Replay(mouse);
+        }
+        _host.Hide();
     }
 
     private void HandleMouse(MouseButtonEvent e)
@@ -371,7 +412,7 @@ public sealed class CompositionController
                     SendHeld(e);
                     return;
                 }
-                Diagnostics.Log.Decision($"英数状態でローマ字を検知: 「{_heldLetters}」(母音の後の長音)");
+                Diagnostics.Log.Decision($"英数状態でローマ字を検知: {Diagnostics.Log.Text(_heldLetters.ToString())} (母音の後の長音)");
                 SwitchHeldToJapanese();
                 return;
             }
@@ -400,6 +441,12 @@ public sealed class CompositionController
             return;
         }
 
+        if (_reconversion is not null && vk == VirtualKeys.Escape)
+        {
+            ClearComposition();
+            return;
+        }
+
         if (!IsComposing)
         {
             StartWith(e);
@@ -410,6 +457,10 @@ public sealed class CompositionController
 
         switch (vk)
         {
+            case VirtualKeys.Convert:
+                _text.FixTypos();
+                StartConversion(preferJapanese: true);
+                return;
             case VirtualKeys.Return:
                 if (IsProtectedInput) { CommitProtected(""); return; }
                 _text.FixTypos();
@@ -505,6 +556,17 @@ public sealed class CompositionController
     /// <summary>変換ボックスが空のときの最初の打鍵。英字・句読点なら入力を始め、それ以外はそのまま通す。</summary>
     private void StartWith(KeyEvent e)
     {
+        if (e.Vk == VirtualKeys.Convert)
+        {
+            if (_host.GetReconversionSelection() is not { } selection || string.IsNullOrWhiteSpace(selection.Reading)) return;
+            _correctable.Clear();
+            BeginComposition();
+            _reconversion = selection;
+            foreach (var kana in selection.Reading) _text.AppendKana(kana, kana);
+            _text.Mode = DisplayMode.Hiragana;
+            StartConversion(preferJapanese: true);
+            return;
+        }
         // かな入力: かなのキーならすべて入力を始める (英数状態でなければ)。
         if (_options.KanaInput() && !_options.DirectMode() && KanaOf(e) is { } key)
         {
@@ -519,7 +581,7 @@ public sealed class CompositionController
             // 英数状態: ローマ字かどうか判定する (打鍵はすぐ送る)。大文字で始まる語は英語なのでそのまま通す。
             if (_options.ClassifyDirect is null || _swallowedShift.Count > 0 || char.IsAsciiLetterUpper(c!.Value))
             {
-                Diagnostics.Log.Info($"英数状態: 「{c}」は大文字 / Shift なので英語のまま");
+                Diagnostics.Log.Info($"英数状態: {Diagnostics.Log.Text(c.ToString()!)}は大文字 / Shift なので英語のまま");
                 ReplayDown(e);
                 _options.DirectDecided?.Invoke(false);
             }
@@ -674,7 +736,7 @@ public sealed class CompositionController
         {
             verdict = Verdict.Undecided;
         }
-        Diagnostics.Log.Info($"英数状態の判定: 「{_heldLetters}」→ {verdict}{(final ? " (打ち終わり)" : "")}");
+        Diagnostics.Log.Info($"英数状態の判定: {Diagnostics.Log.Text(_heldLetters.ToString())}→ {verdict}{(final ? " (打ち終わり)" : "")}");
         if (verdict == Verdict.Japanese) SwitchHeldToJapanese();
         else if (verdict != Verdict.Undecided || final) ReleaseHeldAsEnglish();
     }
@@ -702,6 +764,9 @@ public sealed class CompositionController
         var shift = _swallowedShift.Count > 0 || _host.IsShiftDown();
         if (Detection.KanaDetector.KanaForKey(e.Vk, shift) is not { } kana) return null;
         var raw = _host.CharFromKey(e, _swallowedShift.Count > 0) ?? kana;
+        // Shift で打った小書き文字 (っ = Shift+Z、ぃ = Shift+E) は、大文字で打った英語 (Z・E) ではない
+        // (きのうはたのしかった が たのしかZq になっていた)。
+        if (shift && kana != Detection.KanaDetector.KanaForKey(e.Vk, false)) raw = char.ToLowerInvariant(raw);
         return (raw, kana);
     }
 
@@ -727,6 +792,7 @@ public sealed class CompositionController
         var shift = _swallowedShift.Count > 0;
         switch (vk)
         {
+            case VirtualKeys.Convert:
             case VirtualKeys.Space:
             case VirtualKeys.Down:
                 NextCandidate(+1);
@@ -1296,6 +1362,17 @@ public sealed class CompositionController
         if (fixEnglish && !converting && _text.Mode == DisplayMode.Auto) text = FixEnglishTypo(text);
         var english = converting ? _clauses.All(c => c.IsEnglish) : _text.IsAlphanumericAt(final: true);
         var chosen = converting && _clauses.Any(c => c.Changed);
+        if (_reconversion is { } selection)
+        {
+            if (_host.TryReplaceSelection(selection, text + suffix))
+            {
+                if (converting) Learn();
+                ResetContext();
+                ReconversionCommitted?.Invoke();
+            }
+            ClearComposition();
+            return;
+        }
         if (converting) Learn();
         else LearnLanguage();
         CommitText(text + suffix, english, _text.Raw, chosen);
@@ -1482,6 +1559,7 @@ public sealed class CompositionController
         _converting = false;
         _clauses = [];
         if (text.Length == 0) return;
+        if (_options.SpaceAroundEnglish()) text = AddSpacesAroundEnglish(text, _precedingText, _followingText);
         CorrectPreviousCommit(raw, english);
         // 英語とも日本語とも読める語を、文脈を決めずに (選び直さずに) 確定したときだけ、後で確定し直せるようにしておく。
         if (!chosen && _detector.IsAmbiguousWord(raw))
@@ -1498,6 +1576,49 @@ public sealed class CompositionController
         _lastCommitTime = Environment.TickCount64;
         _host.CommitText(text);
         Committed?.Invoke(text);
+    }
+
+    /// <summary>
+    /// 日本語 (かな・漢字) と英単語の間に半角スペースを入れる (今日はGitHubにpush → 今日は GitHub に push)。
+    /// 英字を 1 つ以上含む英数字の並び (iPhone15、C++) を英単語とみなす。数字だけ (3時) と記号 (、。「」) の隣には入れない。
+    /// 確定する文字列の端は、入力欄のキャレットの前後の文字 (before・after) との間も見る。
+    /// </summary>
+    internal static string AddSpacesAroundEnglish(string text, string? before, string? after)
+    {
+        static bool IsJapanese(char c) => c is (>= '\u3040' and <= '\u30FF') or (>= '\u3400' and <= '\u4DBF') or (>= '\u4E00' and <= '\u9FFF') or (>= '\uF900' and <= '\uFAFF');
+        static bool IsWordChar(char c) => char.IsAsciiLetterOrDigit(c) || c is '_' or '-' or '+' or '#' or '.' or '\'' or '@';
+        var previous = string.IsNullOrEmpty(before) ? '\0' : before[^1];
+        var next = string.IsNullOrEmpty(after) ? '\0' : after[0];
+        var builder = new StringBuilder(text.Length + 8);
+        // 前に確定した英単語のすぐ後ろに日本語を続けるとき (GitHub|に)
+        if (IsJapanese(text[0]) && char.IsAsciiLetter(previous)) builder.Append(' ');
+        var i = 0;
+        while (i < text.Length)
+        {
+            if (!IsWordChar(text[i]))
+            {
+                builder.Append(text[i++]);
+                continue;
+            }
+            var end = i;
+            while (end < text.Length && IsWordChar(text[end])) end++;
+            // 語の端の記号 (. ' -) は語に含めない (Hello. の . の後ろに日本語が続いても、. の前に入れない)
+            var start = i;
+            var stop = end;
+            while (stop > start && text[stop - 1] is '.' or '\'' or '-' or '@' or '_') stop--;
+            var word = text[start..stop];
+            var left = start > 0 ? text[start - 1] : previous;
+            var right = stop < text.Length ? text[stop] : next;
+            var isWord = word.Any(char.IsAsciiLetter);
+            if (isWord && IsJapanese(left) && (builder.Length == 0 || builder[^1] != ' ')) builder.Append(' ');
+            builder.Append(word);
+            if (isWord && IsJapanese(right)) builder.Append(' ');
+            builder.Append(text, stop, end - stop);
+            i = end;
+        }
+        // 確定した日本語のすぐ後ろが英単語のとき (キャレットの後ろの文字)
+        if (IsJapanese(text[^1]) && char.IsAsciiLetter(next)) builder.Append(' ');
+        return builder.ToString();
     }
 
     /// <summary>変換ボックスの最後が英語の区間か (Space を空白として扱うか)。</summary>

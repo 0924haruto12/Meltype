@@ -47,6 +47,13 @@ public sealed class CompositionDetector
         return new CompositionDetector(romaji, japanese, english, new TypoDetector(japanese.Words), proper, new KanaDetector(japaneseWords, romaji));
     }
 
+    private static readonly Lazy<WordList> ReadableEnglish = new(() =>
+    {
+        var list = new WordList();
+        foreach (var word in DictionarySource.Load("english-readable.txt", null)) list.Add(word);
+        return list;
+    });
+
     public RomajiDetector Romaji => _romaji;
 
     /// <summary>普通の英単語の判定に使う Windows のスペルチェッカー。null なら同梱の辞書だけ。</summary>
@@ -155,8 +162,11 @@ public sealed class CompositionDetector
                 // (入力が 1 語 + 記号だけのとき。途中の区間 (BE|kana|?) の後ろの記号は、今までどおり日本語の続きとみなす)
                 var symbolsAfter = i == 0 && j < n && pending.Length == 0 && Enumerable.Range(j, n - j).All(k => IsAsciiSymbol(units[k]));
                 var after = j == n || symbolsAfter ? followingEnglish : false;
+                // 英単語のすぐ後ろの する の活用 (push + site = して、commit + sita = した) は、英単語 (site) でも日本語
+                // (末尾だと pushsite 全体が英字になっていた)。
+                if (!kanaInput && PrecededByEnglish(i) == true && IsSuruForm(Kana(units, i, j))) continue;
                 var english = kanaInput
-                    ? IsEnglishSpanKana(Raw(units, i, j), Kana(units, i, j), atEnd: j == n, BeforeScore(i), after, level, final)
+                    ? IsEnglishSpanKana(Raw(units, i, j), Kana(units, i, j), atEnd: j == n, BeforeScore(i), after, level, final, Kana(units, j, Math.Min(n, j + 2)))
                     : IsEnglishSpan(Raw(units, i, j) + (j == n ? pending : ""), atEnd: j == n, BeforeScore(i), after, startOfInput: i == 0, level, final, endsWord: symbolsAfter,
                         unreadable: HasUnreadable(units, i, j) || EndsWithLoneSokuon(units, j), next: j < n ? units[j].Raw + (j + 1 == n ? pending : "") : null);
                 if (english)
@@ -286,6 +296,32 @@ public sealed class CompositionDetector
         return _english.Words.ContainsWord(lower) || _proper.Contains(lower) || (lower.Length >= 4 && IsSpellWord(lower));
     }
 
+    /// <summary>よく使う語の読み (readings.txt、3 文字以上)。かな入力で、英単語のキーが日本語の語を打っていないかを見る。</summary>
+    private static readonly Lazy<HashSet<string>> Readings = new(() =>
+        DictionarySource.ReadEmbedded("readings.txt").Split('\n')
+            .Select(line => line.Split('\t')[0].Trim())
+            .Where(reading => reading.Length >= 3 && !reading.StartsWith('#'))
+            .ToHashSet(StringComparer.Ordinal));
+
+    /// <summary>
+    /// かなの大部分 (3/4 以上) を占める、3 文字以上のよく使う語があるか。語は後ろのかな (kanaAfter) にはみ出してもよい
+    /// (てにはい + る = 手に入る)。
+    /// </summary>
+    private static bool ContainsJapaneseReading(string kana, string kanaAfter = "")
+    {
+        var text = kana + kanaAfter;
+        for (var start = 0; start < kana.Length; start++)
+            for (var length = 3; start + length <= text.Length; length++)
+                if (Math.Min(start + length, kana.Length) - start is var inside && inside * 100 >= kana.Length * 75 &&
+                    Readings.Value.Contains(text.Substring(start, length))) return true;
+        return false;
+    }
+
+    private static readonly string[] SuruForms = ["する", "すれ", "した", "して", "しま", "しな", "しよ", "しと", "しちゃ", "しろ", "され", "させ", "せず"];
+
+    /// <summary>する の活用 (して・した・します …) だけでできたかなか。</summary>
+    private static bool IsSuruForm(string kana) => SuruForms.Any(kana.StartsWith) && kana.All(c => c is >= 'ぁ' and <= 'ゖ' or 'ー');
+
     private static int Score(bool? english) => english switch { true => 1, false => -1, null => 0 };
 
     /// <summary>英文の中では半角のままにする記号。[ ] は日本語の入力では「」なので含めない (英単語の後ろでも「」: bot「Thinking」)。</summary>
@@ -360,6 +396,9 @@ public sealed class CompositionDetector
             if (lower.Contains('c') && !lower.Contains("ch")) return true;
             if (_romaji.AnalyzeFragment(lower).Kana.IndexOfAny(['ぢ', 'づ']) >= 0 && IsCommonJapanese?.Invoke(lower) != true) return true;
         }
+        // ローマ字として最後まで読めても、日本語の語にならない英単語 (feature = ふぇあつれ、remote = れもて。dictionaries/english-readable.txt、#12)。
+        // 日本語の語の始まりにもならない語だけを入れているので、後ろに日本語が続いても (feature|wo) 英語。
+        if (lower.Length >= 4 && ReadableEnglish.Value.ContainsWord(lower)) return true;
         // c 行の綴りで読める語 (care = かれ、can = かん) が日本語の途中にあるなら、日本語を打っている (fucarete → ふかれて、shoucanshi → しょうかんし)。
         // 入力全体がその語だけのときは英語。
         if (!(startOfInput && atEnd))
@@ -455,7 +494,7 @@ public sealed class CompositionDetector
     /// かな入力 (JIS) の区間が英語か。打ったキーの英字 (Raw) が英単語で、かなとしては日本語の語にならないなら英語。
     /// かなとしても日本語の語 (の先頭) になるなら、ローマ字入力の「英語とも日本語とも読める語」と同じく前後の文脈で決める。
     /// </summary>
-    private bool IsEnglishSpanKana(string span, string kana, bool atEnd, int before, bool? after, DetectionLevel level, bool final = false)
+    private bool IsEnglishSpanKana(string span, string kana, bool atEnd, int before, bool? after, DetectionLevel level, bool final = false, string kanaAfter = "")
     {
         if (span.Length == 0 || !span.All(char.IsAsciiLetter)) return false;
         var lower = span.ToLowerInvariant();
@@ -473,7 +512,11 @@ public sealed class CompositionDetector
         var japanese = _kana?.IsJapaneseWordOrPrefix(kana) == true;
         var context = (after == false ? Math.Min(before, 1) : before) + Score(after);
         if (context >= (level == DetectionLevel.Conservative ? 2 : 1)) return true;
-        if (japanese || context < 0) return false;
+        if (japanese) return false;
+        // 前が日本語 (きょうは + google) でも、辞書の英単語 (4 文字以上) で、かなとしては日本語にならないなら英語。
+        // かなのキーで打った日本語が、たまたま辞書の英単語のキーと同じになることは少ない (ローマ字と違い、1 キーが 1 文字)。
+        // ただし、そのキーのかなに 3 文字以上の日本語の語が入っているなら、日本語を打っている (にかいも = item、かんせい = type)。
+        if (context < 0) return (inDictionary && lower.Length >= 4 || word && lower.Length >= 6) && !ContainsJapaneseReading(kana, kanaAfter);
         var minimum = level switch { DetectionLevel.Aggressive => 2, DetectionLevel.Conservative => 4, _ => 3 };
         return lower.Length >= minimum;
     }

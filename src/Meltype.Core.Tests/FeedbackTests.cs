@@ -213,6 +213,47 @@ internal static class KanaInputTests
     }
 
     [Test]
+    public static void KanaInput_SpaceAroundEnglish()
+    {
+        // かな入力でも、確定した英単語の前後に半角スペースが入る
+        var k = Kana();
+        k.SpaceAroundEnglish = true;
+        k.TypeKanaKeys("google");
+        k.Type("\n");
+        k.TypeKanaKeys("byiaf");
+        k.Type("\n");
+        Assert.Equal("google こんにちは", k.Host.Document);
+    }
+
+    [Test]
+    public static void KanaInput_ShiftSmallKana_IsNotCapitalLetter()
+    {
+        // っ (Shift+Z)・ぃ (Shift+E) は、大文字で打った英語ではない (たのしかった が たのしかZq になっていた)
+        var k = Kana();
+        k.TypeKeys(KanaQualityTests.KeysFor("たのしかった"));
+        k.Type("\n");
+        Assert.Equal("たのしかった", k.Host.Document);
+    }
+
+    [Test]
+    public static void KanaInput_EnglishAfterJapanese()
+    {
+        // 日本語のすぐ後ろの英単語も英字にする (きょうは + google が きららきりい になっていた)
+        var k = Kana();
+        k.TypeKeys(KanaQualityTests.KeysFor("きょうは"));
+        k.TypeKanaKeys("google");
+        k.TypeKeys(KanaQualityTests.KeysFor("でけんさく"));
+        k.Type("\n");
+        Assert.Equal("きょうはgoogleでけんさく", k.Host.Document);
+
+        var after = Kana();
+        after.Host.PrecedingText = "今日は";
+        after.TypeKanaKeys("google");
+        after.Type("\n");
+        Assert.Equal("google", after.Host.Document, "確定済みの日本語の後ろ");
+    }
+
+    [Test]
     public static void KanaInput_FollowsLevels()
     {
         var manual = Kana(DetectionLevel.Manual);
@@ -535,6 +576,9 @@ internal static class LanguageLearningTests
                 ("@kuraido", "@kuraido"), ("@una08142009 arigatou", "@una08142009 ありがとう"), ("upah_setu", "upah_setu"), ("cafely_latte", "cafely_latte"),
                 // MT-002: メールアドレスは全体を保護する (ローカル部 taro も たろ にしない)。@ の後ろだけを守る旧挙動を変更した。
                 ("taro@gmail.com", "taro@gmail.com"), ("@akisamesan", "@akisamesan"),
+                // Issue #12: ローマ字として読めてしまう英単語 (feature → ふぇあつれ)。日本語の中でも英字
+                ("feature", "feature"), ("future", "future"), ("nature", "nature"), ("remote", "remote"), ("online", "online"),
+                ("atarashiifeaturewotsuika", "あたらしいfeatureをついか"), ("kyouharemotedesu", "きょうはremoteです"),
             })
             {
                 var k = new CompositionTests.Keyboard();

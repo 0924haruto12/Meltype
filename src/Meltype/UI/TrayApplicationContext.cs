@@ -55,6 +55,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             TranslationCandidates = () => _engine.Settings.TranslationCandidates,
             CandidateMeanings = () => _engine.Settings.ShowCandidateMeanings,
             CorrectTypos = () => _engine.Settings.CorrectTypos,
+            SpaceAroundEnglish = () => _engine.Settings.SpaceAroundEnglish,
             KanaInput = () => _engine.Settings.InputStyle == InputStyle.Kana,
             ModeIndicator = () => _engine.Settings is { Enabled: true, Mode: InputMode.Keyboard, ShowModeIndicator: true },
             ModeIndicatorOnFocus = () => _engine.Settings.ShowModeIndicatorOnFocus,
@@ -248,7 +249,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         _reportDialog = new ReportDialog(_engine.Settings);
         _reportDialog.FormClosed += (_, _) => _reportDialog = null;
-        _reportDialog.Show();
+        _reportDialog.ShowDialog();
     }
 
     private static void ToggleStartup()
