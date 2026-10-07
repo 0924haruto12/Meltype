@@ -301,10 +301,21 @@ public sealed class CompositionController
     }
 
     /// <summary>無効化・フォーカス喪失などで、未確定の内容をそのまま確定する。</summary>
-    public void CommitPending()
+    public void CommitPending() => CommitPending(preserveLatinRaw: false, preserveText: false);
+
+    internal void CommitPending(bool preserveLatinRaw, bool preserveText)
     {
         if (_heldLetters.Length > 0) ReleaseHeldAsEnglish();
-        CommitIfAny();
+        // e + 結合アクセントを「え + アクセント」にしない。明示した表示モード・候補・かな入力は尊重する。
+        // ASCII 英字だけの原文に Latin アクセントが続く場合に限り、変換や学習を経由せず確定する。
+        if (preserveLatinRaw && !_converting && _reconversion is null && !_text.KanaInput &&
+            _text.Mode is DisplayMode.Auto or DisplayMode.HalfWidthAlphanumeric &&
+            !_text.IsEmpty && _text.Raw.All(char.IsAsciiLetter))
+        {
+            _correctable.Clear();
+            CommitText(_text.Raw, english: true, preserveText: true);
+        }
+        else CommitIfAny(preserveText);
         UpdateView();
     }
 
@@ -1342,15 +1353,15 @@ public sealed class CompositionController
 
     // ---- 確定 ----
 
-    private void CommitIfAny()
+    private void CommitIfAny(bool preserveText = false)
     {
-        if (!_text.IsEmpty) Commit();
+        if (!_text.IsEmpty) Commit(preserveText: preserveText);
     }
 
     /// <summary>今の未確定入力が、自動では変換してはいけない保護区間か (F9/F10 などの明示指定は除く)。</summary>
     private bool IsProtectedInput => _text.Mode == DisplayMode.Auto && _text.HasProtectedTail;
 
-    private void Commit(string suffix = "", bool fixEnglish = false)
+    private void Commit(string suffix = "", bool fixEnglish = false, bool preserveText = false)
     {
         if (IsProtectedInput)
         {
@@ -1375,7 +1386,7 @@ public sealed class CompositionController
         }
         if (converting) Learn();
         else LearnLanguage();
-        CommitText(text + suffix, english, _text.Raw, chosen);
+        CommitText(text + suffix, english, _text.Raw, chosen, preserveText);
     }
 
     /// <summary>
@@ -1390,7 +1401,7 @@ public sealed class CompositionController
         _clauses = [];
         _correctable.Clear();
         // raw を空にして渡し、保護原文を確定後補正・学習の対象にしない (INV-06)。
-        CommitText(text, english: false);
+        CommitText(text, english: false, preserveText: true);
     }
 
     /// <summary>
@@ -1545,7 +1556,7 @@ public sealed class CompositionController
     }
 
     /// <summary>確定して入力する。英語だったか日本語だったか・確定した文字列を、次の入力の文脈として覚えておく。</summary>
-    private void CommitText(string text, bool english, string raw = "", bool chosen = false)
+    private void CommitText(string text, bool english, string raw = "", bool chosen = false, bool preserveText = false)
     {
         var spaceIntended = _spaceStartedConversion;
         _spaceStartedConversion = false;
@@ -1559,7 +1570,7 @@ public sealed class CompositionController
         _converting = false;
         _clauses = [];
         if (text.Length == 0) return;
-        if (_options.SpaceAroundEnglish()) text = AddSpacesAroundEnglish(text, _precedingText, _followingText);
+        if (!preserveText && _options.SpaceAroundEnglish()) text = AddSpacesAroundEnglish(text, _precedingText, _followingText);
         CorrectPreviousCommit(raw, english);
         // 英語とも日本語とも読める語を、文脈を決めずに (選び直さずに) 確定したときだけ、後で確定し直せるようにしておく。
         if (!chosen && _detector.IsAmbiguousWord(raw))

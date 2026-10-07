@@ -1,5 +1,54 @@
 # Meltype MT-001〜MT-005 問題点と修正点のまとめ
 
+## 2026-10-07 レビュー指摘への対応（ローカル検証）
+
+- 対象 PR: https://github.com/yksr-melt/Meltype/pull/10
+- 最新 main の確認点: `55c8a29`。元の PR の head は `ac8b504`。
+- `main` を merge し、メール保護の期待値を維持しながら Issue #12 の新しい英単語回帰ケースも残して競合を解消した。
+- `@a@b` / `a@b@c` では先に見つけた区間を優先し、後のメール判定が前の保護区間を再利用しないようにした。
+  Property Test は開始・終了のサロゲート境界に加え、区間の順序と非重複も直接検査する。
+- 新しい `SpaceAroundEnglish` 設定が ON でも、保護文字列に自動で空白を追加しない。
+  メンション・メール・URL・POSIX/Windows パスの Enter / Space / Tab / focus を検査した。
+- BMP 結合アクセントの既知 FAIL を修正した。U+0300..U+036F が続くとき、未確定入力が ASCII 英字のみで、
+  自動表示（または半角英数表示）の場合は原文を先に確定し、結合文字の元イベントを 1 回だけ通す。
+  例: `e` + U+0301 は `é` のままで、`え́` にしない。正規化で合成済み文字へ置き換えることもしない。
+  明示的なかな・全角表示、選択中の変換候補、かな入力は尊重する。濁点・異体字セレクターや通常の非BMP文字は現在の表示を確定する。
+  結合文字の前に確定するときは自動空白を抑え、直後に英語があっても元の文字に結合できるようにする。通常の Enter 確定では空白設定を維持する。
+  混在文の末尾だけを英字へ戻す処理や完全な grapheme 編集は対象外。
+- 新規 C# ファイル 3 件の著作権表記を `0924haruto12` に修正した。既存ファイルの作者表記は維持した。
+- 回帰テストは Core の実行入口に組み込み、C ABI の実際の exports もテストする。Linux のキー写像 12 件は IBus 不要のテストとして CI に追加した。
+- NativeAOT 実行時の設定読み込みも修正した。設定の enum 用 JSON メタデータが不足し、有効な `config.json` が
+  `.broken` として扱われて既定値へ戻っていた。設定とプロファイルの JSON メタデータを source generator で生成し、
+  既存の文字列・数値 enum、コメント、末尾カンマ、プロファイル操作との互換性を検査した。
+
+ローカルでの検証結果（macOS arm64、.NET SDK 10.0.401）:
+
+| 検証 | 結果 | 条件 |
+|---|---|---|
+| 最新 main との競合解消後、追加修正前の Core | 213/213 PASS | 既存テスト |
+| 追加修正後の Core | 225/225 PASS | 保護・C ABI・設定 JSON 回帰を含む |
+| NativeAOT 共有ライブラリ | build PASS | JSON trimming / AOT の警告あり |
+| 実際の NativeAOT C ABI | 17/17 PASS | macOS arm64、変換はスタブ、設定・学習は一時ディレクトリ |
+| Linux `virtual_key` | 12/12 PASS | IBus はスタブ、関数本体は製品コードから読み込む |
+
+再実行:
+
+```sh
+dotnet run --project src/Meltype.Core.Tests -c Release
+python3 linux/tests/test_virtual_key.py
+dotnet publish src/Meltype.Mac.Native -c Release -r osx-arm64 -p:PublishAot=true -p:NativeLib=Shared --source https://api.nuget.org/v3/index.json -o build-check/native
+python3 tools/test-native-boundaries.py build-check/native/MeltypeNative.dylib
+```
+
+MT-005 の性能ゲートは未達のままで、今回の修正では性能の再測定をしていない。
+Core の品質コーパスには既存の 2 不一致（`my name is taro`、`apinoerror`）が残る。
+macOS IMK の実際の入力欄、Linux IBus GUI / Mozc、Windows 実機は NOT_RUN。
+Push・PR コメント・レビュー投稿・再レビュー依頼・マージ・常用環境へのインストールは未実施。
+担当は Codex（既存 ChatGPT 契約）、修正と検証は 1 担当。読み取り専用レビューは交代で実施し、同時編集は行っていない。
+追加支払いなし。消費量は unknown。
+
+以下は初回 PR 作成時点の結果で、上の再検証結果とは区別する。
+
 - 比較基準: `yksr-melt/Meltype` v1.0.0 (`467255bfe3e36b803a3fd3f5a1480fe35d5058c9`)
 - 修正ブランチ: `t3code/meltype-ime-improvements-mt001-mt005`
 - 前段実測: Linux native 53件で 39一致 / 14不一致。これは製品全体の精度ではない。

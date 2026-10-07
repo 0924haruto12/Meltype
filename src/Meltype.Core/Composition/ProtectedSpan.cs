@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 Yukishiro
+// Copyright (C) 2026 0924haruto12
 
 namespace Meltype.Composition;
 
@@ -37,7 +37,7 @@ public static class ProtectedSpanScanner
         var index = 0;
         while (index < raw.Length)
         {
-            var span = MatchAt(raw, index);
+            var span = MatchAt(raw, index, spans.Count > 0 ? spans[^1].End : 0);
             if (span is { } found)
             {
                 spans.Add(found);
@@ -66,7 +66,7 @@ public static class ProtectedSpanScanner
         return true;
     }
 
-    private static ProtectedSpan? MatchAt(string raw, int start)
+    private static ProtectedSpan? MatchAt(string raw, int start, int previousEnd)
     {
         // 長い構造 (URL / パス / メール) を優先し、メンションは最後に回す。
         foreach (var candidate in new[]
@@ -78,7 +78,8 @@ public static class ProtectedSpanScanner
                      TryPosixPath(raw, start),
                  })
         {
-            if (candidate is { } span) return span;
+            // メールのローカル部は @ から左へ探す。先に保護したメンション等の文字を再利用しない。
+            if (candidate is { } span && span.Start >= previousEnd) return span;
         }
         return null;
     }

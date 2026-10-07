@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 Yukishiro
+// Copyright (C) 2026 0924haruto12
 
 using Meltype.Composition;
 using Meltype.Config;
@@ -67,9 +67,43 @@ internal static class ProtectionTests
         Assert.Equal(0, ProtectedSpanScanner.Scan("taro.yamada").Count, "taro.yamada だけは保護しない");
     }
 
+    [Test]
+    public static void Scanner_DoesNotReusePreviouslyProtectedText()
+    {
+        // 不完全な隣接トークンは前の保護区間を優先する。後の @ から前の文字をメールとして再利用しない。
+        foreach (var (raw, expected, kind) in new[]
+                 {
+                     ("@a@b", "@a", ProtectedKind.Mention),
+                     ("a@b@c", "a@b", ProtectedKind.Email),
+                     ("/a@b", "/a@b", ProtectedKind.PosixPath),
+                 })
+        {
+            var span = ProtectedSpanScanner.Scan(raw).Single();
+            Assert.Equal(kind, span.Kind, raw);
+            Assert.Equal(expected, raw.Substring(span.Start, span.Length), raw);
+        }
+        var separate = ProtectedSpanScanner.Scan("@user taro@example.com");
+        Assert.Equal(2, separate.Count, "区切られたメンションとメールの両方を保護する");
+        Assert.Equal(ProtectedKind.Mention, separate[0].Kind);
+        Assert.Equal(ProtectedKind.Email, separate[1].Kind);
+        Assert.Equal(6, separate[1].Start);
+    }
+
+    [Test]
+    public static void Protected_ReconversionReplacesSelection()
+    {
+        var keyboard = new CompositionTests.Keyboard();
+        keyboard.Host.Selection = new ReconversionSelection("@user", "@user");
+        keyboard.Press(VirtualKeys.Convert);
+        keyboard.Press(VirtualKeys.Return);
+        Assert.Equal("@user", keyboard.Host.Document);
+        Assert.Equal(0, keyboard.Host.Output.Count, "選択を置換し、別の確定入力を足さない");
+        Assert.True(keyboard.Showing is null, "再変換の未確定状態を消す");
+    }
+
     // ---- 確定契約 (MeltypeSession は Linux/Mac アダプターと同じ経路) ----
 
-    private static MeltypeSession Create(LanguageMemory? languages = null)
+    private static MeltypeSession Create(LanguageMemory? languages = null, bool spaceAroundEnglish = false)
     {
         CompositionTests.Detector.SpellChecker = Detection.BuiltInWordChecker.Shared;
         // 製品の CreateDefault と同じく、候補辞書・誤字補正・文脈辞書を入れる (実経路と同じ条件で検査する)。
@@ -81,6 +115,7 @@ internal static class ProtectionTests
             Misspellings = MisspellingDictionary.Load(null),
             RomajiTypos = RomajiTypoCorrector.Load(CompositionTests.Detector.Romaji),
             Languages = languages,
+            SpaceAroundEnglish = () => spaceAroundEnglish,
         };
         return new MeltypeSession(CompositionTests.Detector, new CompositionTests.FakeConverter(), options, () => new Settings());
     }
@@ -102,6 +137,24 @@ internal static class ProtectionTests
     private static void TypeText(MeltypeSession session, string text)
     {
         foreach (var c in text) TypeOne(session, c);
+    }
+
+    [Test]
+    public static void Protected_CommitsIgnoreAutomaticEnglishSpacing()
+    {
+        foreach (var raw in new[] { "@user", "taro@example.com", "https://example.com", "./src/main.ts", @"C:\Users\taro" })
+        foreach (var operation in new[] { VirtualKeys.Return, VirtualKeys.Space, VirtualKeys.Tab, 0 })
+        {
+            var session = Create(spaceAroundEnglish: true);
+            foreach (var c in raw)
+                session.HandleKey(char.IsAsciiLetter(c) ? char.ToUpperInvariant(c) : 0x07,
+                    c, char.IsAsciiLetterUpper(c), false, false, false, "今日は", "です");
+            var result = operation == 0 ? session.CommitPending() :
+                session.HandleKey(operation, null, false, false, false, false);
+            Assert.Equal(raw + (operation == VirtualKeys.Space ? " " : ""), result.Commits.Single().Text, raw);
+            Assert.Equal(operation != VirtualKeys.Tab, result.Consumed, "Tab だけをアプリへ通す");
+            Assert.True(result.View is null && !session.IsComposing, "確定後の未確定状態を消す");
+        }
     }
 
     [Test]

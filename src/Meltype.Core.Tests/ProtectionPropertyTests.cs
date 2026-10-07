@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 Yukishiro
+// Copyright (C) 2026 0924haruto12
 
-using System.Text;
 using Meltype.Composition;
 
 namespace Meltype.Tests;
@@ -32,17 +31,40 @@ internal static class ProtectionPropertyTests
                 else text.Append(Alphabet[random.Next(Alphabet.Length)][0]);
 
                 var raw = text.Raw;
-                foreach (var span in text.ProtectedSpans())
-                {
-                    Assert.True(span.Start >= 0 && span.Length > 0 && span.End <= raw.Length, "保護区間が原文の範囲内");
-                    Assert.True(span.Start + 1 < raw.Length || span.End <= raw.Length, "範囲が原文を超えない");
-                    // サロゲートペアの途中で切らない (保護区間は ASCII なので通常起きないが、境界の不変条件として検査する)。
-                    if (char.IsSurrogate(raw[span.Start]))
-                        Assert.True(span.Start + 1 < raw.Length && char.IsLowSurrogate(raw[span.Start + 1]), "サロゲートを割らない");
-                }
+                AssertWellFormed(raw, text.ProtectedSpans());
                 if (text.IsProtectedRaw)
                     Assert.Equal(raw, text.Display(final: true), "保護範囲は原文のまま表示する");
             }
+        }
+    }
+
+    private static void AssertWellFormed(string raw, IReadOnlyList<ProtectedSpan> spans)
+    {
+        var previousEnd = 0;
+        foreach (var span in spans)
+        {
+            Assert.True(span.Start >= 0 && span.Length > 0 && span.End <= raw.Length, "保護区間が原文の範囲内");
+            Assert.True(previousEnd <= span.Start, $"保護区間は順序どおりで重複しない: {raw}");
+            // 開始・終了の両境界が UTF-16 サロゲートペアの途中でないこと。
+            foreach (var boundary in new[] { span.Start, span.End })
+            {
+                Assert.True(boundary == 0 || boundary == raw.Length ||
+                    !(char.IsHighSurrogate(raw[boundary - 1]) && char.IsLowSurrogate(raw[boundary])), "サロゲートを割らない");
+            }
+            previousEnd = span.End;
+        }
+    }
+
+    [Test]
+    public static void Protection_ScannerBoundariesIncludeUnicodeAndAdjacentTokens()
+    {
+        foreach (var raw in new[]
+                 {
+                     "@a@b", "a@b@c", "/a@b", "@a.b@c", "@user taro@example.com", "https://a/b@c",
+                     "😊@user𠮷 taro@example.com", "e\u0301 @user", "@user😊/tmp/main.ts", "𠮷https://example.com😊",
+                 })
+        {
+            AssertWellFormed(raw, ProtectedSpanScanner.Scan(raw));
         }
     }
 
