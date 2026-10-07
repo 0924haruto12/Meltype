@@ -529,15 +529,15 @@ internal sealed class SettingsForm : Form
     private void FitHelp()
     {
         // ここでBodyのスクロールがリセットされるので、一旦スクロール位置を保存してあげる
-        var currentBodyScroll = _body.AutoScrollPosition;
+        var bodyScrollPosition = _body.AutoScrollPosition.Y;
 
         var width = Math.Max(100, _helpPanel.ClientSize.Width - _help.Padding.Horizontal);
         var size = TextRenderer.MeasureText(_help.Text, _help.Font, new Size(width, int.MaxValue), TextFormatFlags.WordBreak);
         var height = Math.Clamp(size.Height + _help.Padding.Vertical + 6, HelpMinHeight, HelpMaxHeight);
         if (_helpPanel.Height != height) _helpPanel.Height = height;
 
-        // スクロール位置はYのみ-で帰ってくるので反転して復元
-        _body.AutoScrollPosition = new(currentBodyScroll.X, -currentBodyScroll.Y);
+        // スクロール位置はYのみ-で返ってくるので反転して復元
+        _body.AutoScrollPosition = new(0, -bodyScrollPosition);
     }
 
     private void LoadFrom(Settings settings)
