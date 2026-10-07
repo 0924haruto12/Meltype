@@ -269,6 +269,15 @@ public sealed class FocusInspector : IDisposable
                 // Windows Terminal などは Edit ではなく TextPattern を持つ独自コントロール。
                 editable = true;
             }
+            else if (element.IsKeyboardFocusable && element.IsIa2Editable())
+            {
+                // Chromium / Electron の contenteditable は、空欄の間は UI Automation では
+                // Group で ValuePattern / TextPattern を持たなくても、IAccessible2 では
+                // EDITABLE として公開されることがある。
+                editable = true;
+                description += " (IAccessible2: 編集可能)";
+            }
+
             // UI Automation では入力欄と分からなくても、Windows のキャレット (点滅する縦線) を出しているなら文字を打つ所
             // (サクラエディタなど、独自の編集画面を持つ Win32 のアプリ)。
             if (!editable && HasCaret())
