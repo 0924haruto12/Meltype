@@ -211,7 +211,7 @@ internal static class DetectionTests
         Assert.Equal("どぃ", romaji.Analyze("dwi").Kana);
         Assert.Equal("どぇ", romaji.Analyze("dwe").Kana);
         Assert.Equal("どぅ", romaji.Analyze("dwu").Kana);
-        // the は英語最頻出のため判定用 Table には入れない。qi/qe/qo は判定用 Table と CompositionTable の両方に含める。
+        // CompositionTable のみ (the は英語最頻出、q は1キーで英語確定するため判定用 Table には入れない)
         Assert.Equal("てぇ", romaji.AnalyzeFragment("the").Kana);
         Assert.Equal("でぇ", romaji.AnalyzeFragment("dhe").Kana);
         Assert.Equal("くぃ", romaji.AnalyzeFragment("qi").Kana);

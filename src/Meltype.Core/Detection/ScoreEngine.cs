@@ -70,9 +70,8 @@ public sealed class ScoreEngine
         var useRomaji = settings.InputStyle != InputStyle.Kana;
         var useKana = settings.InputStyle != InputStyle.Romaji;
 
-        // ローマ字入力の l/v/x は一文字で英語とする。q は qi/qe/qo の先頭にもなるため、ここでは確定しない。
-        // JIS かな入力では Q/X/V/L がかなキーなので、かな判定に渡す。
-        if (useRomaji && !useKana && letters.Length == 1 && letters is "l" or "v" or "x")
+        // ローマ字専用では l/q/v/x を一文字で英語とする。かな入力を有効にした設定では、Q/X/V/L はかなキーとして判定する。
+        if (useRomaji && !useKana && letters.Length == 1 && letters is "l" or "q" or "v" or "x")
         {
             return Result(Verdict.English, letters, contributions, "明らかな英字キー");
         }
