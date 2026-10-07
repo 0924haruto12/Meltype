@@ -100,7 +100,7 @@ internal sealed class ReportDialog : Form
     {
         const string prefix = "GitHub のアカウントがある人は GitHub で報告 (返事や修正の通知が届きます)\n報告リンク: ";
         (string Text, string Template)[] kinds = [("不具合", "1-bug.yml"), ("変換・判定の間違い", "2-misdetection.yml"), ("改善の提案", "4-idea.yml")];
-        var link = new LinkLabel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 4, 10, 4), Text = prefix + string.Join(" / ", kinds.Select(k => k.Text)), Font = new Font("Yu Gothic UI", 9.5F) };
+        var link = new LinkLabel { Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(10, 4, 10, 4), Text = prefix + string.Join(" / ", kinds.Select(k => k.Text)) };
         link.Links.Clear();
         var start = prefix.Length;
         foreach (var (text, template) in kinds)
