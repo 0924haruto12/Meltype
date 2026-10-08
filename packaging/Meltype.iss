@@ -71,8 +71,7 @@ Filename: "{app}\Meltype.exe"; Description: "Meltype を起動する"; Flags: no
 Filename: "{app}\Meltype.exe"; Parameters: "--exit"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "ExitMeltype"
 
 [UninstallDelete]
-; zip の Uninstall.cmd と同じく、設定と学習データも消す
-Type: filesandordirs; Name: "{localappdata}\Meltype"
+; 設定と学習データ ({localappdata}\Meltype) は、アンインストールの最後に聞いてから消す (CurUninstallStepChanged)
 Type: filesandordirs; Name: "{app}"
 
 [Code]
@@ -106,6 +105,15 @@ begin
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Data: String;
 begin
   if CurUninstallStep = usUninstall then StopMeltype();
+  // 設定と学習データは入れ直したときにも使えるよう、聞いてから消す (既定は残す)。画面の無いアンインストールでは残す。
+  if (CurUninstallStep = usPostUninstall) and not UninstallSilent() then
+  begin
+    Data := ExpandConstant('{localappdata}\Meltype');
+    if DirExists(Data) and (MsgBox('設定と学習データ (' + Data + ') も削除しますか?' + #13#10 + #13#10 + '「いいえ」なら残します。もう一度インストールしたときに、そのまま使えます。', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES) then
+      DelTree(Data, True, True, True);
+  end;
 end;

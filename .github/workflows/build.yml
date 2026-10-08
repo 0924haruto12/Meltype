@@ -57,7 +57,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Compile installer script
-        shell: powershell
+        shell: pwsh
         run: |
           $iscc = .\packaging\Find-InnoSetup.ps1
           $stage = Join-Path $env:RUNNER_TEMP 'Meltype'
@@ -186,7 +186,7 @@ jobs:
           .\Build-Package.ps1 -Version $version
       # インストーラー (dist\Meltype-<版>-setup.exe)。zip と同じ app フォルダーから作る (issue #161)。
       - name: Installer
-        shell: powershell
+        shell: pwsh
         env:
           MELTYPE_SIGN_PASSWORD: ${{ secrets.SIGN_PASSWORD }}
         run: |
