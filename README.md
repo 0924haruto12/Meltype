@@ -1,13 +1,43 @@
-# Meltype
+<a id="meltype"></a>
 
-**雪解けのように、半角/全角の壁を溶かす日本語入力。**
+<div align="center">
+
+<img src="docs/images/banner.svg" alt="Meltype — 雪解けのように、半角/全角の壁を溶かす日本語入力。" width="100%">
+
+<br>
+
+**半角/全角 キーを押さなくても、日本語と英語を打ち分けられる日本語入力**
+
+[![最新の版](https://img.shields.io/github/v/release/yksr-melt/Meltype?label=%E6%9C%80%E6%96%B0%E3%81%AE%E7%89%88&color=3b82d6)](https://github.com/yksr-melt/Meltype/releases/latest)
+[![ダウンロード数](https://img.shields.io/github/downloads/yksr-melt/Meltype/total?label=%E3%83%80%E3%82%A6%E3%83%B3%E3%83%AD%E3%83%BC%E3%83%89&color=5aa0e8)](https://github.com/yksr-melt/Meltype/releases)
+[![build](https://img.shields.io/github/actions/workflow/status/yksr-melt/Meltype/build.yml?branch=main&label=build)](https://github.com/yksr-melt/Meltype/actions/workflows/build.yml)
+[![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-1d4f91)](LICENSE)
+<br>
+![Windows 10/11](https://img.shields.io/badge/Windows-10%20%2F%2011-0078D4?logo=windows&logoColor=white)
+![macOS (プレビュー)](https://img.shields.io/badge/macOS-%E3%83%97%E3%83%AC%E3%83%93%E3%83%A5%E3%83%BC-555?logo=apple&logoColor=white)
+![Linux (プレビュー)](https://img.shields.io/badge/Linux-%E3%83%97%E3%83%AC%E3%83%93%E3%83%A5%E3%83%BC-555?logo=linux&logoColor=white)
+
+[**⬇️ ダウンロード**](https://github.com/yksr-melt/Meltype/releases/latest) ・
+[📖 使い方](docs/USAGE.md) ・
+[🐛 不具合の報告・提案](https://github.com/yksr-melt/Meltype/issues/new/choose) ・
+[🛠️ 開発に参加する](CONTRIBUTING.md)
+
+</div>
+
+---
+
+| 打ったキー | 出る文字 |
+|---|---|
+| `kyouhagoogledekensaku` | 今日は**google**で検索 |
+| `I want to go to the park` | **I want to go to the park** |
+| `egao` → Space | 😊 (絵文字・顔文字も候補に出る) |
 
 半角/全角 キーを押さなくても、日本語と英語を打ち分けられるようにする Windows 常駐ツールです。
 (開発中は AutoIME という仮の名前でした。以前の設定と学習データは、Meltype の初回起動時に自動で引き継ぎます)
 
-Windows 版のほか、Mac 版・Linux 版のプレビュー版があります ([mac/README.md](mac/README.md)。Linux 版は IBus のエンジン)。プレビュー版は、まだ一部の機能が無く、動きも変わることがあります。
+Windows 版のほか、Mac 版・Linux 版のプレビュー版があります ([mac/README.md](mac/README.md)。Linux 版は IBus / fcitx5 のエンジン)。プレビュー版は、まだ一部の機能が無く、動きも変わることがあります。
 
-## できること
+## ✨ できること
 
 - 半角/全角 キーを押さずに、ローマ字のまま日本語と英語を混ぜて打てます (`kyouhagoogledekensaku` → 今日はgoogleで検索)
 - 日本語は変換ボックスでかな・漢字に変換し、英単語 (`google` `github` `hello` …) は自動で英字のまま
@@ -17,56 +47,102 @@ Windows 版のほか、Mac 版・Linux 版のプレビュー版があります (
 - AI エージェントの `/command`・`$skill`・`@ファイル名` は変換せずにそのまま入力 (アプリの補完を選べる)
 - 打った内容をネットワークに送りません。判定・変換はすべて PC の中で行います
 
-## インストール
+## 📦 インストール
+
+> [!NOTE]
+> **必要なもの:** Windows 10 / 11 (64bit)、Microsoft IME (Windows 標準の日本語入力)。.NET は同梱しているので、別に入れる必要はありません。
 
 1. [Releases](https://github.com/yksr-melt/Meltype/releases) から、インストーラー `Meltype-<version>-setup.exe` をダウンロードして実行する (管理者権限は不要)
-   - zip で入れたいときは `Meltype-<version>-windows.zip` をダウンロードして展開し、`Install.cmd` をダブルクリックする。どちらで入れても同じ場所 (`%LOCALAPPDATA%\Programs\Meltype`) に入る
-   - Mac 版は `Meltype-<version>-mac.zip`、Linux 版は `Meltype-<version>-linux.zip` (どちらもプレビュー版)
-2. インストーラー (または `Install.cmd`) の案内に従う。Meltype IME を入れるときだけ管理者権限の確認が出ます。断っても変換ボックス方式は使えます。
-   - Meltype はコード署名をしていないので、「Windows によって PC が保護されました」と出ることがあります。「詳細情報」→「実行」で入れられます。
-   - 「ウイルスを検出しました」などの脅威検出は、上の SmartScreen の警告とは別です。誤検知の可能性もありますが、検出名だけでは判断できません。Windows セキュリティ →「ウイルスと脅威の防止」→「保護の更新」で定義を更新し、公式リリースを再ダウンロードして再検査してください。引き続き検出される場合は、保護を無効にしたりフォルダーを除外したりせず、「保護の履歴」で検出名・影響を受けた項目を確認し、版と検出名を [Issues](https://github.com/yksr-melt/Meltype/issues) に報告してください (個人名・パス・ダウンロード URL の一時トークンは隠してください)。
-   - ダウンロードした zip が本物か確かめたいときは、リリースのページに出ている SHA-256 と比べてください (PowerShell: `Get-FileHash .\Meltype-<version>-windows.zip`)。
+2. インストーラーの案内に従う。Meltype IME を入れるときだけ管理者権限の確認が出ます。断っても変換ボックス方式は使えます。
 3. タスクトレイに「あ」のアイコンが出れば動いています。Windows の起動時にも自動で起動します。
 
+| OS | ファイル | |
+|---|---|---|
+| Windows 10 / 11 | `Meltype-<version>-setup.exe` (インストーラー) | おすすめ |
+| Windows 10 / 11 | `Meltype-<version>-windows.zip` | 展開して `Install.cmd` をダブルクリック |
+| Mac | `Meltype-<version>-mac.zip` | プレビュー版 |
+| Linux (IBus / fcitx5) | `Meltype-<version>-linux.zip` | プレビュー版 |
+
+インストーラーと zip のどちらで入れても、同じ場所 (`%LOCALAPPDATA%\Programs\Meltype`) に入ります。
 1.0.0 以降は、新しい版が出ると自動で更新します (トレイのアイコンを右クリック →「更新」→「自動で更新する」で止められます)。
-アンインストールは、トレイの Meltype のアイコンを右クリック →「アンインストール...」か、Windows の「設定」→「アプリ」→「インストールされているアプリ」で Meltype の「…」→「アンインストール」を選びます。インストーラーで入れたときは、最後に設定と学習データも消すかを聞きます (既定は残す)。zip の中の `Uninstall.cmd` をダブルクリックしてもアンインストールできます (こちらは設定と学習データも消えます)。
 
-必要なもの: Windows 10 / 11 (64bit)、Microsoft IME (Windows 標準の日本語入力)。.NET は同梱しているので、別に入れる必要はありません。
+> [!TIP]
+> Meltype はコード署名をしていないので、「Windows によって PC が保護されました」と出ることがあります。「詳細情報」→「実行」で入れられます。
 
-## 使い始める
+<details>
+<summary><b>「ウイルスを検出しました」と出たとき / ダウンロードしたファイルを確かめたいとき</b></summary>
+
+- 「ウイルスを検出しました」などの脅威検出は、上の SmartScreen の警告とは別です。誤検知の可能性もありますが、検出名だけでは判断できません。Windows セキュリティ →「ウイルスと脅威の防止」→「保護の更新」で定義を更新し、公式リリースを再ダウンロードして再検査してください。引き続き検出される場合は、保護を無効にしたりフォルダーを除外したりせず、「保護の履歴」で検出名・影響を受けた項目を確認し、版と検出名を [Issues](https://github.com/yksr-melt/Meltype/issues) に報告してください (個人名・パス・ダウンロード URL の一時トークンは隠してください)。
+- ダウンロードした zip が本物か確かめたいときは、リリースのページに出ている SHA-256 と比べてください (PowerShell: `Get-FileHash .\Meltype-<version>-windows.zip`)。
+
+</details>
+
+<details>
+<summary><b>アンインストール</b></summary>
+
+トレイの Meltype のアイコンを右クリック →「アンインストール...」か、Windows の「設定」→「アプリ」→「インストールされているアプリ」で Meltype の「…」→「アンインストール」を選びます。インストーラーで入れたときは、最後に設定と学習データも消すかを聞きます (既定は残す)。zip の中の `Uninstall.cmd` をダブルクリックしてもアンインストールできます (こちらは設定と学習データも消えます)。
+
+</details>
+
+## ⌨️ 使い始める
 
 メモ帳やブラウザーの入力欄で、IME を気にせずそのままローマ字で打ってください。
 
-- インストールで Meltype IME を入れた場合は、**Win + Space** で「Meltype」を選びます。打った文字は入力欄にそのまま下線付きで入り、変換の候補は入力位置の下に一覧で出ます ([使い方](docs/USAGE.md#meltype-ime))
+- インストールで Meltype IME を入れた場合は、<kbd>Win</kbd> + <kbd>Space</kbd> で「Meltype」を選びます。打った文字は入力欄にそのまま下線付きで入り、変換の候補は入力位置の下に一覧で出ます ([使い方](docs/USAGE.md#meltype-ime))
 - Meltype IME を入れていない場合は、日本語はかなで、英単語は英字のまま、カーソルの下の変換ボックスに出ます
-- **Enter** で確定、**Space** で漢字に変換 (英単語のときは確定して空白)
-- 変換中は ← → で文節を選び、Space / ↓ で候補を切り替え
-- **F7** でカタカナ、**F10** で英字 (続けて押すと 大文字 → 先頭だけ大文字)。英字にして確定した語は、次から英字になります
-- **半角/全角** で英数 (そのまま入力) ⇔ 日本語、**Ctrl + 半角/全角** で Meltype 自体の一時停止 / 再開
-- よく使う言葉は、トレイのアイコンを右クリック →「ユーザー辞書...」で登録できます
 
+| キー | 動き |
+|---|---|
+| <kbd>Enter</kbd> | 確定 |
+| <kbd>Space</kbd> | 漢字に変換 (英単語のときは確定して空白) |
+| <kbd>←</kbd> <kbd>→</kbd> / <kbd>Space</kbd> <kbd>↓</kbd> | 変換中に文節を選ぶ / 候補を切り替える |
+| <kbd>F7</kbd> | カタカナ |
+| <kbd>F10</kbd> | 英字 (続けて押すと 大文字 → 先頭だけ大文字)。英字にして確定した語は、次から英字になる |
+| <kbd>半角/全角</kbd> | 英数 (そのまま入力) ⇔ 日本語 |
+| <kbd>Ctrl</kbd> + <kbd>半角/全角</kbd> | Meltype 自体の一時停止 / 再開 |
+
+よく使う言葉は、トレイのアイコンを右クリック →「ユーザー辞書...」で登録できます。
 詳しい使い方 (キー操作・判定の強さ・かな入力・コードエディター・設定など) は [docs/USAGE.md](docs/USAGE.md) にあります。
 
-## よくある質問
+## ❓ よくある質問
 
-**タスクバーの IME の表示がずっと「A」のまま**
+<details>
+<summary><b>タスクバーの IME の表示がずっと「A」のまま</b></summary>
+
 Meltype が Windows の IME を OFF にして、代わりに入力を受け持っているためです (故障ではありません)。今のモードは、入力欄に入ったときにカーソルの近くに出る「あ」「A」か、タスクトレイの Meltype のアイコンで分かります。
 
-**Google 日本語入力など、ほかの IME も使いたい**
+</details>
+
+<details>
+<summary><b>Google 日本語入力など、ほかの IME も使いたい</b></summary>
+
 Ctrl + 半角/全角 で Meltype を一時停止してから使ってください。
 
-**英語のつもりがかなになった / かなのつもりが英字になった**
+</details>
+
+<details>
+<summary><b>英語のつもりがかなになった / かなのつもりが英字になった</b></summary>
+
 F10 (英字) / F6 (ひらがな) で直して確定すると、次からその語は直した方になります。トレイの右クリック →「自動判定の強さ」でも調整できます。
 
-**おかしな動きを見つけた**
+</details>
+
+<details>
+<summary><b>おかしな動きを見つけた</b></summary>
+
 トレイのアイコンを右クリック →「不具合の報告・提案...」から報告できます。「どのアプリで」「何と打って」「どうなったか」を書いてもらえると助かります。
 
-## プライバシー
+</details>
 
-Meltype はキーボードの入力を監視して動くツールですが、打った内容をネットワークに送ることはありません。 セキュリティの方針と脆弱性の報告先は [SECURITY.md](SECURITY.md)。通信するのは、自動更新で GitHub に新しい版があるかを確かめるとき (送るのは今の版だけ) と、自分で開いた不具合報告のフォームだけです。
+## 🔒 プライバシー
+
+> [!IMPORTANT]
+> Meltype はキーボードの入力を監視して動くツールですが、**打った内容をネットワークに送ることはありません。** 判定・変換はすべて PC の中で行います。
+
+セキュリティの方針と脆弱性の報告先は [SECURITY.md](SECURITY.md)。通信するのは、自動更新で GitHub に新しい版があるかを確かめるとき (送るのは今の版だけ) と、自分で開いた不具合報告のフォームだけです。
 保存するのは `%LOCALAPPDATA%\Meltype` の設定・学習データ・ユーザー辞書と、ファイルログを ON にしたときのログだけです。
 
-## ライセンス
+## 📄 ライセンス
 
 Meltype は **GNU General Public License v3.0** ([LICENSE](LICENSE)) で公開しています。
 
@@ -90,7 +166,7 @@ even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 General Public License for more details.
 ```
 
-## 協力してくださった方々
+## 💐 協力してくださった方々
 
 テスト版を使って、不具合の報告や意見をくださった方々です。ありがとうございました (敬称略)。
 
@@ -104,6 +180,12 @@ General Public License for more details.
 - Ray
 - うぽつです ([@up2ds](https://x.com/up2ds))
 
-## 開発に参加する
+## 🛠️ 開発に参加する
 
 ソースからのビルド・テスト・動作の仕組みは [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)、不具合の報告・辞書の追加・Pull Request の送り方は [CONTRIBUTING.md](CONTRIBUTING.md) を見てください。
+
+<a href="https://github.com/yksr-melt/Meltype/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=yksr-melt/Meltype" alt="コントリビューター">
+</a>
+
+<div align="right"><a href="#meltype">⬆ ページの先頭へ</a></div>
