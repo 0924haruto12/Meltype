@@ -25,6 +25,8 @@ internal static class Quality
     [
         // --- 日本語の文 (テスト用の変換エンジンはかなのまま返す) ---
         new("日本語", "kyouhaiitenkidesune", "きょうはいいてんきですね"),
+        new("日本語", "tsukuenouenoitsumonohon", "つくえのうえのいつものほん"),
+        new("日本語", "matsurinokatsudounoketsuron", "まつりのかつどうのけつろん"),
         new("日本語", "watashihagakuseidesu", "わたしはがくせいです"),
         new("日本語", "arigatougozaimasu", "ありがとうございます"),
         new("日本語", "yoroshikuonegaishimasu", "よろしくおねがいします"),
@@ -104,6 +106,8 @@ internal static class Quality
         new("混在", "kyouhagoogledekensaku", "きょうはgoogleでけんさく"),
         new("混在", "reflectsareta", "reflectされた"),
         new("混在", "selectshita", "selectした"),
+        new("混在", "inviteshimashita", "inviteしました"),
+        new("混在", "invitewookutta", "inviteをおくった"),
         new("混在", "githubnipushshita", "githubにpushした"),
         new("混在", "pythondekaita", "pythonでかいた"),
         new("混在", "zoomdekaigi", "zoomでかいぎ"),
