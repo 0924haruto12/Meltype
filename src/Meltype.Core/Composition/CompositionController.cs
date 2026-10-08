@@ -1507,6 +1507,9 @@ public sealed class CompositionController
             // 英語で確定した語を日本語に (Space で空白を入れていたら取る)。
             targets = [previous];
             replacement = _detector.Romaji.ConvertLenient(previous.Raw.ToLowerInvariant(), final: true);
+            // ローマ字として読んでもよく使う語の読みにならない語 (issue → いっすえ、api → あぴ) は英語のまま (issue #121, #124)。
+            // sushi → すし のように、日本語の語として読めるときだけ直す。
+            if (_options.RomajiTypos is { } lexicon && !lexicon.IsWord(replacement)) return;
         }
         var original = string.Concat(targets.Select(t => t.Text));
         if (replacement is null || replacement == original) return;

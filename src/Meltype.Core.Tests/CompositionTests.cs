@@ -1151,6 +1151,22 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void AutoCorrect_KeepsEnglishWordThatIsNotJapanese()
+    {
+        // #121: issue を確定した後に たてた と続けても、issue を いっすえ に確定し直さない (いっすえ は日本語の語ではない)
+        // #124: api の後の って で、api を あぴ にしない
+        foreach (var (word, next, expected) in new[] { ("issue", "tateta", "issueたてた"), ("api", "tte", "apiって") })
+        {
+            var k = new Keyboard();
+            k.Host.PrecedingText = "I love ";
+            k.Type(word + "\n");
+            k.Host.PrecedingText = null;
+            k.Type(next + "\n");
+            Assert.Equal(expected, k.Host.Document, string.Join("|", k.Host.Events));
+        }
+    }
+
+    [Test]
     public static void AutoCorrect_NotAfterCaretMoved()
     {
         var k = new Keyboard();
