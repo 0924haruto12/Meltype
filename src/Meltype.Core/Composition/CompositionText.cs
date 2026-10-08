@@ -252,6 +252,17 @@ public sealed class CompositionText
             if (fixedL || _units[i] is { Raw: "ltu" or "ltsu", Kana: "っ" }) li = i;
         }
         if (li < 0) return;
+        // l が重なる (hote|l + l|tu = hotelっ: issue #218)。前の l で英単語 (hotel・total) が終わっているなら、
+        // 後ろの l は英単語 (te|ll = tell) の続きではなく、わざわざ打った ltu (っ)。後ろの読みに関わらず っ にする。
+        if (li > start && _units[li - 1] is { Raw: "l", Kana: "l" } && EndsWithEnglishWordFromUnit(li))
+        {
+            var typed = _units[li].Raw + string.Concat(_units.Skip(li + 1).Select(u => u.Raw));
+            if (_units[li].Kana != "l" || typed.Any(char.IsAsciiLetterUpper) || _detector.Romaji.AnalyzeFragment(typed).Kana.Contains("っっ")) return;
+            var next = _units[li + 1];
+            _units.RemoveRange(li, 2);
+            _units.Insert(li, new CompositionUnit("っ", "l" + next.Raw));
+            return;
+        }
         // 英単語の始まり: li - 1 から前へ、stem + l が 4 文字以上の知っている英単語になる位置
         var w = -1;
         var stem = "";
