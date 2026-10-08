@@ -117,6 +117,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         _composition = composition;
         composition.PasteCommit = () => PastePolicy.ShouldPaste(_settings, _foreground.Current.ProcessName, IsQt(_foreground.Current.Window));
         composition.InputAllowed = () => KeyboardLayoutPolicy.AllowsInput(_settings);
+        composition.Focus.TreatsAsTextInput = () => _settings.TreatsAsTextInput(_foreground.Current.ProcessName);
         // 変換ボックスで確定した文字と、Meltype が送り直したキーも、今の行の追いかけに入れる (自分で送ったキーはフックに届かない)。
         composition.Controller.Committed += text =>
         {
@@ -503,6 +504,8 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         if (!next.Enabled || next.Mode != InputMode.Keyboard || !KeyboardLayoutPolicy.AllowsInput(next)) _composition?.Flush();
         if (next.Mode == InputMode.Keyboard && (previous.Mode != InputMode.Keyboard || !previous.Enabled)) CloseSystemImeAsync();
         if (!next.Enabled) FlushAbandoned(_session.Abort());
+        // 「入力欄とみなすアプリ」を変えたら、今のフォーカスを調べ直す (前面のアプリに戻ったときを待たずに効かせる)。
+        if (previous.TextInputApps != next.TextInputApps) _composition?.Focus.Invalidate();
         Log.SetFileOutput(next.FileLog ? AppPaths.LogFile : null);
         Log.RecordText = next.LogTypedText;
         if (_configPath is not null)
