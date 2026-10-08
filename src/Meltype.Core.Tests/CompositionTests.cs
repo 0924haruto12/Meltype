@@ -59,6 +59,7 @@ internal static class CompositionTests
         public List<string> Events { get; } = [];
         public CompositionView? View { get; private set; }
         public bool PhysicalShift { get; set; }
+        public bool CanDeleteBackward { get; set; } = true;
         public ReconversionSelection? Selection { get; set; }
 
         public ReconversionSelection? GetReconversionSelection() => Selection;
@@ -935,6 +936,32 @@ internal static class CompositionTests
         k.Host.PrecedingText = null;
         k.Type("gasuki\n");
         Assert.Equal("すしがすき", k.Host.Document, "後ろに日本語が続いたので日本語に確定し直す");
+    }
+
+    [Test]
+    public static void AutoCorrect_NotWhenHostCannotDelete()
+    {
+        // #124: 確定済みの文字を消せない入力欄 (Linux で周りの文字に対応していないアプリ) では確定し直さない (sushi が残って すし が足されないように)
+        var k = new Keyboard();
+        k.Host.CanDeleteBackward = false;
+        k.Host.PrecedingText = "I love ";
+        k.Type("sushi ");
+        k.Host.PrecedingText = null;
+        k.Type("gasuki\n");
+        Assert.Equal("sushi がすき", k.Host.Document);
+        Assert.True(!k.Host.Events.Any(e => e.StartsWith("bs:")), "消さない");
+    }
+
+    [Test]
+    public static void AutoCorrect_KeepsExplicitlyChosenLanguage()
+    {
+        // #124: F10 で英字にして確定した語 (api) は、後ろに日本語が続いても かな に確定し直さない
+        var k = new Keyboard(languages: new LanguageMemory(null));
+        k.Type("api");
+        k.Press(VirtualKeys.F10);
+        k.Type("\n");
+        k.Type("tte\n");
+        Assert.Equal("apiって", k.Host.Document, string.Join("|", k.Host.Events));
     }
 
     [Test]

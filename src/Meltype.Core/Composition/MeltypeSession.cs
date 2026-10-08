@@ -157,6 +157,13 @@ public sealed class MeltypeSession
     /// <summary>英数 (直接入力) か。true の間はキーをすべてアプリに渡す (Mac の「英数」キー、「かな」キーで戻す)。</summary>
     public bool Direct { get; set; }
 
+    /// <summary>入力欄が確定済みの文字の削除に対応しているか (Linux の IBus では、対応していないアプリがある)。false なら確定し直さない。</summary>
+    public bool CanDeleteSurrounding
+    {
+        get => _host.CanDeleteBackward;
+        set => _host.CanDeleteBackward = value;
+    }
+
     /// <summary>変換ボックスに何か入っているか。</summary>
     public bool IsComposing => _controller.IsComposing;
 
@@ -231,6 +238,8 @@ public sealed class MeltypeSession
         private bool _hidden;
 
         public bool ReplayedCurrent { get; private set; }
+
+        public bool CanDeleteBackward { get; set; } = true;
 
         public void Begin(char? ch, bool shift, string? before, string? after)
         {
