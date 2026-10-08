@@ -39,6 +39,8 @@ public enum CompositionSize
     [Description("小")] Small,
     [Description("中")] Medium,
     [Description("大")] Large,
+    [Description("特大")] ExtraLarge,
+    [Description("最大")] Huge,
 }
 
 /// <summary>変換ボックスを出す位置。</summary>
@@ -57,6 +59,17 @@ public enum ConversionEngine
     [Description("Mozc")] Mozc,
     /// <summary>OS の変換エンジン (Windows では Microsoft IME)。</summary>
     [Description("Microsoft IME")] System,
+}
+
+/// <summary>句読点の組み合わせ (Microsoft IME と同じ 4 通り)。, と . を打ったときに出す文字。</summary>
+public enum PunctuationStyle
+{
+    /// <summary>既定。</summary>
+    [Description("、。")] Japanese,
+    /// <summary>論文などで使う全角のカンマとピリオド。</summary>
+    [Description("，．")] FullWidthCommaPeriod,
+    [Description("，。")] FullWidthCommaKuten,
+    [Description("、．")] ToutenFullWidthPeriod,
 }
 
 public enum InputMode
@@ -167,6 +180,10 @@ public sealed class Settings
      Description("確定するときに、日本語と英単語の間に半角スペースを入れます (今日はGitHubにpushした → 今日は GitHub に push した)。数字だけの語 (3時) には入れません。")]
     public bool SpaceAroundEnglish { get; set; }
 
+    [Category("1. 全般"), DisplayName("句読点"),
+     Description("日本語の中で , と . を打ったときに出す句読点です (Microsoft IME と同じ 4 通り)。論文などで「，．」「，。」「、．」を使うときに変えます。かな入力の 、 。 のキーにも効きます。数字の間の . , (1.5、1,000) や英単語の中の . (tetr.io) は半角のままです。")]
+    public PunctuationStyle Punctuation { get; set; } = PunctuationStyle.Japanese;
+
     [Category("1. 全般"), DisplayName("ライブ変換"),
      Description("Keyboard モードで、Space を押さなくても打ったそばから漢字に変換して表示します。")]
     public bool LiveConversion { get; set; } = true;
@@ -200,8 +217,12 @@ public sealed class Settings
     public CompositionPlacement CompositionPlacement { get; set; } = CompositionPlacement.Overlay;
 
     [Category("1. 全般"), DisplayName("変換ボックスの文字の大きさ"),
-     Description("自動: 入力欄の文字の高さに合わせます (小さな入力欄では小さく出ます)。入力欄の文字の高さが分からないアプリでは「中」になります。")]
+     Description("自動: 入力欄の文字の高さに合わせます (小さな入力欄では小さく出ます)。入力欄の文字の高さが分からないアプリでは「中」になります。小さな文字が読みにくいときは「特大」「最大」も選べます。")]
     public CompositionSize CompositionSize { get; set; } = CompositionSize.Auto;
+
+    [Category("1. 全般"), DisplayName("変換ボックスのフォント"),
+     Description("変換ボックスの文字のフォントです。既定は Yu Gothic UI です。この PC に無いフォントを選んでいたときは既定のフォントで出します。絵文字はカラーで出せるときはそのフォントで描きます。")]
+    public string CompositionFont { get; set; } = "";
 
     [Category("1. 全般"), DisplayName("通知を出す"),
      Description("Meltype を有効・一時停止にしたときなどに、画面の右下に通知を出します (Windows の通知の音も鳴ります)。OFF にすると通知も音も出しません。")]
