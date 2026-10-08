@@ -42,7 +42,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang lld pkg-config zlib1g-dev python3 \
-            libdbus-1-dev libglib2.0-dev libgtk-3-dev libibus-1.0-dev libxcb-xfixes0-dev qt6-base-dev
+            libdbus-1-dev libglib2.0-dev libgtk-3-dev libibus-1.0-dev libxcb-xfixes0-dev qt6-base-dev \
+            cmake fcitx5 fcitx5-modules-dev libfcitx5core-dev libfcitx5utils-dev libfcitx5config-dev
       - uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
         with:
           path: |
@@ -62,6 +63,14 @@ jobs:
         run: BAZEL="$HOME/tools/bazelisk" native/mozc/build-mozc-helper.sh "$HOME/mozc" "$HOME/bazel-cache"
       - name: Build
         run: linux/build.sh
+      # fcitx5 のアドオンを、fcitx5 のテスト用のフロントエンドで動かす。Mozc を外した本体だけで、かなの確定と変換の候補を見る
+      - name: Test fcitx5 addon
+        run: |
+          mkdir -p linux/build/fcitx5-native
+          cp linux/build/Meltype-linux/libMeltypeNative.so linux/build/fcitx5-native/
+          cmake -S linux/fcitx5 -B linux/build/fcitx5-test -DBUILD_TESTING=ON
+          cmake --build linux/build/fcitx5-test
+          HOME="$RUNNER_TEMP/fcitx5-home" MELTYPE_DIR="$PWD/linux/build/fcitx5-native" ctest --test-dir linux/build/fcitx5-test --output-on-failure
       - name: Package
         run: |
           # タグ (v1.0.0) なら Meltype-1.0.0-linux.zip、それ以外はテスト版の名前
