@@ -529,6 +529,14 @@ internal static class LanguageLearningTests
         k = new CompositionTests.Keyboard();
         k.Type("2mmol\n");
         Assert.Equal("2mmol", k.Host.Document);
+        // mm の後ろに日本語が続けば、確定した結果は単位の mm
+        k = new CompositionTests.Keyboard();
+        k.Type("10mmdesu");
+        Assert.Equal("10mmです", k.Showing);
+        // c 1 つは単位の打ちかけとして英字のまま
+        k = new CompositionTests.Keyboard();
+        k.Type("5c");
+        Assert.Equal("5c", k.Showing);
     }
 
     [Test]
