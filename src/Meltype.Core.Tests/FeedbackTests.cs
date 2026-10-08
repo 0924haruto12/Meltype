@@ -593,6 +593,29 @@ internal static class LanguageLearningTests
     }
 
     [Test]
+    public static void DoubledUnitAfterNumber_ShowsLettersWhileTyping()
+    {
+        // 50cc を打っている途中に 50っc と出ていた (issue #130)。確定した結果は直っていたが、途中の表示も 50cc にする
+        var k = new CompositionTests.Keyboard();
+        k.Type("50cc");
+        Assert.Equal("50cc", k.Showing);
+        k.Type("genntuki\n");
+        Assert.Equal("50ccげんつき", k.Host.Document);
+        // mm は mmol の打ちかけかもしれないので、今までどおり続きを待つ
+        k = new CompositionTests.Keyboard();
+        k.Type("2mmol\n");
+        Assert.Equal("2mmol", k.Host.Document);
+        // mm の後ろに日本語が続けば、確定した結果は単位の mm
+        k = new CompositionTests.Keyboard();
+        k.Type("10mmdesu");
+        Assert.Equal("10mmです", k.Showing);
+        // c 1 つは単位の打ちかけとして英字のまま
+        k = new CompositionTests.Keyboard();
+        k.Type("5c");
+        Assert.Equal("5c", k.Showing);
+    }
+
+    [Test]
     public static void UnitsAfterNumbers_StayLetters()
     {
         // 単位 (mm、min) が打ちにくく、日本語になることがあった (10mmで → 10っまで、5min → 5みん)。
