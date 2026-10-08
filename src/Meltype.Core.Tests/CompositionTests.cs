@@ -188,7 +188,7 @@ internal static class CompositionTests
 
         public Keyboard(bool live = false, bool direct = false, ConversionHistory? history = null, IKanjiConverter? converter = null,
             Func<string, IReadOnlyList<string>>? moreCandidates = null, UserDictionary? userDictionary = null, LanguageMemory? languages = null,
-            TranslationDictionary? translations = null, TranslationHistory? translationHistory = null)
+            TranslationDictionary? translations = null, TranslationHistory? translationHistory = null, bool slashAsMiddleDot = false)
         {
             Direct = direct;
             Controller = new CompositionController(Gate, Detector, converter ?? Converter, Host, new CompositionOptions
@@ -211,6 +211,7 @@ internal static class CompositionTests
                 RomajiTypos = Typos,
                 CorrectTypos = () => CorrectTypos,
                 SpaceAroundEnglish = () => SpaceAroundEnglish,
+                SlashAsMiddleDot = () => slashAsMiddleDot,
             });
         }
 
@@ -320,6 +321,22 @@ internal static class CompositionTests
         Assert.True(!k.Host.Events.Any(e => e.StartsWith("replace:")), "別の選択範囲を置換しない");
         Assert.Equal(0, k.Host.Output.Count);
         Assert.True(!k.Gate.IsCaptured, "置換失敗後もキーを解放する");
+    }
+
+    [Test]
+    public static void Slash_AsMiddleDot_WhenEnabled()
+    {
+        // #122: 設定が ON なら、かなの後ろの / は ・。英字・数字の後ろ・打ち始めは / のまま。OFF なら今までどおり /
+        foreach (var (typed, on, expected) in new[]
+        {
+            ("iron/masuku", true, "いろん・ますく"), ("iron/masuku", false, "いろん/ますく"),
+            ("3/4", true, "3/4"), ("/help", true, "/help"), ("and/or", true, "and/or"),
+        })
+        {
+            var k = new Keyboard(slashAsMiddleDot: on);
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, $"{typed} ({(on ? "ON" : "OFF")})");
+        }
     }
 
     [Test]

@@ -172,8 +172,18 @@ public sealed class CompositionText
                 return;
             }
         }
+        // / キーで中黒 (設定): かなのすぐ後ろの / は ・ (いろん/ますく → いろん・ますく)。英字・数字の後ろ (and/or、3/4、URL)
+        // と入力の始め (/help) は / のまま (issue #122)。英語の区間に入ったときは、打ったままの / を見せる。
+        if (c == '/' && SlashAsMiddleDot() && _units.Count > 0 && _units[^1].Kana is [.., var kana] && kana is >= 'ぁ' and <= 'ヺ' or 'ー')
+        {
+            _units.Add(new CompositionUnit("・", "/"));
+            return;
+        }
         _units.Add(new CompositionUnit(Symbol(c).ToString(), c.ToString()));
     }
+
+    /// <summary>かなのすぐ後ろの / を中黒 (・) にするか (設定)。</summary>
+    public Func<bool> SlashAsMiddleDot { get; set; } = () => false;
 
     /// <summary>
     /// 英単語の最後の n と、続けて打った n + 母音 (の・な …) が「nn → ん」とまとまってしまうのを防ぐ
