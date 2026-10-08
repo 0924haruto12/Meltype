@@ -706,7 +706,7 @@ internal static class CompositionTests
             ("3/4", true, "3/4"), ("/help", true, "/help"), ("and/or", true, "and/or"),
         })
         {
-            var k = new Keyboard(slashAsMiddleDot: on);
+            var k = new Keyboard(slashAsMiddleDot: on) { SigilWords = false }; // 先頭の /help は #193 でそのまま入力になるので切って比べる
             k.Type(typed + "\n");
             Assert.Equal(expected, k.Host.Document, $"{typed} ({(on ? "ON" : "OFF")})");
         }
@@ -1740,27 +1740,25 @@ internal static class CompositionTests
     public static void Clauses_ShiftArrowResizesAcrossEnglish()
     {
         // 報告 (#144): 英語の文節が混ざると Shift+← → で区切りを動かせない (みー|thin|ぐ、disco|で)。
+        // (mi-thingu は #153 の対応で最初から みーてぃんぐ と読むようになったので、英語の文節が残る例で確かめる)
         var k = new Keyboard();
-        k.Type("mi-thingu ");
-        Assert.Equal("みー|thin|ぐ", string.Join("|", k.Host.View!.Clauses!));
+        k.Type("konoteamdeyaru ");
+        Assert.Equal("この|team|でやる", string.Join("|", k.Host.View!.Clauses!));
         k.Key(VirtualKeys.LShift);
         k.Press(VirtualKeys.Right);
-        Assert.Equal("みーて|ぃん|ぐ", string.Join("|", k.Host.View.Clauses!), "後ろの英語の文節は、打ったローマ字のかなで読み直して区切りを動かす");
-        for (var i = 0; i < 3; i++) k.Press(VirtualKeys.Right);
-        Assert.Equal("みーてぃんぐ", string.Join("|", k.Host.View.Clauses!), "1 つの文節にできる");
+        Assert.Equal("このて|あm|でやる", string.Join("|", k.Host.View.Clauses!), "後ろの英語の文節は、打ったローマ字のかなで読み直して区切りを動かす");
+        k.Press(VirtualKeys.Right);
+        Assert.Equal("このてあ|m|でやる", string.Join("|", k.Host.View.Clauses!));
         k.Key(VirtualKeys.LShift, up: true);
-        k.Type("\n");
-        Assert.Equal("みーてぃんぐ", k.Host.Output.Single());
 
         k = new Keyboard();
-        k.Type("mi-thingu ");
+        k.Type("konoteamdeyaru ");
         k.Press(VirtualKeys.Right);
         k.Key(VirtualKeys.LShift);
         k.Press(VirtualKeys.Left);
-        Assert.Equal("みー|てぃ|んぐ", string.Join("|", k.Host.View!.Clauses!), "選んだ英語の文節も読み直して縮め、外れたかなは次の文節へ");
-        k.Press(VirtualKeys.Right);
-        k.Press(VirtualKeys.Right);
-        Assert.Equal("みー|てぃんぐ", string.Join("|", k.Host.View.Clauses!), "伸ばす");
+        Assert.Equal("この|てあ|mでやる", string.Join("|", k.Host.View!.Clauses!), "選んだ英語の文節も読み直して縮め、外れたかなは次の文節へ");
+        k.Press(VirtualKeys.Left);
+        Assert.Equal("この|て|あmでやる", string.Join("|", k.Host.View.Clauses!));
         k.Key(VirtualKeys.LShift, up: true);
 
         k = new Keyboard();
