@@ -149,6 +149,9 @@ public sealed class CompositionOptions
     /// <summary>変換ボックスの文字の大きさ。</summary>
     public Func<Config.CompositionSize> Size { get; init; } = () => Config.CompositionSize.Auto;
 
+    /// <summary>変換ボックスのフォント (空なら既定のフォント)。</summary>
+    public Func<string> Font { get; init; } = () => "";
+
     /// <summary>入力欄に入った (フォーカスが入った) ときにも入力モードを出すか。false なら 半角/全角 を押したときだけ。</summary>
     public Func<bool> ModeIndicatorOnFocus { get; init; } = () => true;
 }
