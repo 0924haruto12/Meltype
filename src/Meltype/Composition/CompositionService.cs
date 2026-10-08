@@ -480,6 +480,8 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         {
             Config.CompositionSize.Small => 0.8F,
             Config.CompositionSize.Large => 1.25F,
+            Config.CompositionSize.ExtraLarge => 1.6F,
+            Config.CompositionSize.Huge => 2F,
             Config.CompositionSize.Auto when textHeight is { } h && h >= 8 => Math.Clamp((float)h / _window.BaseTextHeight, 0.7F, 1.4F),
             // 文字の高さが分からないときは、ふつうの画面の文字 (16px 前後) に近い大きさ
             Config.CompositionSize.Auto => 0.8F,

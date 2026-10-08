@@ -537,6 +537,34 @@ internal static class LanguageLearningTests
   }
 
     [Test]
+    public static void TesterNames_AreCandidates()
+    {
+        // 協力してくださった方々の名前を変換しやすくする (issue #156)
+        var candidates = CandidateDictionary.Load(null);
+        foreach (var (reading, name) in new[] { ("くらいど", "くらいど！"), ("ことね", "琴音"), ("ことねりんく", "琴音Link"), ("れい", "Ray") })
+            Assert.True(candidates.Lookup(reading).Contains(name), reading + ": " + string.Join(" ", candidates.Lookup(reading)));
+    }
+
+    [Test]
+    public static void CompositionSize_LargerChoicesAreSaved()
+    {
+        // 変換ボックスの文字をもっと大きくしたい (issue #164): 特大・最大 を選べて、保存しても残る
+        var path = Path.Combine(Path.GetTempPath(), $"meltype-size-{Guid.NewGuid():N}.json");
+        try
+        {
+            foreach (var size in new[] { CompositionSize.ExtraLarge, CompositionSize.Huge })
+            {
+                new Settings { CompositionSize = size }.Save(path);
+                Assert.Equal(size, Settings.Load(path).CompositionSize);
+            }
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Test]
     public static void UnitsAfterNumbers_StayLetters()
     {
         // 単位 (mm、min) が打ちにくく、日本語になることがあった (10mmで → 10っまで、5min → 5みん)。
