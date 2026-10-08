@@ -134,6 +134,9 @@ public sealed class CompositionOptions
     /// <summary>ローマ字の打ち間違いを直すか (設定)。</summary>
     public Func<bool> CorrectTypos { get; init; } = () => true;
 
+    /// <summary>かなのすぐ後ろの / を中黒 (・) にするか (設定)。</summary>
+    public Func<bool> SlashAsMiddleDot { get; init; } = () => false;
+
     /// <summary>確定するときに、日本語と英単語の間に半角スペースを入れるか (設定)。</summary>
     public Func<bool> SpaceAroundEnglish { get; init; } = () => false;
 
@@ -253,6 +256,7 @@ public sealed class CompositionController
         if (_options.Languages is { } memory) memory.IsReadableRomaji ??= word => detector.Romaji.AnalyzeFragment(word) is { IsValid: true, Partial: "" };
         if (_options.RomajiTypos is { } lexicon) detector.IsCommonJapanese ??= lexicon.IsCommonJapanese;
         _text.CorrectTypos = () => _options.CorrectTypos();
+        _text.SlashAsMiddleDot = () => _options.SlashAsMiddleDot();
     }
 
     /// <summary>変換ボックスに入力中か、英数状態で打ち始めの語を判定中か。</summary>

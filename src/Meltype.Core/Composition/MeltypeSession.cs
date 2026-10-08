@@ -149,6 +149,7 @@ public sealed class MeltypeSession
             CandidateMeanings = () => settings.ShowCandidateMeanings,
             RomajiTypos = RomajiTypoCorrector.Load(detector.Romaji),
             CorrectTypos = () => settings.CorrectTypos,
+            SlashAsMiddleDot = () => settings.SlashAsMiddleDot,
             SpaceAroundEnglish = () => settings.SpaceAroundEnglish,
             Punctuation = () => settings.Punctuation,
             TranslationHistory = new TranslationHistory(AppPaths.TranslationHistoryFile),

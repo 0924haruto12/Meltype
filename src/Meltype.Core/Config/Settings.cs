@@ -204,6 +204,10 @@ public sealed class Settings
      Description("Space・Enter で変換・確定するときに打ち間違いを直します。ローマ字: 読めない子音が残ったとき、隣のキーの押し間違い・入れ替わり・抜けを 1 文字だけ直します (onegaishimsu → お願いします、sumimasne → すみません。よく使う語の読みになるときだけ)。英語: Windows の自動修正の一覧にある打ち間違いを直します (teh → the、recieve → receive)。")]
     public bool CorrectTypos { get; set; } = true;
 
+    [Category("1. 全般"), DisplayName("/ キーで中黒「・」"),
+     Description("かなのすぐ後ろで打った / を中黒「・」にします (いーろん/ますく → イーロン・マスク)。英字・数字の後ろ (and/or、3/4、URL) と、打ち始めの / (/help) は / のままです。OFF のときも、z/ または / を打って Space で「・」にできます。")]
+    public bool SlashAsMiddleDot { get; set; }
+
     [Category("1. 全般"), DisplayName("入力モードをカーソルの近くに表示"),
      Description("入力欄をクリックしたときと 半角/全角 を押したときに、カーソルの近くに「あ」(日本語) か「A」(英数) を一瞬表示します。Meltype キーボードの使用中は Windows の IME を OFF にしているので、タスクバーの IME の表示は常に「A」になります。今のモードはこの表示かトレイの Meltype のアイコンで確認してください。")]
     public bool ShowModeIndicator { get; set; } = true;
