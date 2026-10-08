@@ -654,6 +654,39 @@ internal static class LanguageLearningTests
     }
 
     [Test]
+    public static void JsonFiles_ReadWithGeneratedMetadata()
+    {
+        // Mac・Linux (NativeAOT) で config.json・languages.json・conversions.json が読めず、上書きで消えていた (issue #151)。
+        // 読み書きをビルド時に作った型の情報 (ソース生成) に変えたので、今までの形式のファイルがそのまま読めることを確かめる
+        var dir = Path.Combine(Path.GetTempPath(), $"meltype-json-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var config = Path.Combine(dir, "config.json");
+            File.WriteAllText(config, "{\n  // コメント\n  \"FileLog\": true,\n  \"Mode\": \"Keyboard\",\n  \"DetectionLevel\": \"Conservative\",\n  \"AppRules\": [{ \"Process\": \"code.exe\", \"Profile\": \"Code\" }],\n}");
+            var settings = Settings.Load(config);
+            Assert.True(settings.FileLog, "FileLog");
+            Assert.Equal(DetectionLevel.Conservative, settings.DetectionLevel);
+            Assert.Equal(AppProfile.Code, settings.ProfileFor("code.exe"));
+            Assert.True(!File.Exists(config + ".broken"), "壊れたとみなさない");
+            settings.Save(config);
+            Assert.True(File.ReadAllText(config).Contains("\"DetectionLevel\": \"Conservative\""), "列挙型は名前で保存する");
+
+            var languages = Path.Combine(dir, "languages.json");
+            File.WriteAllText(languages, "{\"emoji\":{\"English\":true,\"Used\":\"2026-10-01T00:00:00Z\",\"Count\":3,\"Explicit\":true}}");
+            Assert.Equal(true, new LanguageMemory(languages).Get("emoji"));
+
+            var conversions = Path.Combine(dir, "conversions.json");
+            File.WriteAllText(conversions, "{\"ごかん\":{\"Text\":\"互換\",\"Used\":\"2026-10-01T00:00:00Z\"}}");
+            var history = new ConversionHistory(conversions);
+            Assert.Equal("互換", history.Get("ごかん"));
+            history.Remember("きごう", "記号");
+            Assert.Equal("互換", new ConversionHistory(conversions).Get("ごかん"), "保存しても前の学習が残る");
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Test]
     public static void UnitsAfterNumbers_StayLetters()
     {
         // 単位 (mm、min) が打ちにくく、日本語になることがあった (10mmで → 10っまで、5min → 5みん)。
