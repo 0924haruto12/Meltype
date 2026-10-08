@@ -26,6 +26,8 @@ internal static class Quality
         // --- 日本語の文 (テスト用の変換エンジンはかなのまま返す) ---
         new("日本語", "kyouhaiitenkidesune", "きょうはいいてんきですね"),
         new("日本語", "hosuthingu", "ほすてぃんぐ"),
+        new("日本語", "tsukuenouenoitsumonohon", "つくえのうえのいつものほん"),
+        new("日本語", "matsurinokatsudounoketsuron", "まつりのかつどうのけつろん"),
         new("日本語", "watashihagakuseidesu", "わたしはがくせいです"),
         new("日本語", "arigatougozaimasu", "ありがとうございます"),
         new("日本語", "yoroshikuonegaishimasu", "よろしくおねがいします"),
@@ -103,6 +105,8 @@ internal static class Quality
 
         // --- 日本語の中の英単語 ---
         new("混在", "kyouhagoogledekensaku", "きょうはgoogleでけんさく"),
+        new("混在", "reflectsareta", "reflectされた"),
+        new("混在", "selectshita", "selectした"),
         new("混在", "inviteshimashita", "inviteしました"),
         new("混在", "invitewookutta", "inviteをおくった"),
         new("混在", "githubnipushshita", "githubにpushした"),
@@ -194,6 +198,8 @@ internal static class Quality
         new("大文字", "I", "I"),
         new("大文字", "W", "W"),
         new("大文字", "kaW", "かW"),
+        new("大文字", "AInituite", "AIについて"),
+        new("大文字", "AIdekiru", "AIできる"),
     ];
 
     /// <summary>コードの行のキャレット位置 (コメント・文字列の中か)。</summary>

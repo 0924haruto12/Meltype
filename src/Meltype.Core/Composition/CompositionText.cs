@@ -9,6 +9,9 @@ namespace Meltype.Composition;
 /// <summary>変換ボックスの表示形式。Auto 以外は F6/F7/F9/F10 などでユーザーが明示的に選んだもの。</summary>
 public enum DisplayMode { Auto, Hiragana, Katakana, FullWidthAlphanumeric, HalfWidthAlphanumeric }
 
+/// <summary>英字 (F9 / F10) で見せるときの大文字・小文字。F9 / F10 を続けて押すと 打ったまま → すべて大文字 → 先頭だけ大文字 と切り替わる。</summary>
+public enum LetterCase { AsTyped, Upper, Capitalized }
+
 /// <summary>
 /// 変換ボックス内の 1 単位。ローマ字 1 音 (きょ, っ, ん …)・ローマ字として読めなかった英字 1 文字・記号 1 文字のいずれか。
 /// Raw は実際に打った文字 (英語として表示するときに使う)。
@@ -36,6 +39,9 @@ public sealed class CompositionText
     public bool IsEmpty => _units.Count == 0 && _pending.Length == 0;
     public DisplayMode Mode { get; set; } = DisplayMode.Auto;
 
+    /// <summary>英字 (F9 / F10) で見せるときの大文字・小文字。確定・取り消しで戻る。</summary>
+    public LetterCase Case { get; set; } = LetterCase.AsTyped;
+
     /// <summary>自動判定の強さ (設定)。</summary>
     public Func<DetectionLevel> Level { get; set; } = () => DetectionLevel.Balanced;
 
@@ -47,12 +53,24 @@ public sealed class CompositionText
     /// <summary>かな入力 (JIS) か。かな入力では <see cref="AppendKana"/> で 1 キー 1 文字ずつ入れる。</summary>
     public bool KanaInput { get; set; }
 
+    /// <summary>句読点の組み合わせ (設定)。, と . (かな入力の 、 。 のキー) で入れる文字。</summary>
+    public PunctuationStyle Punctuation { get; set; } = PunctuationStyle.Japanese;
+
+    /// <summary>読点 (、 か ，)。</summary>
+    private char Comma => Punctuation is PunctuationStyle.FullWidthCommaPeriod or PunctuationStyle.FullWidthCommaKuten ? '，' : '、';
+
+    /// <summary>句点 (。 か ．)。</summary>
+    private char Period => Punctuation is PunctuationStyle.FullWidthCommaPeriod or PunctuationStyle.ToutenFullWidthPeriod ? '．' : '。';
+
     /// <summary>
     /// かな入力の 1 キー。raw はそのキーの英字 (英単語の判定と、英語として見せるときに使う)。
     /// 濁点・半濁点は直前のかなに付ける (か + ゛ → が)。
     /// </summary>
     public void AppendKana(char raw, char kana)
     {
+        // 、 。 のキーも設定の句読点にする。
+        if (kana == '、') kana = Comma;
+        else if (kana == '。') kana = Period;
         if (kana is '゛' or '゜' && _units.Count > 0 && _units[^1].Kana.Length == 1 &&
             Detection.KanaDetector.Combine(_units[^1].Kana[0], kana) is { } combined)
         {
@@ -96,7 +114,7 @@ public sealed class CompositionText
         if (!char.IsAsciiDigit(c) && _pending.Length == 0 && _units.Count >= 2 && _units[^1] is { Raw: ",", Kana: "," } &&
             _units[^2].Raw is [var digit] && char.IsAsciiDigit(digit))
         {
-            _units[^1] = _units[^1] with { Kana = "、" };
+            _units[^1] = _units[^1] with { Kana = Comma.ToString() };
         }
         if (char.IsAsciiLetter(c))
         {
@@ -131,9 +149,11 @@ public sealed class CompositionText
             }
             // 英単語の最後の t の次に打った s は、t と合わせて ts (つ・つぃ) にしない
             // (commit + suru・site → こっみつる・こっみつぃて ではなく commitする・commitして)。
-            if (_pending.Length == 1 && _pending[0] is 't' or 'T' && c is 's' or 'S' && EndsWithEnglishWordFromUnit(_units.Count, _pending.ToString()))
+            // 読めない子音がいくつか残っていても同じ (reflect + sareta の ct + s → reflectされた。refェcつァれた になっていた: issue #77)。
+            if (_pending.Length >= 1 && _pending[^1] is 't' or 'T' && c is 's' or 'S' && _pending.ToString().All(char.IsAsciiLetter) &&
+                EndsWithEnglishWordFromUnit(_units.Count, _pending.ToString()))
             {
-                _units.Add(new CompositionUnit(_pending.ToString(), _pending.ToString()));
+                foreach (var letter in _pending.ToString()) _units.Add(new CompositionUnit(letter.ToString(), letter.ToString()));
                 _pending.Clear();
             }
             _pending.Append(c);
@@ -230,6 +250,8 @@ public sealed class CompositionText
         for (var i = count - 1; i >= 0 && _units[i].Raw.Length > 0 && _units[i].Raw.All(char.IsAsciiLetter); i--)
         {
             letters = _units[i].Raw + letters;
+            // 大文字の略語の途中 (AI の I) から始まる語 (Init) は見ない (AInitsuite の t と s を つ にまとめるように: issue #129)
+            if (i > 0 && char.IsAsciiLetterUpper(_units[i].Raw[0]) && _units[i - 1].Raw is [.., var before] && char.IsAsciiLetterUpper(before)) continue;
             if (letters.Length >= 4 && _detector.IsKnownEnglishWord(letters)) return true;
         }
         return false;
@@ -273,6 +295,7 @@ public sealed class CompositionText
         if (IsEmpty)
         {
             Mode = DisplayMode.Auto;
+            Case = LetterCase.AsTyped;
             LevelOverride = null;
         }
     }
@@ -282,6 +305,7 @@ public sealed class CompositionText
         _units.Clear();
         _pending.Clear();
         Mode = DisplayMode.Auto;
+        Case = LetterCase.AsTyped;
         LevelOverride = null;
     }
 
@@ -312,7 +336,9 @@ public sealed class CompositionText
         foreach (var unit in UnitWords)
         {
             if (!lower.StartsWith(unit, StringComparison.Ordinal)) continue;
-            if (lower.Length == unit.Length && !final) return; // まだ続きを打つかもしれない
+            // まだ続きを打つかもしれない。ただし同じ子音を重ねた単位 (cc) は、日本語なら っ + 次の音 で続きが要るので、
+            // 打った時点で単位として見せる (50cc を打っている途中に 50っc と出ていた: issue #130)。
+            if (lower.Length == unit.Length && !final && !(unit is [var c1, var c2] && c1 == c2 && UnitWords.All(u => u == unit || !u.StartsWith(unit, StringComparison.Ordinal)))) return;
             if (lower.Length > unit.Length && UnitWords.Any(u => u.Length > unit.Length && u.StartsWith(lower[..(unit.Length + 1)], StringComparison.Ordinal))) return;
             // 小文字の母音が続くなら、ローマ字の語の途中 (10mina → 10みな) かもしれないので単位にしない
             // ただし単位の最後の文字の前までがローマ字として読めない (51km|ijou の k) なら、母音とつなげても読めないので単位 (51km以上)
@@ -587,11 +613,19 @@ public sealed class CompositionText
     /// <param name="convert">日本語の区間を漢字に変換する関数 (ライブ変換)。null ならかなのまま。</param>
     public string Display(bool final, Func<string, string>? convert = null) => Mode switch
     {
-        DisplayMode.HalfWidthAlphanumeric => Raw,
-        DisplayMode.FullWidthAlphanumeric => ToFullWidth(Raw),
+        DisplayMode.HalfWidthAlphanumeric => ApplyCase(Raw, Case),
+        DisplayMode.FullWidthAlphanumeric => ToFullWidth(ApplyCase(Raw, Case)),
         DisplayMode.Hiragana => AllKana(final),
         DisplayMode.Katakana => ToKatakana(AllKana(final)),
         _ => IsNumeric ? Raw : RenderSegments(final, convert),
+    };
+
+    /// <summary>英字の大文字・小文字を変える (ai → AI / Ai)。</summary>
+    public static string ApplyCase(string text, LetterCase letterCase) => letterCase switch
+    {
+        LetterCase.Upper => text.ToUpperInvariant(),
+        LetterCase.Capitalized => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..].ToLowerInvariant(),
+        _ => text,
     };
 
     /// <summary>英語区間は英字のまま、日本語区間はかな (または漢字)。</summary>
@@ -874,11 +908,12 @@ public sealed class CompositionText
     }
 
     /// <summary>日本語の中で打った記号 (Microsoft IME と同じく全角)。英語の区間では打ったままの半角で出す。数字と括弧は半角のまま。</summary>
-    private static char Symbol(char c) => c switch
+    private char Symbol(char c) => c switch
     {
         '-' => 'ー',
-        ',' => '、',
-        '.' => '。',
+        // 句読点は設定の組み合わせ (、。 / ，． / ，。 / 、．)。
+        ',' => Comma,
+        '.' => Period,
         '[' => '「',
         ']' => '」',
         // ASCII の括弧はチャット本文でもそのまま使われるため、入力した幅を保つ。
