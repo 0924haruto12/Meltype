@@ -65,6 +65,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ModeIndicatorOnFocus = () => _engine.Settings.ShowModeIndicatorOnFocus,
             Placement = () => _engine.Settings.CompositionPlacement,
             Size = () => _engine.Settings.CompositionSize,
+            Predictions = () => _engine.Settings.PredictiveCandidates,
             Font = () => _engine.Settings.CompositionFont,
             LightTheme = () => _engine.Settings.CompositionIsLight(Meltype.Composition.CompositionWindow.WindowsUsesLightTheme()),
             Opacity = () => _engine.Settings.CompositionOpacityValue,
@@ -514,12 +515,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ResetLearning()
     {
-        var answer = MessageBox.Show("学習データ (model.json と、選び直した変換の記録 conversions.json) をすべて削除します。よろしいですか？", "Meltype", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+        var answer = MessageBox.Show("学習データ (model.json と、選び直した変換の記録 conversions.json、予測変換の語句 phrases.txt) をすべて削除します。よろしいですか？", "Meltype", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
         if (answer == DialogResult.OK)
         {
             _engine.ResetLearning();
             _composition.History.Clear();
             _composition.Languages.Clear();
+            _composition.Phrases?.Clear();
         }
     }
 
@@ -529,6 +531,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
     /// </summary>
     private void Uninstall()
     {
+        // インストーラー (Meltype-<版>-setup.exe) で入れたときは、そのアンインストーラーを使う (確認もアンインストーラーが出す)
+        var installer = Path.Combine(AppContext.BaseDirectory, "unins000.exe");
+        if (File.Exists(installer))
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(installer) { UseShellExecute = true, WorkingDirectory = Path.GetTempPath() });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"アンインストールを始められませんでした: {ex.Message}", "Meltype", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            return;
+        }
         var script = Path.Combine(AppContext.BaseDirectory, "uninstall.ps1");
         if (!File.Exists(script))
         {

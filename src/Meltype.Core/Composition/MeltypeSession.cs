@@ -178,6 +178,13 @@ public sealed class MeltypeSession
     /// <summary>英数 (直接入力) か。true の間はキーをすべてアプリに渡す (Mac の「英数」キー、「かな」キーで戻す)。</summary>
     public bool Direct { get; set; }
 
+    /// <summary>入力欄が確定済みの文字の削除に対応しているか (Linux の IBus では、対応していないアプリがある)。false なら確定し直さない。</summary>
+    public bool CanDeleteSurrounding
+    {
+        get => _host.CanDeleteBackward;
+        set => _host.CanDeleteBackward = value;
+    }
+
     /// <summary>変換ボックスに何か入っているか。</summary>
     public bool IsComposing => _controller.IsComposing;
 
@@ -203,7 +210,7 @@ public sealed class MeltypeSession
         if (shift && _controller.IsComposing) Feed(new KeyEvent(VirtualKeys.LShift, 0, false, false, false, down.TimeMs));
         if (modifier && _controller.IsComposing) Feed(new KeyEvent(control ? VirtualKeys.LControl : VirtualKeys.LMenu, 0, false, false, false, down.TimeMs));
 
-        var swallowed = Feed(down, e => !modifier && StartsComposition(e, ch, shift));
+        var swallowed = Feed(down, e => !modifier && (StartsComposition(e, ch, shift) || e.Vk == VirtualKeys.Space && shift));
         // このキーをアプリに送り直した (= 使わなかった) なら、アプリに渡す。
         var consumed = swallowed && !_host.ReplayedCurrent;
         Feed(down with { IsUp = true });
@@ -289,6 +296,8 @@ public sealed class MeltypeSession
         private bool _hidden;
 
         public bool ReplayedCurrent { get; private set; }
+
+        public bool CanDeleteBackward { get; set; } = true;
 
         public void Begin(char? ch, bool shift, string? before, string? after)
         {

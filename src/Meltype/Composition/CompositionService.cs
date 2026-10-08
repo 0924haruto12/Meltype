@@ -70,7 +70,10 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             SpaceAroundEnglish = options.SpaceAroundEnglish,
             Punctuation = options.Punctuation,
             TranslationHistory = options.TranslationHistory ?? new TranslationHistory(Config.AppPaths.TranslationHistoryFile),
+            Predictor = options.Predictor ?? new Predictor(new PhraseHistory(Config.AppPaths.PhraseHistoryFile), UserDictionary, History),
+            Predictions = options.Predictions,
         };
+        Phrases = resolved.Predictor?.Phrases;
         _hybrid = new HybridConverter(options.Engine, _mozc, _converter, reading => _windowsCandidates.Get(reading));
         _resolved = resolved;
         Controller = new CompositionController(Gate, detector, _hybrid, this, resolved);
@@ -111,6 +114,9 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     /// <summary>ユーザーが英字 / かなに直した語の学習 (トレイの「学習データをリセット」で消す)。</summary>
     public LanguageMemory Languages { get; }
+
+    /// <summary>予測変換のために覚えた、確定した語句。</summary>
+    public PhraseHistory? Phrases { get; }
 
     /// <summary>ユーザー辞書 (トレイの「ユーザー辞書...」で編集する)。</summary>
     public UserDictionary UserDictionary { get; }
@@ -278,6 +284,8 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     public void CommitText(string text)
     {
+        // 変換ボックスを出したまま確定して、続けて打っている (kyouha Space iitenki): 次に見せるときに、確定した分だけ右へずらす
+        if (_window.Visible) _committedWhileVisible += text;
         EnsureSystemImeClosed();
         if (PasteCommit() && TryPaste(text))
         {
@@ -474,13 +482,32 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     /// <summary>入力位置の高さとして信じる上限 (ピクセル)。これより高いのは入力欄や行全体の四角形。</summary>
     private const int MaxLineHeight = 48;
 
+    /// <summary>変換ボックスを出したまま確定した文字 (次に見せるときに、その幅だけ変換ボックスを右へずらす)。</summary>
+    private string _committedWhileVisible = "";
+
     public void Show(CompositionView view)
     {
         if (_window.Visible)
         {
-            _window.ShowView(view, null);
-            return;
+            // 確定した文字の分だけ右へ (同じ位置のままだと、確定した文字を変換ボックスが隠してしまう: issue #57)。
+            // 入力欄のキャレットは確定した文字の入力が終わるまで動かないことがあるので、確定した文字の幅で動かす。
+            // 改行を含むとき・右へずらすと画面の外に出るとき (折り返し) は、ずらさずに入力欄のキャレットの位置を取り直す。
+            Point? moved = null;
+            var committed = _committedWhileVisible;
+            _committedWhileVisible = "";
+            if (committed.Length > 0)
+            {
+                var x = _window.Left + _window.TextWidth(committed);
+                var screen = Screen.FromPoint(new Point(_window.Left, _window.Top)).WorkingArea;
+                if (!committed.Contains('\n') && x + _window.Width <= screen.Right) moved = new Point(x, _window.Top);
+            }
+            if (committed.Length == 0 || moved is not null)
+            {
+                _window.ShowView(view, moved);
+                return;
+            }
         }
+        _committedWhileVisible = "";
         var caret = FindCaret();
         // 入力欄が空のとき、アプリによっては入力位置ではなく入力欄の枠 (40px の欄など) や、複数行の欄全体の四角形が返る。
         // 枠と同じ高さなら、文字の高さは枠のおよそ半分 (1 行の欄の文字は上下の真ん中にある)。高すぎる四角形は、文字の高さが分からない。
@@ -540,6 +567,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     public void Hide()
     {
+        _committedWhileVisible = "";
         if (_window.Visible) _window.Hide();
     }
 
@@ -631,13 +659,17 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     private Point FindAnchor(Rectangle? caret = null)
     {
         if ((caret ?? FindCaret()) is { } found) return new Point(found.Left, found.Bottom + 4);
-        if (Focus.Current.Bounds is { } bounds && bounds.Height is > 0 and < 120)
+        // 入力欄の四角形が潰れている・画面の外にある (Google ドキュメントの、文字を受け取るための見えない欄など) ときは、
+        // その左下に出すと画面の端や関係ない所に出てしまう (issue #128)。マウスカーソルの近くに出す。
+        if (Focus.Current.Bounds is { } bounds && bounds.Height is > 2 and < 120 && bounds.Width > 2 && IsOnScreen(bounds))
         {
             return new Point(bounds.Left, bounds.Bottom + 2);
         }
         Native.GetCursorPos(out var cursor);
         return new Point(cursor.X + 12, cursor.Y + 20);
     }
+
+    private static bool IsOnScreen(Rectangle bounds) => Screen.AllScreens.Any(s => s.Bounds.IntersectsWith(bounds));
 
     private static Native.INPUT UnicodeInput(char c, bool up) => new()
     {

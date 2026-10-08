@@ -169,13 +169,10 @@ public enum AppProfile
 /// </summary>
 public sealed class Settings
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() },
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-    };
+    // 型の情報はビルド時に作ったもの (SettingsJsonContext)。Mac・Linux の NativeAOT でも読める (issue #151)。
+    // 字下げ・コメントと末尾の , を許す・列挙型は名前で読み書き は SettingsJsonContext の属性で指定している。
+    private static JsonSerializerOptions JsonOptions => SettingsJsonContext.Default.Options;
+    private static System.Text.Json.Serialization.Metadata.JsonTypeInfo<Settings> JsonType => SettingsJsonContext.Default.Settings;
 
     [Category("1. 全般"), DisplayName("Meltype を有効にする")]
     public bool Enabled { get; set; } = true;
@@ -184,6 +181,10 @@ public sealed class Settings
      Description("Windows の入力言語が日本語のときだけ動作します。韓国語・英語などでは入力処理と IME の自動制御を停止し、日本語に戻すと再開します。物理キーボードの JIS / US 配列や IME の「あ」「A」の状態は問いません。全プロファイル共通です。")]
     public bool JapaneseKeyboardOnly { get; set; }
 
+    [Category("1. 全般"), DisplayName("遠隔操作などの入力も処理する"),
+     Description("AnyDesk・VNC などの遠隔操作ソフトから届いたキーも、手で打ったキーと同じように処理します (OFF だと、ほかのソフトが送ったキーはそのままアプリに渡し、変換ボックスを開きません)。遠隔操作ソフトとキーボードのマクロ・自動入力のソフトは見分けられないので、ON にするとどちらも処理の対象になります。Meltype 自身が送ったキーは、ON でも処理しません。全プロファイル共通です。")]
+    public bool AllowInjectedInput { get; set; }
+
     [Category("1. 全般"), DisplayName("動作モード"),
      Description("Tsf = Windows の IME として入力欄に直接入力 (Win + Space で Meltype を選ぶ) / Keyboard = Meltype の変換ボックスで入力 (英単語は自動で英字、Space で変換、Enter で確定) / AutoSwitch = 入力開始時に判定して Microsoft IME を自動で ON にする")]
     public InputMode Mode { get; set; } = InputMode.Keyboard;
@@ -191,6 +192,14 @@ public sealed class Settings
     [Category("1. 全般"), DisplayName("半角/全角 で Meltype を ON/OFF"),
      Description("Keyboard モードで、変換ボックスが出ていないときの 半角/全角 キーを Meltype キーボードの ON/OFF (直接入力) に使います。")]
     public bool HankakuTogglesKeyboard { get; set; } = true;
+
+    [Category("1. 全般"), DisplayName("無変換で英数 / 変換で日本語"),
+     Description("Keyboard モードで、変換ボックスが出ていないときの 無変換 キーで英数 (直接入力) に、変換 キーで日本語入力にします (Mac の 英数 / かな キーと同じく、押す前のモードによらず決まったモードになります)。もう日本語入力のときの 変換 キーは今までどおり選択した文字の再変換です。変換ボックスが出ている間の 無変換・変換 は今までどおりで、切り替えません。「コード」のアプリのコードの行では、変換 キーでその行を日本語にします (半角/全角 と同じ)。")]
+    public bool ConvertKeysSwitchKeyboard { get; set; }
+
+    [Category("1. 全般"), DisplayName("左 Alt で英数 / 右 Alt で日本語"),
+     Description("Keyboard モードで、左 Alt の単独押しで英数 (直接入力) に、右 Alt の単独押しで日本語入力にします (半角/全角 キーの無い US 配列向け)。Alt + Tab などの組み合わせや Alt + クリックでは切り替えません。単独押しでアプリのメニューバーに移らなくなります。変換ボックスが出ている間は切り替えません。「コード」のアプリのコードの行では、右 Alt でその行を日本語にします (半角/全角 と同じ)。")]
+    public bool AltKeysSwitchKeyboard { get; set; }
 
     [Category("1. 全般"), DisplayName("確定後も文脈に合わせて直す"),
      Description("英語とも日本語とも読める語 (i, sushi など) を確定した後、次の語で英語か日本語かがはっきりしたら自動で確定し直します (i → 胃 と確定した後に want と打つと I want)。")]
@@ -223,6 +232,10 @@ public sealed class Settings
     [Category("1. 全般"), DisplayName("英訳の候補"),
      Description("変換の候補の後ろに英訳も出します (複雑な → complex, complicated)。JMdict のよく使う語から。選んだ英訳は少しずつ前に出ます。")]
     public bool TranslationCandidates { get; set; } = true;
+
+    [Category("1. 全般"), DisplayName("予測変換の候補"),
+     Description("打っている途中に、続きの候補を変換ボックスの下に出します (前に確定した語句・ユーザー辞書・選び直した変換の学習・英単語の続き)。Tab / Shift+Tab で選んで Enter で確定します。確定した語句は %LOCALAPPDATA%\\Meltype\\phrases.txt (Mac・Linux は設定と同じフォルダー) に暗号化せずに覚え (この PC の外には送りません)、「学習データをリセット」で消えます。")]
+    public bool PredictiveCandidates { get; set; } = true;
 
     [Category("1. 全般"), DisplayName("候補の意味を表示"),
      Description("変換中に同じ候補で少し (約 1.5 秒) 止まると、その候補の意味をウィクショナリー日本語版から候補の一覧の横に出します (日本語の意味が無い語は JMdict の英訳: 橋 → bridge)。同音異義語を選ぶときの手がかりに。")]
@@ -351,7 +364,7 @@ public sealed class Settings
     private static readonly HashSet<string> SharedKeys =
     [
         nameof(Profiles), nameof(ActiveProfile), nameof(SettingsVersion), nameof(WelcomeShown),
-        nameof(Enabled), nameof(JapaneseKeyboardOnly), nameof(FileLog), nameof(LogTypedText), nameof(AutoUpdate),
+        nameof(Enabled), nameof(JapaneseKeyboardOnly), nameof(AllowInjectedInput), nameof(FileLog), nameof(LogTypedText), nameof(AutoUpdate),
         // 入力の方式 (Windows の IME として入力するか) は PC 全体の選び方なので、プロファイルで変えない
         nameof(Mode), nameof(TsfIntroduced),
     ];
@@ -359,7 +372,7 @@ public sealed class Settings
     /// <summary>今の設定の値のうち、プロファイルに入れるもの。</summary>
     public JsonObject ProfileValues()
     {
-        var values = JsonSerializer.SerializeToNode(this, JsonOptions)!.AsObject();
+        var values = JsonSerializer.SerializeToNode(this, JsonType)!.AsObject();
         foreach (var key in SharedKeys) values.Remove(key);
         return values;
     }
@@ -377,13 +390,13 @@ public sealed class Settings
         if (name == current.ActiveProfile || current.Profiles.FirstOrDefault(p => p.Name == name) is not { } target) return current;
         current.Profiles.First(p => p.Name == current.ActiveProfile).Values = current.ProfileValues();
         // 共通の項目は今の値のまま、プロファイルの項目だけを切り替え先の値にする
-        var merged = JsonSerializer.SerializeToNode(current, JsonOptions)!.AsObject();
+        var merged = JsonSerializer.SerializeToNode(current, JsonType)!.AsObject();
         // 前の版で保存したプロファイルには、今は共通にした項目 (動作モードなど) が入っていることがあるので飛ばす
         foreach (var (key, value) in target.Values ?? [])
         {
             if (!SharedKeys.Contains(key)) merged[key] = value?.DeepClone();
         }
-        var next = merged.Deserialize<Settings>(JsonOptions) ?? current;
+        var next = merged.Deserialize(JsonType) ?? current;
         next.ActiveProfile = name;
         return next.Normalize();
     }
@@ -454,12 +467,12 @@ public sealed class Settings
                 file["format"]?.GetValue<string>() != ProfileFileFormat || file["values"] is not JsonObject raw) return null;
             name = (file["name"]?.GetValue<string>() ?? "").Trim();
             // 既定の設定に、知っている項目だけを重ねてから読み直す (型の違う値はここで例外になる)
-            var merged = JsonSerializer.SerializeToNode(new Settings().Normalize(), JsonOptions)!.AsObject();
+            var merged = JsonSerializer.SerializeToNode(new Settings().Normalize(), JsonType)!.AsObject();
             foreach (var (key, value) in raw)
             {
                 if (merged.ContainsKey(key) && !SharedKeys.Contains(key)) merged[key] = value?.DeepClone();
             }
-            values = (merged.Deserialize<Settings>(JsonOptions) ?? new Settings()).Normalize().ProfileValues();
+            values = (merged.Deserialize(JsonType) ?? new Settings()).Normalize().ProfileValues();
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or NotSupportedException)
         {
@@ -682,7 +695,7 @@ public sealed class Settings
         {
             if (!File.Exists(path)) return new Settings();
             var json = File.ReadAllText(path);
-            var settings = JsonSerializer.Deserialize<Settings>(json, JsonOptions) ?? new Settings();
+            var settings = JsonSerializer.Deserialize(json, JsonType) ?? new Settings();
             if (!json.Contains(nameof(SettingsVersion))) settings.SettingsVersion = 1;
             if (settings.Migrate()) settings.Save(path);
             return settings.Normalize();
@@ -697,13 +710,13 @@ public sealed class Settings
     }
 
     /// <summary>config.json と同じ形式の文字列 (変更があったかを比べるのに使う)。</summary>
-    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
+    public string ToJson() => JsonSerializer.Serialize(this, JsonType);
 
     public void Save(string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temp = path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonOptions));
+        File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonType));
         File.Move(temp, path, overwrite: true);
     }
 }

@@ -59,6 +59,7 @@ internal static class CompositionTests
         public List<string> Events { get; } = [];
         public CompositionView? View { get; private set; }
         public bool PhysicalShift { get; set; }
+        public bool CanDeleteBackward { get; set; } = true;
         public ReconversionSelection? Selection { get; set; }
 
         public ReconversionSelection? GetReconversionSelection() => Selection;
@@ -204,7 +205,7 @@ internal static class CompositionTests
 
         public Keyboard(bool live = false, bool direct = false, ConversionHistory? history = null, IKanjiConverter? converter = null,
             Func<string, IReadOnlyList<string>>? moreCandidates = null, UserDictionary? userDictionary = null, LanguageMemory? languages = null,
-            TranslationDictionary? translations = null, TranslationHistory? translationHistory = null, bool slashAsMiddleDot = false)
+            TranslationDictionary? translations = null, TranslationHistory? translationHistory = null, bool slashAsMiddleDot = false, Predictor? predictor = null)
         {
             Direct = direct;
             Controller = new CompositionController(Gate, Detector, converter ?? Converter, Host, new CompositionOptions
@@ -227,6 +228,8 @@ internal static class CompositionTests
                 RomajiTypos = Typos,
                 CorrectTypos = () => CorrectTypos,
                 SpaceAroundEnglish = () => SpaceAroundEnglish,
+                Predictor = predictor,
+                Predictions = () => predictor is not null,
                 Punctuation = () => Punctuation,
                 SlashAsMiddleDot = () => slashAsMiddleDot,
             });
@@ -246,6 +249,7 @@ internal static class CompositionTests
             var letter = VirtualKeys.IsLetter(k.Vk);
             if (Direct) return letter && !_directEnglishWord && Level != Meltype.Config.DetectionLevel.Manual;
             if (Kana && Detection.KanaDetector.IsKanaKey(k.Vk)) return true;
+            if (k.Vk == VirtualKeys.Space && _shiftHeld) return true;
             return letter || k.Vk is >= 0x30 and <= 0x39 or >= 0xBA and <= 0xC0 or >= 0xDB and <= 0xDF or 0xE2;
         }
 
@@ -349,6 +353,79 @@ internal static class CompositionTests
         Assert.True(!k.Host.Events.Any(e => e.StartsWith("replace:")), "別の選択範囲を置換しない");
         Assert.Equal(0, k.Host.Output.Count);
         Assert.True(!k.Gate.IsCaptured, "置換失敗後もキーを解放する");
+    }
+
+    [Test]
+    public static void ShiftSpace_WhenIdle_TypesFullWidthSpace()
+    {
+        // #24: 何も打っていないときの Shift+Space は全角スペース (名前の間など)。Space だけなら今までどおり半角
+        var k = new Keyboard();
+        k.Type("tanaka\n");
+        k.Host.PhysicalShift = true;
+        k.Key(VirtualKeys.LShift);
+        k.Press(VirtualKeys.Space);
+        k.Key(VirtualKeys.LShift, up: true);
+        k.Host.PhysicalShift = false;
+        k.Type("tarou\n");
+        Assert.Equal("たなか　たろう", k.Host.Document);
+        Assert.True(!k.Gate.IsCaptured, "全角スペースの後は横取りしない");
+    }
+
+    [Test]
+    public static void ShiftSpace_InDirectMode_IsNotFullWidth()
+    {
+        var k = new Keyboard(direct: true);
+        k.Host.PhysicalShift = true;
+        k.Key(VirtualKeys.LShift);
+        k.Press(VirtualKeys.Space);
+        k.Key(VirtualKeys.LShift, up: true);
+        Assert.True(!k.Host.Document.Contains('　'), "英数状態では全角スペースにしない");
+    }
+
+    [Test]
+    public static void Prediction_RemembersCommittedPhrase()
+    {
+        // #38: 確定した語句を覚え、次に読みを打ちかけたら予測の候補に出す。Tab で選んで Enter で確定
+        var k = new Keyboard(predictor: new Predictor(new PhraseHistory(null), null, null));
+        k.Type("kyou ");
+        k.Press(VirtualKeys.Return);
+        Assert.Equal("今日", k.Host.Document);
+        k.Type("kyo");
+        Assert.True(k.Host.View!.Predictions?.Contains("今日") == true, "予測の候補に出る: " + string.Join(",", k.Host.View.Predictions ?? []));
+        k.Press(VirtualKeys.Tab);
+        Assert.Equal("今日", k.Showing);
+        Assert.Equal(0, k.Host.View!.SelectedPrediction);
+        k.Press(VirtualKeys.Return);
+        Assert.Equal("今日今日", k.Host.Document);
+    }
+
+    [Test]
+    public static void Prediction_CompletesEnglishWord()
+    {
+        // #38: 英単語の打ちかけ (decis) から続きの候補 (decision, decisions …)
+        var k = new Keyboard(predictor: new Predictor(null, null, null));
+        k.Host.PrecedingText = "I made ";
+        k.Type("decis");
+        var predictions = k.Host.View!.Predictions ?? [];
+        Assert.True(predictions.Contains("decision") && predictions.Contains("decisions"), string.Join(",", predictions));
+        var typing = k.Showing;
+        k.Press(VirtualKeys.Tab);
+        k.Press(VirtualKeys.Tab);
+        k.Press(VirtualKeys.Escape);
+        Assert.Equal(typing, k.Showing, "Esc で選ぶのをやめる (打った内容は残る)");
+        Assert.Equal(-1, k.Host.View!.SelectedPrediction);
+        k.Press(VirtualKeys.Tab);
+        var first = predictions[0];
+        k.Press(VirtualKeys.Return);
+        Assert.Equal(first, k.Host.Document);
+    }
+
+    [Test]
+    public static void Prediction_OffWithoutPredictor()
+    {
+        var k = new Keyboard();
+        k.Type("decis");
+        Assert.True(k.Host.View!.Predictions is null, "予測の元が無ければ出さない");
     }
 
     [Test]
@@ -478,6 +555,96 @@ internal static class CompositionTests
         k.Type("aiueo");
         k.Press(VirtualKeys.F10);
         Assert.Equal("aiueo", k.Showing);
+    }
+
+    private static void CtrlPress(Keyboard k, int vk)
+    {
+        k.Key(VirtualKeys.LControl);
+        k.Press(vk);
+        k.Key(VirtualKeys.LControl, up: true);
+    }
+
+    [Test]
+    public static void CtrlUiop_SwitchesKanaAndLetters()
+    {
+        // #53: Ctrl+P → 全角英数、Ctrl+O → 半角英数 (続けて押すと大文字)、Ctrl+I → カタカナ、Ctrl+U → ひらがな
+        var k = new Keyboard();
+        k.Type("aiueo");
+        CtrlPress(k, 'P');
+        Assert.Equal("ａｉｕｅｏ", k.Showing);
+        CtrlPress(k, 'O');
+        Assert.Equal("aiueo", k.Showing);
+        CtrlPress(k, 'O');
+        Assert.Equal("AIUEO", k.Showing);
+        CtrlPress(k, 'I');
+        Assert.Equal("アイウエオ", k.Showing);
+        CtrlPress(k, 'U');
+        Assert.Equal("あいうえお", k.Showing);
+        Assert.Equal(0, k.Host.Output.Count);
+        Assert.True(!k.Host.Events.Any(e => e == "down:A2"), "Ctrl はアプリに送らない");
+    }
+
+    [Test]
+    public static void CtrlHeld_RepeatsShortcutAndMatchesUps()
+    {
+        // Ctrl を押したまま O を 2 回 (半角英数 → 大文字)。右 Ctrl でも同じ。Ctrl はアプリに送らず、上げ下げもそろったまま
+        foreach (var control in new[] { VirtualKeys.LControl, VirtualKeys.RControl })
+        {
+            var k = new Keyboard();
+            k.Type("aiueo");
+            k.Key(control);
+            k.Press('O');
+            k.Press('O');
+            k.Key(control, up: true);
+            Assert.Equal("AIUEO", k.Showing);
+            Assert.True(!k.Host.Events.Any(e => e.EndsWith($":{control:X2}")), "Ctrl を送らない: " + string.Join(" ", k.Host.Events));
+            k.Press(VirtualKeys.Return);
+            Assert.Equal("AIUEO", k.Host.Document);
+        }
+    }
+
+    [Test]
+    public static void CtrlShiftShortcut_SendsModifiersInOrder()
+    {
+        // Ctrl+Shift+Z: 確定してから Ctrl → Shift → Z の順に送り、離したことも送る
+        var k = new Keyboard();
+        k.Type("kana");
+        k.Key(VirtualKeys.LControl);
+        k.Key(VirtualKeys.LShift);
+        k.Press('Z');
+        k.Key(VirtualKeys.LShift, up: true);
+        k.Key(VirtualKeys.LControl, up: true);
+        var events = string.Join("|", k.Host.Events);
+        Assert.True(events.StartsWith("text:かな|down:A2|down:A0|down:5A"), events);
+        Assert.True(events.Contains("up:A0") || events.Contains("passed-up:A0"), "Shift を離したことも届く: " + events);
+        Assert.True(events.Contains("up:A2") || events.Contains("passed-up:A2"), "Ctrl を離したことも届く: " + events);
+        Assert.True(!k.Gate.IsCaptured, "ショートカットの後は横取りをやめる");
+    }
+
+    [Test]
+    public static void CtrlClick_CommitsThenSendsCtrlWithClick()
+    {
+        // Ctrl を押したままクリック: 確定してから、Ctrl とクリックを送る
+        var k = new Keyboard();
+        k.Type("kana");
+        k.Key(VirtualKeys.LControl);
+        k.Gate.OnMouseButton(new MouseButtonEvent(0x201, 10, 20, 0));
+        k.Controller.Pump();
+        var events = string.Join("|", k.Host.Events);
+        Assert.True(events.StartsWith("text:かな|down:A2|mouse:201"), events);
+        k.Key(VirtualKeys.LControl, up: true);
+        Assert.True(string.Join("|", k.Host.Events).Contains("A2", StringComparison.Ordinal) && k.Host.Events.Count(e => e.Contains(":A2")) == 2, "Ctrl の上げ下げがそろう: " + string.Join("|", k.Host.Events));
+    }
+
+    [Test]
+    public static void CtrlOtherShortcut_CommitsThenPasses()
+    {
+        var k = new Keyboard();
+        k.Type("aiueo");
+        CtrlPress(k, 'C');
+        Assert.Equal("あいうえお", k.Host.Document);
+        var down = k.Host.Events.IndexOf("down:A2");
+        Assert.True(down >= 0 && k.Host.Events.IndexOf("down:43") > down, "確定してから Ctrl+C を送る: " + string.Join(" ", k.Host.Events));
     }
 
     [Test]
@@ -1208,6 +1375,32 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void AutoCorrect_NotWhenHostCannotDelete()
+    {
+        // #124: 確定済みの文字を消せない入力欄 (Linux で周りの文字に対応していないアプリ) では確定し直さない (sushi が残って すし が足されないように)
+        var k = new Keyboard();
+        k.Host.CanDeleteBackward = false;
+        k.Host.PrecedingText = "I love ";
+        k.Type("sushi ");
+        k.Host.PrecedingText = null;
+        k.Type("gasuki\n");
+        Assert.Equal("sushi がすき", k.Host.Document);
+        Assert.True(!k.Host.Events.Any(e => e.StartsWith("bs:")), "消さない");
+    }
+
+    [Test]
+    public static void AutoCorrect_KeepsExplicitlyChosenLanguage()
+    {
+        // #124: F10 で英字にして確定した語 (api) は、後ろに日本語が続いても かな に確定し直さない
+        var k = new Keyboard(languages: new LanguageMemory(null));
+        k.Type("api");
+        k.Press(VirtualKeys.F10);
+        k.Type("\n");
+        k.Type("tte\n");
+        Assert.Equal("apiって", k.Host.Document, string.Join("|", k.Host.Events));
+    }
+
+    [Test]
     public static void AutoCorrect_KeepsEnglishWordThatIsNotJapanese()
     {
         // #121: issue を確定した後に たてた と続けても、issue を いっすえ に確定し直さない (いっすえ は日本語の語ではない)
@@ -1544,6 +1737,42 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Clauses_ShiftArrowResizesAcrossEnglish()
+    {
+        // 報告 (#144): 英語の文節が混ざると Shift+← → で区切りを動かせない (みー|thin|ぐ、disco|で)。
+        // (mi-thingu は #153 の対応で最初から みーてぃんぐ と読むようになったので、英語の文節が残る例で確かめる)
+        var k = new Keyboard();
+        k.Type("konoteamdeyaru ");
+        Assert.Equal("この|team|でやる", string.Join("|", k.Host.View!.Clauses!));
+        k.Key(VirtualKeys.LShift);
+        k.Press(VirtualKeys.Right);
+        Assert.Equal("このて|あm|でやる", string.Join("|", k.Host.View.Clauses!), "後ろの英語の文節は、打ったローマ字のかなで読み直して区切りを動かす");
+        k.Press(VirtualKeys.Right);
+        Assert.Equal("このてあ|m|でやる", string.Join("|", k.Host.View.Clauses!));
+        k.Key(VirtualKeys.LShift, up: true);
+
+        k = new Keyboard();
+        k.Type("konoteamdeyaru ");
+        k.Press(VirtualKeys.Right);
+        k.Key(VirtualKeys.LShift);
+        k.Press(VirtualKeys.Left);
+        Assert.Equal("この|てあ|mでやる", string.Join("|", k.Host.View!.Clauses!), "選んだ英語の文節も読み直して縮め、外れたかなは次の文節へ");
+        k.Press(VirtualKeys.Left);
+        Assert.Equal("この|て|あmでやる", string.Join("|", k.Host.View.Clauses!));
+        k.Key(VirtualKeys.LShift, up: true);
+
+        k = new Keyboard();
+        k.Type("tanniGithubde ");
+        Assert.Equal("単位|Github|で", string.Join("|", k.Host.View!.Clauses!));
+        k.Key(VirtualKeys.LShift);
+        k.Press(VirtualKeys.Left);
+        Assert.Equal("たん|い|Github|で", string.Join("|", k.Host.View.Clauses!), "縮めて空いた分は、後ろの英語の文節を変えずに新しい文節にする");
+        k.Press(VirtualKeys.Right);
+        Assert.Equal("単位|Github|で", string.Join("|", k.Host.View.Clauses!), "伸ばして戻す");
+        k.Key(VirtualKeys.LShift, up: true);
+    }
+
+    [Test]
     public static void AmbiguousWord_FollowsEnglishContext()
     {
         var k = new Keyboard();
@@ -1773,7 +2002,8 @@ internal static class CompositionTests
         k.Key(VirtualKeys.LControl);
         k.Press('C');
         k.Key(VirtualKeys.LControl, up: true);
-        Assert.Equal("text:かな|down:A2|passed:43|passed-up:43|passed-up:A2", string.Join("|", k.Host.Events), "確定 → Ctrl を送る → 以降は直接アプリへ");
+        // 入力中の Ctrl は次のキーを見るまで送らない (Ctrl+U/I/O/P はかな・英字の切り替え)。ほかのキーなら確定 → Ctrl → そのキーの順に送る
+        Assert.Equal("text:かな|down:A2|down:43|passed-up:43|passed-up:A2", string.Join("|", k.Host.Events), "確定 → Ctrl → C を送る → 以降は直接アプリへ");
         Assert.True(!k.Gate.IsCaptured, "ショートカットの後は横取りをやめる");
     }
 

@@ -68,7 +68,15 @@ Get-ChildItem -LiteralPath $target -Recurse -File | Unblock-File -ErrorAction Si
 # 前は zip を展開したフォルダーの Uninstall.cmd しか無く、zip を消していると探し直す手間がかかった。
 $uninstaller = Join-Path $target 'uninstall.ps1'
 $uninstallSource = Join-Path $PSScriptRoot 'uninstall.ps1'
-if (Test-Path -LiteralPath $uninstallSource) {
+# インストーラー (Meltype-<版>-setup.exe) で入れていたら、その「設定 → アプリ」の項目の版だけ新しくする
+# (自動更新もこのスクリプトを使うので、項目が二重にならないように)。
+$innoKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Meltype_is1'
+if ((Test-Path -LiteralPath $innoKey) -and (Test-Path -LiteralPath (Join-Path $target 'unins000.exe'))) {
+    $version = (Get-Item -LiteralPath $exe).VersionInfo.ProductVersion
+    Set-ItemProperty -Path $innoKey -Name DisplayVersion -Value $version
+    Set-ItemProperty -Path $innoKey -Name DisplayName -Value 'Meltype'
+}
+elseif (Test-Path -LiteralPath $uninstallSource) {
     Copy-Item -LiteralPath $uninstallSource -Destination $uninstaller -Force
     Unblock-File -LiteralPath $uninstaller -ErrorAction SilentlyContinue
     $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\Meltype'

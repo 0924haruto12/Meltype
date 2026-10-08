@@ -110,6 +110,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     private volatile bool _keyboardDirect;
     private volatile bool _directEnglishWord;
     private readonly HashSet<int> _swallowedToggleUps = [];
+    private readonly AltTapDetector _altTap = new();
 
     /// <summary>UI スレッドで作った変換ボックスをつなぐ。</summary>
     public void AttachComposition(Composition.CompositionService composition)
@@ -170,12 +171,18 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     private bool OnKey(KeyEvent e)
     {
         var settings = _settings;
+        // 遠隔操作 (AnyDesk・VNC) のキーは、ほかのソフトが送ったキー (LLKHF_INJECTED) として届く。設定で許可していれば手で打ったキーとして扱う。
+        // Meltype 自身が送り直したキーは、印 (InjectedMarker) でフックの入口で除いているので、ここには来ない (自分の出力を処理し直さない)。
+        if (e.Injected && settings.AllowInjectedInput) e = e with { Injected = false };
         // 飲み込んだ切替キーの解放は、入力言語が変わっても対にして処理する。
         if (e.IsUp && !e.Injected)
         {
             if (_toggleKeyDown.Remove(e.Vk)) return true;
             lock (_swallowedToggleUps) if (_swallowedToggleUps.Remove(e.Vk)) return true;
         }
+        // 左右の Alt の単独押し (#85)。どの打鍵も見て、Alt を押している間に他のキーを押したら単独押しにしない。
+        var altTap = _altTap.OnKey(e, e.Vk is VirtualKeys.LMenu or VirtualKeys.RMenu && e.IsDown &&
+            (IsDown(VirtualKeys.Control) || IsDown(VirtualKeys.Shift) || IsDown(VirtualKeys.LWin) || IsDown(VirtualKeys.RWin)));
         if (!KeyboardLayoutPolicy.AllowsInput(settings))
         {
             SuspendForInputLanguage(e.TimeMs);
@@ -204,6 +211,28 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         // 変換ボックスの準備前・終了処理中は何もしない (素通し)。
         if (_composition is not { } composition) return false;
 
+        // 左 Alt の単独押しで英数、右 Alt の単独押しで日本語。Alt の押下・解放はそのままアプリに通す。
+        if (altTap != AltTap.None && settings.Enabled && settings.AltKeysSwitchKeyboard && !composition.Gate.IsCaptured)
+        {
+            // 単独押しでメニューバーに移らないよう、押している間に何もしないキーを送る (Alt + ` と同じ)。
+            if (altTap == AltTap.Pressed) ThreadPool.QueueUserWorkItem(_ => KeyInjector.SendKey(0xE8));
+            else SetKeyboardMode(composition, settings, japanese: e.Vk == VirtualKeys.RMenu);
+        }
+        // 無変換で英数、変換で日本語 (Mac の 英数 / かな と同じく、トグルではなく決まったモードにする)。
+        if (settings.Enabled && settings.ConvertKeysSwitchKeyboard && e.Vk is VirtualKeys.NonConvert or VirtualKeys.Convert && e.IsDown && !e.Injected && !composition.Gate.IsCaptured)
+        {
+            // 押しっぱなしの繰り返し。
+            lock (_swallowedToggleUps) if (_swallowedToggleUps.Contains(e.Vk)) return true;
+            var japanese = e.Vk == VirtualKeys.Convert;
+            // もう日本語入力なら、変換キーは今までどおり (選択した文字の再変換)。
+            if (!japanese || _keyboardDirect || InCode(settings))
+            {
+                lock (_swallowedToggleUps) _swallowedToggleUps.Add(e.Vk);
+                MaskAltRelease();
+                SetKeyboardMode(composition, settings, japanese);
+                return true;
+            }
+        }
         // 半角/全角 キーは Microsoft IME ではなく Meltype キーボードの ON/OFF に使う。
         if (settings.Enabled && settings.HankakuTogglesKeyboard && VirtualKeys.IsHankakuZenkaku(e.Vk) && !e.Injected && !composition.Gate.IsCaptured)
         {
@@ -246,6 +275,39 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         if (!swallowed && e.IsDown && !VirtualKeys.IsModifier(e.Vk)) composition.ForgetLastCommit();
         if (!swallowed && !e.Injected) TrackLine(e);
         return swallowed;
+    }
+
+    /// <summary>
+    /// 英数 / 日本語 に決める (無変換・変換、左右の Alt。半角/全角 のトグルと違い、押す前のモードによらない)。
+    /// 「コード」のアプリのコードの行では、半角/全角 と同じくこの行だけ日本語にする / 戻す。
+    /// </summary>
+    private void SetKeyboardMode(Composition.CompositionService composition, Settings settings, bool japanese)
+    {
+        if (!japanese)
+        {
+            if (!_keyboardDirect && IsCodeApp(settings) && (_codeJapanese || InCode(settings)))
+            {
+                if (_codeJapanese)
+                {
+                    _codeJapanese = false;
+                    Log.Info("コードの行: 英数に戻す");
+                }
+                composition.ShowMode(false);
+                return;
+            }
+            if (_keyboardDirect) composition.ShowMode(false);
+            else KeyboardDirect = true;
+            return;
+        }
+        // 英数状態からなら KeyboardDirect の切り替えで「あ」を出す。
+        var wasDirect = _keyboardDirect;
+        if (wasDirect) KeyboardDirect = false;
+        if (InCode(settings))
+        {
+            _codeJapanese = true;
+            Log.Info("コードの行: 日本語で入力 (エディターは改行まで、ターミナルは別の場所に移るまで)");
+        }
+        if (!wasDirect) composition.ShowMode(true);
     }
 
     /// <summary>
@@ -383,6 +445,8 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         var punctuation = e.Vk is >= 0x30 and <= 0x39 or >= 0xBA and <= 0xC0 or >= 0xDB and <= 0xDF or 0xE2;
         // かな入力 (JIS): かなのキー (数字・記号のキーも含む) はすべて入力を始める。
         if (settings.InputStyle == InputStyle.Kana && !_keyboardDirect && KanaDetector.IsKanaKey(e.Vk)) punctuation = true;
+        // 日本語入力のときの Shift+Space は全角スペース (Microsoft IME と同じ: issue #24)。
+        if (e.Vk == VirtualKeys.Space && !_keyboardDirect && IsDown(VirtualKeys.Shift)) punctuation = true;
         if (_keyboardDirect && !reconvert)
         {
             // 英数状態: ローマ字かどうかを判定するために、単語の打ち始めの英字だけを受け取る。
@@ -444,6 +508,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
 
     private bool OnMouseButton(Composition.MouseButtonEvent e)
     {
+        if (IsButtonDown(e.Message)) _altTap.Cancel();
         if (_settings.Mode == InputMode.Tsf) return false;
         if (_settings.Mode == InputMode.Keyboard && _composition is { } composition)
         {
