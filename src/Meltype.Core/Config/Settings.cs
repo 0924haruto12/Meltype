@@ -132,13 +132,10 @@ public enum AppProfile
 /// </summary>
 public sealed class Settings
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true,
-        Converters = { new JsonStringEnumConverter() },
-        ReadCommentHandling = JsonCommentHandling.Skip,
-        AllowTrailingCommas = true,
-    };
+    // 型の情報はビルド時に作ったもの (SettingsJsonContext)。Mac・Linux の NativeAOT でも読める (issue #151)。
+    // 字下げ・コメントと末尾の , を許す・列挙型は名前で読み書き は SettingsJsonContext の属性で指定している。
+    private static JsonSerializerOptions JsonOptions => SettingsJsonContext.Default.Options;
+    private static System.Text.Json.Serialization.Metadata.JsonTypeInfo<Settings> JsonType => SettingsJsonContext.Default.Settings;
 
     [Category("1. 全般"), DisplayName("Meltype を有効にする")]
     public bool Enabled { get; set; } = true;
@@ -272,7 +269,7 @@ public sealed class Settings
     /// <summary>今の設定の値のうち、プロファイルに入れるもの。</summary>
     public JsonObject ProfileValues()
     {
-        var values = JsonSerializer.SerializeToNode(this, JsonOptions)!.AsObject();
+        var values = JsonSerializer.SerializeToNode(this, JsonType)!.AsObject();
         foreach (var key in SharedKeys) values.Remove(key);
         return values;
     }
@@ -290,9 +287,9 @@ public sealed class Settings
         if (name == current.ActiveProfile || current.Profiles.FirstOrDefault(p => p.Name == name) is not { } target) return current;
         current.Profiles.First(p => p.Name == current.ActiveProfile).Values = current.ProfileValues();
         // 共通の項目は今の値のまま、プロファイルの項目だけを切り替え先の値にする
-        var merged = JsonSerializer.SerializeToNode(current, JsonOptions)!.AsObject();
+        var merged = JsonSerializer.SerializeToNode(current, JsonType)!.AsObject();
         foreach (var (key, value) in target.Values ?? []) merged[key] = value?.DeepClone();
-        var next = merged.Deserialize<Settings>(JsonOptions) ?? current;
+        var next = merged.Deserialize(JsonType) ?? current;
         next.ActiveProfile = name;
         return next.Normalize();
     }
@@ -363,12 +360,12 @@ public sealed class Settings
                 file["format"]?.GetValue<string>() != ProfileFileFormat || file["values"] is not JsonObject raw) return null;
             name = (file["name"]?.GetValue<string>() ?? "").Trim();
             // 既定の設定に、知っている項目だけを重ねてから読み直す (型の違う値はここで例外になる)
-            var merged = JsonSerializer.SerializeToNode(new Settings().Normalize(), JsonOptions)!.AsObject();
+            var merged = JsonSerializer.SerializeToNode(new Settings().Normalize(), JsonType)!.AsObject();
             foreach (var (key, value) in raw)
             {
                 if (merged.ContainsKey(key) && !SharedKeys.Contains(key)) merged[key] = value?.DeepClone();
             }
-            values = (merged.Deserialize<Settings>(JsonOptions) ?? new Settings()).Normalize().ProfileValues();
+            values = (merged.Deserialize(JsonType) ?? new Settings()).Normalize().ProfileValues();
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException or NotSupportedException)
         {
@@ -570,7 +567,7 @@ public sealed class Settings
         {
             if (!File.Exists(path)) return new Settings();
             var json = File.ReadAllText(path);
-            var settings = JsonSerializer.Deserialize<Settings>(json, JsonOptions) ?? new Settings();
+            var settings = JsonSerializer.Deserialize(json, JsonType) ?? new Settings();
             if (!json.Contains(nameof(SettingsVersion))) settings.SettingsVersion = 1;
             if (settings.Migrate()) settings.Save(path);
             return settings.Normalize();
@@ -585,13 +582,13 @@ public sealed class Settings
     }
 
     /// <summary>config.json と同じ形式の文字列 (変更があったかを比べるのに使う)。</summary>
-    public string ToJson() => JsonSerializer.Serialize(this, JsonOptions);
+    public string ToJson() => JsonSerializer.Serialize(this, JsonType);
 
     public void Save(string path)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         var temp = path + ".tmp";
-        File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonOptions));
+        File.WriteAllText(temp, JsonSerializer.Serialize(this, JsonType));
         File.Move(temp, path, overwrite: true);
     }
 }
