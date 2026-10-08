@@ -371,6 +371,38 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void F10_CaseKeepsDigitsAndSymbols()
+    {
+        // 英字に数字・記号が混ざっていても、変わるのは英字だけ (api2.0 → API2.0 → Api2.0)
+        var k = new Keyboard();
+        k.Type("api2.0");
+        var shown = new List<string?>();
+        for (var i = 0; i < 3; i++)
+        {
+            k.Press(VirtualKeys.F10);
+            shown.Add(k.Showing);
+        }
+        Assert.Equal("api2.0,API2.0,Api2.0", string.Join(",", shown));
+    }
+
+    [Test]
+    public static void F9F10_SwitchingResetsCase()
+    {
+        // F10 で大文字にした後に F9 (全角) にすると、打ったまま (小文字) から。F9 の大文字の後に F10 でも同じ
+        var k = new Keyboard();
+        k.Type("abc");
+        k.Press(VirtualKeys.F10);
+        k.Press(VirtualKeys.F10);
+        Assert.Equal("ABC", k.Showing);
+        k.Press(VirtualKeys.F9);
+        Assert.Equal("ａｂｃ", k.Showing);
+        k.Press(VirtualKeys.F9);
+        Assert.Equal("ＡＢＣ", k.Showing);
+        k.Press(VirtualKeys.F10);
+        Assert.Equal("abc", k.Showing);
+    }
+
+    [Test]
     public static void F10_CaseResetsAfterCommit()
     {
         var k = new Keyboard();
