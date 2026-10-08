@@ -324,7 +324,7 @@ public sealed class FocusInspector : IDisposable
                 editable = true;
                 description += " (入力欄とみなすアプリ)";
             }
-            return new FocusInfo(editable, false, element.Bounds, description, element.Name, element.ClassName);
+            return new FocusInfo(editable, false, element.Bounds, description, element.Name, element.ClassName ?? "");
         }
         catch (Exception ex)
         {

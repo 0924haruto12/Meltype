@@ -321,7 +321,7 @@ internal sealed class SettingsForm : Form
             var remove = new Button { Text = "選んだ行を削除", AutoSize = true };
             remove.Click += (_, _) =>
             {
-                foreach (var row in grid.SelectedCells.Cast<DataGridViewCell>().Select(c => c.OwningRow).Distinct().Where(r => !r.IsNewRow).ToList()) grid.Rows.Remove(row);
+                foreach (var row in grid.SelectedCells.Cast<DataGridViewCell>().Select(c => c.OwningRow).OfType<DataGridViewRow>().Distinct().Where(r => !r.IsNewRow).ToList()) grid.Rows.Remove(row);
             };
             var actions = new FlowLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, WrapContents = false, Margin = Padding.Empty };
             actions.Controls.AddRange([add, remove]);
@@ -383,7 +383,7 @@ internal sealed class SettingsForm : Form
         .Where(r => !r.IsNewRow && (r.Cells[0].Value as string ?? "").Trim().Length > 0)
         .Select(r => new AppKind
         {
-            Name = ((string)r.Cells[0].Value).Trim(),
+            Name = (r.Cells[0].Value as string ?? "").Trim(),
             Base = Equals(r.Cells[1].Value, EnumName(typeof(AppProfile), AppProfile.Code)) ? AppProfile.Code : AppProfile.General,
             DetectionLevel = Enum.GetValues<DetectionLevel>().Where(l => Equals(r.Cells[2].Value, EnumName(typeof(DetectionLevel), l))).Cast<DetectionLevel?>().FirstOrDefault(),
             LiveConversion = Equals(r.Cells[3].Value, On) ? true : Equals(r.Cells[3].Value, Off) ? false : null,
