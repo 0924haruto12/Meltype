@@ -38,7 +38,7 @@ public sealed class CompositionDetector
 
     public static CompositionDetector CreateDefault(string? userDictionaryDirectory = null)
     {
-        var romaji = new RomajiDetector();
+        var romaji = RomajiDetector.CreateDefault(userDictionaryDirectory);
         var japaneseWords = DictionarySource.Load("japanese.txt", userDictionaryDirectory).ToList();
         var japanese = new DictionaryDetector(japaneseWords, romaji);
         var proper = ProperNouns.Load(userDictionaryDirectory);
