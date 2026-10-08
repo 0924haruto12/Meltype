@@ -353,17 +353,19 @@ internal static class CompositionTests
     [Test]
     public static void DigitKey_WithoutCandidateTypesDigit()
     {
-        // 候補の数ちょうど (最後の候補) は選べて、その次の番号 (候補の無い番号) は打った数字になる (境界を必ず確かめる)
+        // 候補の数ちょうど (最後の候補) は選べて、その次の番号 (候補の無い番号) は打った数字になる (境界を必ず確かめる)。
+        // 辞書に無い読み (ぞぞぞ) にして、候補を ひらがな・カタカナ・半角カタカナ・打ったままの英字・全角の英字 に決める
+        // (辞書の語が増えても候補の数が変わらないように)
         var k = new Keyboard();
-        k.Type("kawa ");
+        k.Type("zozozo ");
         var candidates = k.Host.View!.Candidates;
         var count = candidates.Count;
-        Assert.True(count is >= 2 and < 9, "この例は候補が 1 ページに収まり、空きのある番号があること: " + string.Join(",", candidates));
+        Assert.Equal("ぞぞぞ,ゾゾゾ,ｿﾞｿﾞｿﾞ,zozozo,ｚｏｚｏｚｏ", string.Join(",", candidates));
         k.Press('0' + count);
         Assert.Equal(candidates[^1], k.Host.Document, "最後の番号は最後の候補");
 
         k = new Keyboard();
-        k.Type("kawa ");
+        k.Type("zozozo ");
         var digit = (char)('0' + count + 1);
         k.Press(digit);
         Assert.True(k.Host.Document.EndsWith(digit) || k.Showing == digit.ToString(), "番号の無い数字は普通に打った数字: " + k.Host.Document + " / " + k.Showing);
