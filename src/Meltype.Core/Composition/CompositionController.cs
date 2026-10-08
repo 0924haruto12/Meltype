@@ -257,6 +257,9 @@ public sealed class CompositionController
         /// <summary>この文節の読みを打ったときの英字 (あぴ → api)。分からなければ null。</summary>
         public string? Raw { get; set; }
 
+        /// <summary>英語の文節を、打った英字をローマ字として読んだかな (thin → てぃん)。文節の区切りを動かすときに日本語の文節として読み直すのに使う。</summary>
+        public string? Kana { get; set; }
+
         /// <summary>候補のうち英訳 (複雑な → complex) のもの。</summary>
         public HashSet<string> Translations { get; } = new(StringComparer.Ordinal);
     }
@@ -1013,7 +1016,7 @@ public sealed class CompositionController
                 var romaji = RomajiCandidates(segment.Raw);
                 clauses.Add(new Clause(segment.Raw, true, preferJapanese && romaji.Count > 0
                     ? Distinct([.. romaji, .. english])
-                    : Distinct([.. english, .. romaji])));
+                    : Distinct([.. english, .. romaji])) { Kana = _text.KanaForSegment(s) });
                 continue;
             }
             if (segment.Kana.Length == 0) continue;
@@ -1432,14 +1435,20 @@ public sealed class CompositionController
 
     /// <summary>
     /// Shift+→ / Shift+←: 選択中の文節を 1 文字伸ばす / 縮める。はみ出した・空いた分は次の文節とやり取りし、
-    /// 変わった文節は読みから変換し直す。英語の文節とは区切りをやり取りしない。
+    /// 変わった文節は読みから変換し直す。
+    /// 英語の文節との区切りを動かすときは、英語の文節を打ったローマ字のかなで日本語の文節に読み直してからやり取りする
+    /// (みー|thin|ぐ の みー を伸ばす → みーて|ぃん|ぐ)。縮めて空いた分は、後ろが英語の文節なら英語の文節はそのままにして間に新しい文節を作る。
     /// </summary>
     private void Resize(int delta)
     {
+        if (_clauses[_selectedClause].IsEnglish && !ReadAsJapanese(_selectedClause)) return;
         var current = _clauses[_selectedClause];
-        if (current.IsEnglish) return;
         var next = _selectedClause + 1 < _clauses.Count ? _clauses[_selectedClause + 1] : null;
-        if (next is { IsEnglish: true }) next = null;
+        if (next is { IsEnglish: true })
+        {
+            if (delta < 0) next = null;
+            else next = ReadAsJapanese(_selectedClause + 1) ? _clauses[_selectedClause + 1] : null;
+        }
 
         if (delta > 0)
         {
@@ -1463,6 +1472,16 @@ public sealed class CompositionController
             Reconvert(next);
         }
         Reconvert(current);
+    }
+
+    /// <summary>英語の文節を、打ったローマ字のかなを読みにした日本語の文節に置き換える。かなに読めない英字だけ (xyz) なら置き換えずに false。</summary>
+    private bool ReadAsJapanese(int index)
+    {
+        if (_clauses[index] is not { IsEnglish: true, Kana: { } kana } || !kana.Any(IsKana)) return false;
+        var clause = new Clause(kana, false, []);
+        Reconvert(clause);
+        _clauses[index] = clause;
+        return true;
     }
 
     private void Reconvert(Clause clause)

@@ -1712,6 +1712,44 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Clauses_ShiftArrowResizesAcrossEnglish()
+    {
+        // 報告 (#144): 英語の文節が混ざると Shift+← → で区切りを動かせない (みー|thin|ぐ、disco|で)。
+        var k = new Keyboard();
+        k.Type("mi-thingu ");
+        Assert.Equal("みー|thin|ぐ", string.Join("|", k.Host.View!.Clauses!));
+        k.Key(VirtualKeys.LShift);
+        k.Press(VirtualKeys.Right);
+        Assert.Equal("みーて|ぃん|ぐ", string.Join("|", k.Host.View.Clauses!), "後ろの英語の文節は、打ったローマ字のかなで読み直して区切りを動かす");
+        for (var i = 0; i < 3; i++) k.Press(VirtualKeys.Right);
+        Assert.Equal("みーてぃんぐ", string.Join("|", k.Host.View.Clauses!), "1 つの文節にできる");
+        k.Key(VirtualKeys.LShift, up: true);
+        k.Type("\n");
+        Assert.Equal("みーてぃんぐ", k.Host.Output.Single());
+
+        k = new Keyboard();
+        k.Type("mi-thingu ");
+        k.Press(VirtualKeys.Right);
+        k.Key(VirtualKeys.LShift);
+        k.Press(VirtualKeys.Left);
+        Assert.Equal("みー|てぃ|んぐ", string.Join("|", k.Host.View!.Clauses!), "選んだ英語の文節も読み直して縮め、外れたかなは次の文節へ");
+        k.Press(VirtualKeys.Right);
+        k.Press(VirtualKeys.Right);
+        Assert.Equal("みー|てぃんぐ", string.Join("|", k.Host.View.Clauses!), "伸ばす");
+        k.Key(VirtualKeys.LShift, up: true);
+
+        k = new Keyboard();
+        k.Type("tanniGithubde ");
+        Assert.Equal("単位|Github|で", string.Join("|", k.Host.View!.Clauses!));
+        k.Key(VirtualKeys.LShift);
+        k.Press(VirtualKeys.Left);
+        Assert.Equal("たん|い|Github|で", string.Join("|", k.Host.View.Clauses!), "縮めて空いた分は、後ろの英語の文節を変えずに新しい文節にする");
+        k.Press(VirtualKeys.Right);
+        Assert.Equal("単位|Github|で", string.Join("|", k.Host.View.Clauses!), "伸ばして戻す");
+        k.Key(VirtualKeys.LShift, up: true);
+    }
+
+    [Test]
     public static void AmbiguousWord_FollowsEnglishContext()
     {
         var k = new Keyboard();
