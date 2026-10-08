@@ -105,6 +105,7 @@ internal static class Quality
         new("混在", "kyouhagoogledekensaku", "きょうはgoogleでけんさく"),
         new("混在", "githubnipushshita", "githubにpushした"),
         new("混在", "pythondekaita", "pythonでかいた"),
+        new("混在", "korehathin", "これはthin"),
         new("混在", "zoomdekaigi", "zoomでかいぎ"),
         new("混在", "slackderenraku", "slackでれんらく"),
         new("混在", "amazondekaimono", "amazonでかいもの"),

@@ -66,7 +66,7 @@ internal static class Checks
     /// 「入力 → 期待」の一覧 (1 行に「入力<Tab>期待」) を確かめて JSON で出す。
     ///   入力がかな (しゃおみ) … 変換の候補に期待した語 (Xiaomi) が出るか
     ///   入力が英字 (nihongowohanasu) … 打って Enter した結果が期待どおりか。期待に漢字が入っていれば、日本語 / 英語の分かれ方だけを比べる
-    ///   (テストでは変換エンジンを使わず漢字にしないため)。
+    ///   (テストでは変換エンジンを使わず漢字にしないため)。カタカナも同じ理由で、ひらがなに直して比べる (ホスティング = ほすてぃんぐ)。
     /// </summary>
     public static void Expect(string input, string output)
     {
@@ -90,11 +90,16 @@ internal static class Checks
             k.Type(new string(typed.Where(c => c is >= ' ' and <= '~').Take(300).ToArray()) + "\n");
             var actual = k.Host.Document;
             var kanji = expected.Any(c => c is >= '㐀' and <= '鿿');
-            var ok = kanji ? Words(actual) == Words(expected) : actual == expected;
-            results.Add(new { typed, expected, kind = kanji ? "判定 (英字の部分だけ比べる)" : "入力", actual, ok });
+            var katakana = !kanji && expected.Any(c => c is >= 'ァ' and <= 'ヶ');
+            var ok = kanji ? Words(actual) == Words(expected) : Hiragana(actual) == Hiragana(expected);
+            results.Add(new { typed, expected, kind = kanji ? "判定 (英字の部分だけ比べる)" : katakana ? "入力 (カタカナはかなとして比べる)" : "入力", actual, ok });
         }
         File.WriteAllText(output, JsonSerializer.Serialize(results, Json));
     }
+
+    /// <summary>カタカナをひらがなに直す (テストの変換エンジンはカタカナにしないため)。</summary>
+    private static string Hiragana(string text) =>
+        new(text.Select(c => c is >= 'ァ' and <= 'ヶ' ? (char)(c - 0x60) : c).ToArray());
 
     /// <summary>英字の語だけを取り出す (日本語 / 英語の分かれ方を比べる)。</summary>
     private static string Words(string text) =>
