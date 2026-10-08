@@ -932,10 +932,12 @@ public sealed class CompositionText
         foreach (var segment in Segments(final: false))
         {
             // 5 文字以上の知っている語 (meeting) か、同梱の英語の辞書の 2〜4 文字の語 (user・rta・av)
-            // 4 文字の知っている語で、ローマ字として読めないもの (help・milk) も英語 (help|pe-ji → へおっぺーじ にしない)
+            // 4 文字の知っている語で、ローマ字として読めないもの (help・milk) も英語 (help|pe-ji → へおっぺーじ にしない)。
             var lower = segment.Raw.ToLowerInvariant();
             var word = segment.IsEnglish && (segment.Raw.Length >= 5 && _detector.IsKnownEnglishWord(segment.Raw) || segment.Raw.Length is >= 2 and <= 4 && _detector.IsListedEnglishWord(lower) ||
-                segment.Raw.Length == 4 && _detector.IsKnownEnglishWord(lower) && !_detector.Romaji.Analyze(lower).IsValid);
+                segment.Raw.Length == 4 && _detector.IsKnownEnglishWord(lower) && !_detector.Romaji.Analyze(lower).IsValid ||
+                // 3 文字のスペルチェッカーの語で、最後の子音がかなにならないもの (tab|de の b)。表示で英字にしたものを、確定で打ち間違いとして たべ に直さない (issue #220)
+                segment.Raw.Length == 3 && lower.All(char.IsAsciiLetterLower) && _detector.IsSpellWord(lower) && _detector.Romaji.AnalyzeFragment(lower).Partial.Length > 0);
             for (var i = 0; i < segment.Raw.Length; i++) mask.Add(word);
         }
         return mask;
