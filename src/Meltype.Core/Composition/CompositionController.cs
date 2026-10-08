@@ -564,6 +564,12 @@ public sealed class CompositionController
             StartConversion(preferJapanese: true);
             return;
         }
+        // 日本語入力のときの Shift+Space は全角スペース (Microsoft IME と同じ: issue #24)。英数状態では普通の空白のまま。
+        if (e.Vk == VirtualKeys.Space && !_options.DirectMode() && (_swallowedShift.Count > 0 || _host.IsShiftDown()))
+        {
+            CommitText("　", english: false);
+            return;
+        }
         // かな入力: かなのキーならすべて入力を始める (英数状態でなければ)。
         if (_options.KanaInput() && !_options.DirectMode() && KanaOf(e) is { } key)
         {

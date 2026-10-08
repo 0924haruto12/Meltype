@@ -365,6 +365,8 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         var punctuation = e.Vk is >= 0x30 and <= 0x39 or >= 0xBA and <= 0xC0 or >= 0xDB and <= 0xDF or 0xE2;
         // かな入力 (JIS): かなのキー (数字・記号のキーも含む) はすべて入力を始める。
         if (settings.InputStyle == InputStyle.Kana && !_keyboardDirect && KanaDetector.IsKanaKey(e.Vk)) punctuation = true;
+        // 日本語入力のときの Shift+Space は全角スペース (Microsoft IME と同じ: issue #24)。
+        if (e.Vk == VirtualKeys.Space && !_keyboardDirect && IsDown(VirtualKeys.Shift)) punctuation = true;
         if (_keyboardDirect && !reconvert)
         {
             // 英数状態: ローマ字かどうかを判定するために、単語の打ち始めの英字だけを受け取る。
