@@ -42,6 +42,7 @@ cd mac
 - Space で変換 (候補の一覧が出ます)、Enter で確定、← → で文節の選択、Esc で取り消し
 - F6 ひらがな / F7 カタカナ / F9 全角英数 / F10 半角英数
 - JIS キーボードの「英数」キーで英数 (直接入力)、「かな」キーで日本語に戻ります
+- 先頭か空白の直後に打った `/review`・`$skill`・`@ファイル名` は、空白まで変換せずにそのまま入ります (`SigilWordsDirect` で OFF)
 - 設定・学習データ・ユーザー辞書は `~/Library/Application Support/Meltype` (入力メニューの「Meltype のデータフォルダを開く」)。
   設定は Windows 版と同じ `config.json` です (自動判定の強さ `DetectionLevel` など)
 
