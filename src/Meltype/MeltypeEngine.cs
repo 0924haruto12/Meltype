@@ -119,7 +119,11 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         composition.InputAllowed = () => KeyboardLayoutPolicy.AllowsInput(_settings);
         composition.Focus.TreatsAsTextInput = () => _settings.TreatsAsTextInput(_foreground.Current.ProcessName);
         // 変換ボックスで確定した文字と、Meltype が送り直したキーも、今の行の追いかけに入れる (自分で送ったキーはフックに届かない)。
-        composition.Controller.Committed += text => _line.Append(text);
+        composition.Controller.Committed += text =>
+        {
+            _line.Append(text);
+            _sigil.Append(text);
+        };
         composition.Controller.ReconversionCommitted += () => InvalidateLine();
         composition.KeyReplayed += e => TrackLine(e);
         composition.MouseReplayed += () => InvalidateLine();
@@ -254,6 +258,8 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     // ---- アプリの種類「コード」: コメント・文字列の中だけ日本語 ----
 
     private readonly LineTracker _line = new();
+    // 先頭か空白の直後の /command・$skill・@ファイル名 (#193)。
+    private readonly Composition.SigilWord _sigil = new();
     private long _lineVersion;
     private System.Threading.Timer? _lineTimer;
     private volatile bool _codeJapanese;
@@ -301,15 +307,18 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
                 // ターミナルの次の行のプロンプト (Claude Code の「> 」など) は出力なので、出てから読む。
                 // AI の入力で 半角/全角 を押して日本語にしていたら、続けて日本語のまま。
                 InvalidateLine(resetJapanese: false, delayMs: 300);
+                _sigil.Start();
                 return;
             }
             _line.NewLine();
+            _sigil.Start();
             _codeJapanese = false;
             return;
         }
         if (e.Vk == VirtualKeys.Back)
         {
             _line.Backspace();
+            _sigil.Backspace();
             return;
         }
         if (e.Vk == VirtualKeys.Escape) return;
@@ -320,13 +329,19 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             InvalidateLine(resetJapanese: !terminal);
             return;
         }
-        if (KeyText.CharFromKey(e.Vk, e.Scan, false) is { } c) _line.Append(c.ToString());
+        if (KeyText.CharFromKey(e.Vk, e.Scan, false) is { } c)
+        {
+            _line.Append(c.ToString());
+            _sigil.Append(c);
+        }
     }
 
     /// <param name="resetJapanese">半角/全角 で日本語にしていた行の設定も戻すか (キャレットが別の場所に動いたとき)。</param>
-    private void InvalidateLine(bool resetJapanese = true, int delayMs = 80)
+    /// <param name="keepSigil">/ $ @ の名前の判定 (前の文字) をそのままにするか。</param>
+    private void InvalidateLine(bool resetJapanese = true, int delayMs = 80, bool keepSigil = false)
     {
         _line.Invalidate();
+        if (!keepSigil) _sigil.Lose();
         if (resetJapanese) _codeJapanese = false;
         Interlocked.Increment(ref _lineVersion);
         // キャレットの移動がアプリに届くのを少し待ってから読む。
@@ -377,6 +392,14 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             return false;
         }
         if (IsDown(VirtualKeys.Control) || IsDown(VirtualKeys.Menu) || IsDown(VirtualKeys.LWin) || IsDown(VirtualKeys.RWin)) return false;
+        // 先頭か空白の直後の /command・$skill・@ファイル名 は、名前の終わり (空白) まで変換せずにそのままアプリへ渡す (#193)。
+        // かな入力では / などのキーはかな (め) なので対象にしない。
+        if (!reconvert && settings.SigilWordsDirect && (_keyboardDirect || settings.InputStyle != InputStyle.Kana) &&
+            KeyText.CharFromKey(e.Vk, e.Scan, false) is { } typed && _sigil.PassesThrough(typed, _line.Text))
+        {
+            if (!_sigil.IsActive) Log.Info($"{typed} で始まる語: 空白までそのまま入力します");
+            return false;
+        }
         if (!_foreground.Check(settings).Allowed) return false;
         // 文字入力欄 (パスワード以外) にフォーカスがあるときだけ。ショートカットキーやゲームの操作を横取りしない。
         if (_composition?.Focus.CanCapture != true && _composition?.Focus.CanCaptureWaiting() != true) return false;
@@ -598,13 +621,16 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         _directEnglishWord = false;
         _codeJapanese = false;
         _line.Invalidate();
+        _sigil.Lose();
         Interlocked.Increment(ref _lineVersion);
         _lastLineKind = null;
     }
 
     private void OnFocusChanged()
     {
-        InvalidateLine();
+        InvalidateLine(keepSigil: true);
+        // 別の入力欄に移った。次に打つ文字は先頭とみなす (/ $ @ の名前の途中なら続ける)。
+        _sigil.FocusMoved();
         _composition?.Focus.Invalidate();
         _directEnglishWord = false;
         _composition?.ResetContext();
@@ -617,6 +643,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         _composition?.Abandon("別のウィンドウに切り替わった");
         _foreground.Refresh(window);
         InvalidateLine();
+        _sigil.Start();
         _lastLineKind = null;
         var app = _foreground.Current;
         if (_settings.ProfileFor(app.ProcessName) == AppProfile.Code)
