@@ -158,6 +158,12 @@ public sealed class CompositionOptions
     /// <summary>変換ボックスのフォント (空なら既定のフォント)。</summary>
     public Func<string> Font { get; init; } = () => "";
 
+    /// <summary>変換ボックスをライトの色で出すか (false ならダーク)。</summary>
+    public Func<bool> LightTheme { get; init; } = () => false;
+
+    /// <summary>変換ボックスの不透明度 (0.7〜1)。</summary>
+    public Func<double> Opacity { get; init; } = () => 1.0;
+
     /// <summary>入力欄に入った (フォーカスが入った) ときにも入力モードを出すか。false なら 半角/全角 を押したときだけ。</summary>
     public Func<bool> ModeIndicatorOnFocus { get; init; } = () => true;
 }

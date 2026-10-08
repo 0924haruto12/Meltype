@@ -593,6 +593,50 @@ internal static class LanguageLearningTests
     }
 
     [Test]
+    public static void CompositionAppearance_IsSavedByName()
+    {
+        // 変換ボックスの色 (ライト / Windows に合わせる)・不透明度・カーソルの上に出す (issue #39): 既定は今までどおりで、選んだ値は名前で保存して残る
+        var defaults = new Settings();
+        Assert.Equal(CompositionTheme.Dark, defaults.CompositionTheme);
+        Assert.Equal(CompositionOpacity.Opaque, defaults.CompositionOpacity);
+        Assert.Equal(1.0, defaults.CompositionOpacityValue);
+        var path = Path.Combine(Path.GetTempPath(), $"meltype-theme-{Guid.NewGuid():N}.json");
+        try
+        {
+            new Settings { CompositionTheme = CompositionTheme.System, CompositionOpacity = CompositionOpacity.Percent80, CompositionPlacement = CompositionPlacement.AboveCaret }.Save(path);
+            var json = File.ReadAllText(path);
+            Assert.True(json.Contains("\"CompositionTheme\": \"System\"") && json.Contains("\"CompositionOpacity\": \"Percent80\"") && json.Contains("\"AboveCaret\""), json);
+            var loaded = Settings.Load(path);
+            Assert.Equal(CompositionTheme.System, loaded.CompositionTheme);
+            Assert.Equal(CompositionOpacity.Percent80, loaded.CompositionOpacity);
+            Assert.Equal(0.8, loaded.CompositionOpacityValue);
+            Assert.Equal(CompositionPlacement.AboveCaret, loaded.CompositionPlacement);
+            foreach (var (theme, opacity) in new[] { (CompositionTheme.Light, CompositionOpacity.Percent90), (CompositionTheme.Dark, CompositionOpacity.Percent70) })
+            {
+                new Settings { CompositionTheme = theme, CompositionOpacity = opacity }.Save(path);
+                Assert.Equal(theme, Settings.Load(path).CompositionTheme);
+                Assert.Equal(opacity, Settings.Load(path).CompositionOpacity);
+            }
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Test]
+    public static void CompositionTheme_FollowsWindowsOnlyWhenAsked()
+    {
+        // 「Windows の設定に合わせる」は Windows のアプリ モードどおり (読めなければダーク)。ライト / ダークは Windows の設定によらない
+        Assert.True(!new Settings().CompositionIsLight(true), "既定はダーク");
+        Assert.True(new Settings { CompositionTheme = CompositionTheme.Light }.CompositionIsLight(false), "ライト");
+        var system = new Settings { CompositionTheme = CompositionTheme.System };
+        Assert.True(system.CompositionIsLight(true), "Windows がライト");
+        Assert.True(!system.CompositionIsLight(false), "Windows がダーク");
+        Assert.True(!system.CompositionIsLight(null), "読めなければダーク");
+    }
+
+    [Test]
     public static void DoubledUnitAfterNumber_ShowsLettersWhileTyping()
     {
         // 50cc を打っている途中に 50っc と出ていた (issue #130)。確定した結果は直っていたが、途中の表示も 50cc にする

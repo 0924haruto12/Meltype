@@ -64,6 +64,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Placement = () => _engine.Settings.CompositionPlacement,
             Size = () => _engine.Settings.CompositionSize,
             Font = () => _engine.Settings.CompositionFont,
+            LightTheme = () => _engine.Settings.CompositionIsLight(Meltype.Composition.CompositionWindow.WindowsUsesLightTheme()),
+            Opacity = () => _engine.Settings.CompositionOpacityValue,
         });
         _engine.AttachComposition(_composition);
 
