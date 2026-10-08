@@ -323,6 +323,45 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void DigitKey_SelectsCandidateByNumber()
+    {
+        // #35: 変換中に候補の番号 (1〜9) を押すと、その候補を選ぶ (打った数字が入るのではなく)。
+        var k = new Keyboard();
+        k.Type("kawa ");
+        var view = k.Host.View!;
+        Assert.True(view.Converting && view.Candidates.Count >= 2, "候補の一覧が出る");
+        var second = view.Candidates[1];
+        k.Press('2');
+        Assert.Equal(second, k.Host.Document);
+        Assert.True(!k.Gate.IsCaptured, "最後の文節を番号で選んだら確定する");
+    }
+
+    [Test]
+    public static void DigitKey_MovesToNextClause()
+    {
+        var k = new Keyboard();
+        k.Type("tanniwotoru ");
+        var first = k.Host.View!.Candidates;
+        k.Press('2');
+        var view = k.Host.View!;
+        Assert.True(view.Converting, "途中の文節なら確定せずに次の文節へ");
+        Assert.Equal(1, view.SelectedClause);
+        Assert.Equal(first[1], view.Clauses![0]);
+        Assert.Equal(0, k.Host.Output.Count);
+    }
+
+    [Test]
+    public static void DigitKey_WithoutCandidateTypesDigit()
+    {
+        var k = new Keyboard();
+        k.Type("kawa ");
+        var count = k.Host.View!.Candidates.Count;
+        if (count >= 9) return;
+        k.Press('9');
+        Assert.True(k.Host.Document.EndsWith('9') || k.Showing == "9", "番号の無い数字は普通に打った数字: " + k.Host.Document + " / " + k.Showing);
+    }
+
+    [Test]
     public static void Reconversion_WithoutSelectionDoesNothing()
     {
         var k = new Keyboard();
