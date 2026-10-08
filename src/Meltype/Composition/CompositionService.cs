@@ -466,14 +466,21 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         {
             // 確定した文字の分だけ右へ (同じ位置のままだと、確定した文字を変換ボックスが隠してしまう: issue #57)。
             // 入力欄のキャレットは確定した文字の入力が終わるまで動かないことがあるので、確定した文字の幅で動かす。
+            // 改行を含むとき・右へずらすと画面の外に出るとき (折り返し) は、ずらさずに入力欄のキャレットの位置を取り直す。
             Point? moved = null;
-            if (_committedWhileVisible.Length > 0)
+            var committed = _committedWhileVisible;
+            _committedWhileVisible = "";
+            if (committed.Length > 0)
             {
-                moved = new Point(_window.Left + _window.TextWidth(_committedWhileVisible.Replace("\n", "")), _window.Top);
-                _committedWhileVisible = "";
+                var x = _window.Left + _window.TextWidth(committed);
+                var screen = Screen.FromPoint(new Point(_window.Left, _window.Top)).WorkingArea;
+                if (!committed.Contains('\n') && x + _window.Width <= screen.Right) moved = new Point(x, _window.Top);
             }
-            _window.ShowView(view, moved);
-            return;
+            if (committed.Length == 0 || moved is not null)
+            {
+                _window.ShowView(view, moved);
+                return;
+            }
         }
         _committedWhileVisible = "";
         var caret = FindCaret();
