@@ -413,6 +413,9 @@ internal static class CompositionTests
         k.Type("aiueo");
         k.Press(VirtualKeys.F10);
         Assert.Equal("aiueo", k.Showing);
+    }
+
+    [Test]
     public static void DigitKey_SelectsCandidateByNumber()
     {
         // #35: 変換中に候補の番号 (1〜9) を押すと、その候補を選ぶ (打った数字が入るのではなく)。
