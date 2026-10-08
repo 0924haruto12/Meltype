@@ -213,6 +213,17 @@ internal static class KanaInputTests
     }
 
     [Test]
+    public static void KanaInput_Punctuation_FollowsSetting()
+    {
+        // かな入力の 、 (Shift+ね) と 。 (Shift+る) も句読点の設定に合わせる
+        var k = Kana();
+        k.Punctuation = PunctuationStyle.FullWidthCommaPeriod;
+        k.TypeKeys(KanaQualityTests.KeysFor("はい、はい。"));
+        k.Type("\n");
+        Assert.Equal("はい，はい．", k.Host.Document);
+    }
+
+    [Test]
     public static void KanaInput_SpaceAroundEnglish()
     {
         // かな入力でも、確定した英単語の前後に半角スペースが入る
@@ -565,6 +576,65 @@ internal static class LanguageLearningTests
     }
 
     [Test]
+    public static void CompositionFont_IsSaved()
+    {
+        // 変換ボックスのフォントを変えたい (issue #165): 既定は空 (Yu Gothic UI)、選んだフォントは保存しても残る
+        Assert.Equal("", new Settings().CompositionFont);
+        var path = Path.Combine(Path.GetTempPath(), $"meltype-font-{Guid.NewGuid():N}.json");
+        try
+        {
+            new Settings { CompositionFont = "Meiryo UI" }.Save(path);
+            Assert.Equal("Meiryo UI", Settings.Load(path).CompositionFont);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Test]
+    public static void DoubledUnitAfterNumber_ShowsLettersWhileTyping()
+    {
+        // 50cc を打っている途中に 50っc と出ていた (issue #130)。確定した結果は直っていたが、途中の表示も 50cc にする
+        var k = new CompositionTests.Keyboard();
+        k.Type("50cc");
+        Assert.Equal("50cc", k.Showing);
+        k.Type("genntuki\n");
+        Assert.Equal("50ccげんつき", k.Host.Document);
+        // mm は mmol の打ちかけかもしれないので、今までどおり続きを待つ
+        k = new CompositionTests.Keyboard();
+        k.Type("2mmol\n");
+        Assert.Equal("2mmol", k.Host.Document);
+        // mm の後ろに日本語が続けば、確定した結果は単位の mm
+        k = new CompositionTests.Keyboard();
+        k.Type("10mmdesu");
+        Assert.Equal("10mmです", k.Showing);
+        // c 1 つは単位の打ちかけとして英字のまま
+        k = new CompositionTests.Keyboard();
+        k.Type("5c");
+        Assert.Equal("5c", k.Showing);
+    }
+
+    [Test]
+    public static void AcronymThenRomaji_IsJapanese()
+    {
+        // 大文字の略語の後ろのローマ字 (AInituite → AIについて: issue #129)。
+        // AIde を英単語 aide、AInit を init と読んで、後ろまで英字にしていた
+        foreach (var (typed, expected) in new[]
+        {
+            ("AInituite", "AIについて"), ("AInitsuite", "AIについて"), ("AIdekiru", "AIできる"), ("GPTnituite", "GPTについて"),
+            ("AIde", "AIで"), ("iOSdekiru", "iOSできる"),
+            // 略語に英単語が続くもの・英文の中の略語は英語のまま
+            ("HTTPserver", "HTTPserver"), ("GPT is great", "GPT is great"), ("use HTTPS for login", "use HTTPS for login"),
+        })
+        {
+            var k = new CompositionTests.Keyboard();
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, typed);
+        }
+    }
+
+    [Test]
     public static void UnitsAfterNumbers_StayLetters()
     {
         // 単位 (mm、min) が打ちにくく、日本語になることがあった (10mmで → 10っまで、5min → 5みん)。
@@ -627,7 +697,8 @@ internal static class LanguageLearningTests
                 ("tougouhandakaraBEkana?", "とうごうはんだからBEかな？"), ("fubusangaXshisuginadakenanda!!", "ふぶさんがXしすぎなだけなんだ！！"), ("tsubemyunorevancedtsukatteru", "つべみゅのrevancedつかってる"),
                 // テスターの報告 (2026-10-05): 英語のユーザー名が打てない。@ の後ろ (メンション)・_ の入った語は英字のまま
                 ("@kuraido", "@kuraido"), ("@una08142009 arigatou", "@una08142009 ありがとう"), ("upah_setu", "upah_setu"), ("cafely_latte", "cafely_latte"),
-                ("taro@gmail.com", "たろ@gmail.com"), ("@akisamesan", "@akisamesan"),
+                // メールアドレスは @ の前も英字のまま (issue #59。前は たろ@... だった。例には example.com を使う)
+                ("taro@example.com", "taro@example.com"), ("@akisamesan", "@akisamesan"),
                 // Issue #12: ローマ字として読めてしまう英単語 (feature → ふぇあつれ)。日本語の中でも英字
                 ("feature", "feature"), ("future", "future"), ("nature", "nature"), ("remote", "remote"), ("online", "online"),
                 ("atarashiifeaturewotsuika", "あたらしいfeatureをついか"), ("kyouharemotedesu", "きょうはremoteです"),
