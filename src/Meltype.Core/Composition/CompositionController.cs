@@ -41,6 +41,12 @@ public interface ICompositionHost
     /// <summary>キャレットの前の文字を count 文字消す (確定し直すとき)。</summary>
     void DeleteBackward(int count);
 
+    /// <summary>
+    /// 入力欄の確定済みの文字を消せるか。消せない入力欄 (Linux で周りの文字の削除に対応していないアプリ) では、
+    /// 確定し直すと元の文字が残ったまま書き足されてしまう (api → apiあぴ) ので、確定し直さない。
+    /// </summary>
+    bool CanDeleteBackward => true;
+
     void Replay(MouseButtonEvent e);
 
     /// <summary>その打鍵で入力される文字 (記号・数字を含む)。文字を生まないキーなら null。</summary>
@@ -1445,7 +1451,8 @@ public sealed class CompositionController
         var text = converting ? string.Concat(_clauses.Select(c => c.Text)) : CurrentDisplay(final: true);
         if (fixEnglish && !converting && _text.Mode == DisplayMode.Auto) text = FixEnglishTypo(text);
         var english = converting ? _clauses.All(c => c.IsEnglish) : _text.IsAlphanumericAt(final: true);
-        var chosen = converting && _clauses.Any(c => c.Changed);
+        // F6 / F7 / F9 / F10 で、はっきり英字 / かなを選んで確定した語も、後から確定し直さない。
+        var chosen = converting ? _clauses.Any(c => c.Changed) : _text.Mode != DisplayMode.Auto;
         if (_reconversion is { } selection)
         {
             if (_host.TryReplaceSelection(selection, text + suffix))
@@ -1521,7 +1528,7 @@ public sealed class CompositionController
     /// </summary>
     private void CorrectPreviousCommit(string raw, bool english)
     {
-        if (_correctable.Count == 0 || !_options.AutoCorrect()) return;
+        if (_correctable.Count == 0 || !_options.AutoCorrect() || !_host.CanDeleteBackward) return;
         var previous = _correctable[^1];
         List<CommitRecord> targets = [];
         string? replacement = null;
@@ -1546,6 +1553,8 @@ public sealed class CompositionController
             // sushi → すし のように、日本語の語として読めるときだけ直す。
             if (_options.RomajiTypos is { } lexicon && !lexicon.IsWord(replacement)) return;
         }
+        // ユーザーが英字 / かなに直して覚えた語 (F10 で英字にした api) は、覚えたとおりなら書き換えない (issue #124)。
+        if (targets.Any(t => _options.Languages?.Get(t.Raw.ToLowerInvariant()) == t.English)) return;
         var original = string.Concat(targets.Select(t => t.Text));
         if (replacement is null || replacement == original) return;
 
