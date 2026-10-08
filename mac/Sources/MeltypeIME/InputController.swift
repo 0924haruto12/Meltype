@@ -103,6 +103,8 @@ final class MeltypeInputController: IMKInputController {
         candidatesWindow?.hide()
         suggestionPanel?.orderOut(nil)
         displayedSuggestion = nil
+        meaningKey = nil
+        candidateList = []
         super.deactivateServer(sender)
     }
 
@@ -260,12 +262,20 @@ final class MeltypeInputController: IMKInputController {
     }
 
     private func showSuggestion(_ suggestion: String?, client: IMKTextInput) {
-        guard let suggestion else {
+        let selection = client.selectedRange()
+        guard let suggestion, selection.location != NSNotFound else {
             suggestionPanel?.orderOut(nil)
             displayedSuggestion = nil
             return
         }
-        guard suggestion != displayedSuggestion else { return }
+        var caret = NSRect.zero
+        _ = client.attributes(forCharacterIndex: selection.location, lineHeightRectangle: &caret)
+        guard caret.minX.isFinite, caret.minY.isFinite,
+              caret.width.isFinite, caret.height.isFinite, caret.height > 0 else {
+            suggestionPanel?.orderOut(nil)
+            displayedSuggestion = nil
+            return
+        }
         displayedSuggestion = suggestion
         let label = NSTextField(labelWithString: suggestion)
         label.font = .systemFont(ofSize: 13)
@@ -281,8 +291,6 @@ final class MeltypeInputController: IMKInputController {
         panel.contentView?.subviews.forEach { $0.removeFromSuperview() }
         label.frame.origin = NSPoint(x: 12, y: 8)
         panel.contentView?.addSubview(label)
-        var caret = NSRect.zero
-        _ = client.attributes(forCharacterIndex: client.selectedRange().location, lineHeightRectangle: &caret)
         if let screen = NSScreen.screens.first(where: { $0.frame.intersects(caret) }) ?? NSScreen.main {
             let visible = screen.visibleFrame
             panel.setFrameOrigin(NSPoint(x: max(visible.minX, min(caret.minX, visible.maxX - size.width)),

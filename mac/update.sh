@@ -20,8 +20,6 @@ esac
 [[ $# -le 1 ]] || { echo "Too many arguments" >&2; exit 1; }
 [[ "$(uname)" == Darwin ]] || { echo "This updater requires macOS." >&2; exit 1; }
 
-MELTYPE_SKIP_START=1 bash "$here/build-cli.sh" --test --install
-
 # Native checks exit the input-method process; restore it even if a check fails.
 restore_input() {
     local result=$?
@@ -35,5 +33,6 @@ restore_input() {
     exit "$result"
 }
 trap restore_input EXIT
+MELTYPE_SKIP_START=1 bash "$here/build-cli.sh" --test --install
 "$app/Contents/MacOS/Meltype" --check-inputs "$here/Resources/InputChecks.tsv"
 echo "Meltype update and input checks completed."

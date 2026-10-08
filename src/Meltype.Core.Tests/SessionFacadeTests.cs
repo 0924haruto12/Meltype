@@ -211,6 +211,26 @@ internal static class SessionFacadeTests
     }
 
     [Test]
+    public static void GoPreview_IsLimitedToExactAutomaticToken()
+    {
+        foreach (var input in new[] { "g", "goo", "google", "gohan", "kyouhago" })
+        {
+            var session = Create();
+            var view = Type(session, input)[^1].View!;
+            Assert.True(view.Candidates.Count == 0, input + ": go preview must not replace other candidates");
+            Assert.True(!session.SelectCandidate(0).View!.Converting, input + ": no preview selection");
+        }
+        var forced = Create();
+        Type(forced, "go");
+        var kana = forced.HandleKey(VirtualKeys.F6, null, false, false, false, false).View!;
+        Assert.Equal("ご", kana.Text);
+        Assert.Equal(0, kana.Candidates.Count);
+        var invalid = Create();
+        Type(invalid, "go");
+        Assert.True(!invalid.SelectCandidate(2).View!.Converting, "invalid preview index leaves composition unchanged");
+    }
+
+    [Test]
     public static void EnglishVerb_ConjugationDoesNotCrossRomajiTokens()
     {
         foreach (var (input, expected) in new[] {
