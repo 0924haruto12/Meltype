@@ -517,6 +517,15 @@ internal static class LanguageLearningTests
     }
 
     [Test]
+    public static void Brand_TeamsFromChiimusu()
+    {
+        // ちーむす でも Teams を出す (issue #47。ちーむず だけだった)
+        var candidates = CandidateDictionary.Load(null);
+        Assert.True(candidates.Lookup("ちーむす").Contains("Teams"), string.Join(" ", candidates.Lookup("ちーむす")));
+        Assert.True(candidates.Lookup("ちーむず").Contains("Teams"), "ちーむず も今までどおり");
+    }
+
+    [Test]
     public static void UnitsAfterNumbers_StayLetters()
     {
         // 単位 (mm、min) が打ちにくく、日本語になることがあった (10mmで → 10っまで、5min → 5みん)。
