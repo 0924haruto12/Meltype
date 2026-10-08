@@ -1710,7 +1710,8 @@ public sealed class CompositionController
     {
         var key = PredictionKey();
         if (key == _predictionKey && !blocked) return;
-        _predictionKey = key;
+        // 出さないときは覚えない (同じ打ちかけのまま出せるようになったら、作り直す)
+        _predictionKey = blocked ? "" : key;
         _predictionIndex = -1;
         _predictions = [];
         if (blocked || _options.Predictor is not { } predictor || !_options.Predictions() || _text.Mode != DisplayMode.Auto) return;
