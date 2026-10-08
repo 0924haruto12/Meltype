@@ -383,6 +383,44 @@ internal static class CompositionTests
         Assert.Equal("aiueo", k.Showing);
     }
 
+    private static void CtrlPress(Keyboard k, int vk)
+    {
+        k.Key(VirtualKeys.LControl);
+        k.Press(vk);
+        k.Key(VirtualKeys.LControl, up: true);
+    }
+
+    [Test]
+    public static void CtrlUiop_SwitchesKanaAndLetters()
+    {
+        // #53: Ctrl+P → 全角英数、Ctrl+O → 半角英数 (続けて押すと大文字)、Ctrl+I → カタカナ、Ctrl+U → ひらがな
+        var k = new Keyboard();
+        k.Type("aiueo");
+        CtrlPress(k, 'P');
+        Assert.Equal("ａｉｕｅｏ", k.Showing);
+        CtrlPress(k, 'O');
+        Assert.Equal("aiueo", k.Showing);
+        CtrlPress(k, 'O');
+        Assert.Equal("AIUEO", k.Showing);
+        CtrlPress(k, 'I');
+        Assert.Equal("アイウエオ", k.Showing);
+        CtrlPress(k, 'U');
+        Assert.Equal("あいうえお", k.Showing);
+        Assert.Equal(0, k.Host.Output.Count);
+        Assert.True(!k.Host.Events.Any(e => e == "down:A2"), "Ctrl はアプリに送らない");
+    }
+
+    [Test]
+    public static void CtrlOtherShortcut_CommitsThenPasses()
+    {
+        var k = new Keyboard();
+        k.Type("aiueo");
+        CtrlPress(k, 'C');
+        Assert.Equal("あいうえお", k.Host.Document);
+        var down = k.Host.Events.IndexOf("down:A2");
+        Assert.True(down >= 0 && k.Host.Events.IndexOf("down:43") > down, "確定してから Ctrl+C を送る: " + string.Join(" ", k.Host.Events));
+    }
+
     [Test]
     public static void Reconversion_WithoutSelectionDoesNothing()
     {
@@ -1545,7 +1583,8 @@ internal static class CompositionTests
         k.Key(VirtualKeys.LControl);
         k.Press('C');
         k.Key(VirtualKeys.LControl, up: true);
-        Assert.Equal("text:かな|down:A2|passed:43|passed-up:43|passed-up:A2", string.Join("|", k.Host.Events), "確定 → Ctrl を送る → 以降は直接アプリへ");
+        // 入力中の Ctrl は次のキーを見るまで送らない (Ctrl+U/I/O/P はかな・英字の切り替え)。ほかのキーなら確定 → Ctrl → そのキーの順に送る
+        Assert.Equal("text:かな|down:A2|down:43|passed-up:43|passed-up:A2", string.Join("|", k.Host.Events), "確定 → Ctrl → C を送る → 以降は直接アプリへ");
         Assert.True(!k.Gate.IsCaptured, "ショートカットの後は横取りをやめる");
     }
 

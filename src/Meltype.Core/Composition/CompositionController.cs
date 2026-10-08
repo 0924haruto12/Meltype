@@ -189,6 +189,7 @@ public sealed class CompositionController
     private readonly Dictionary<string, string> _conversionCache = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _liveCache = new(StringComparer.Ordinal);
     private readonly HashSet<int> _swallowedShift = [];
+    private readonly HashSet<int> _swallowedControl = [];
     private readonly HashSet<int> _replayedDown = [];
     private readonly HashSet<int> _capturedDown = [];
     private List<Clause> _clauses = [];
@@ -273,6 +274,7 @@ public sealed class CompositionController
             {
                 // 以降のキーアップはフックを素通りしてアプリに直接届くので、追跡をやめる。
                 _swallowedShift.Clear();
+                _swallowedControl.Clear();
                 _replayedDown.Clear();
                 _capturedDown.Clear();
                 return;
@@ -330,6 +332,7 @@ public sealed class CompositionController
         ClearComposition();
         ClearHeld();
         _swallowedShift.Clear();
+        _swallowedControl.Clear();
         _replayedDown.Clear();
         _capturedDown.Clear();
     }
@@ -372,6 +375,13 @@ public sealed class CompositionController
     {
         // クリックで別の場所に移る前に、今の位置へ確定しておく。
         CommitPending();
+        // 送らずにいた Ctrl は、クリックと一緒に送る (Ctrl+クリック)。
+        foreach (var control in _swallowedControl)
+        {
+            _host.Replay(new KeyEvent(control, 0, false, false, false, 0));
+            _replayedDown.Add(control);
+        }
+        _swallowedControl.Clear();
         _correctable.Clear();
         _host.Replay(e);
     }
@@ -382,6 +392,7 @@ public sealed class CompositionController
         if (e.IsUp)
         {
             _swallowedShift.Remove(vk);
+            _swallowedControl.Remove(vk);
             // 押下をアプリに送ったキー、または押下が関所を閉じる前に通っていたキーは、離したこともアプリに伝える。
             var replayed = _replayedDown.Remove(vk);
             var capturedHere = _capturedDown.Remove(vk);
@@ -426,6 +437,33 @@ public sealed class CompositionController
             // 大文字入力や文節の区切り変更のための Shift はアプリに渡さない。ほかのキーと一緒に送り直すときにまとめて送る。
             _swallowedShift.Add(vk);
             return;
+        }
+        if (IsControl(vk) && !_text.IsEmpty)
+        {
+            // 変換ボックスに入力中の Ctrl は、次のキーを見るまで送らない (Ctrl+U/I/O/P はかな・英字の切り替え。それ以外は確定してから送る)。
+            _swallowedControl.Add(vk);
+            return;
+        }
+        if (_swallowedControl.Count > 0)
+        {
+            if (!_text.IsEmpty && ControlShortcut(vk) is { } function)
+            {
+                // Ctrl+U/I/O/P: F6/F7/F10/F9 と同じ (ATOK と同じ割り当て。続けて押すと大文字・小文字も切り替わる)。
+                vk = function;
+            }
+            else
+            {
+                // ほかのショートカット (Ctrl+C・Ctrl+Z …) は、確定してから Ctrl と一緒にアプリへ送る。
+                CommitIfAny();
+                foreach (var control in _swallowedControl)
+                {
+                    _host.Replay(new KeyEvent(control, 0, false, false, false, e.TimeMs));
+                    _replayedDown.Add(control);
+                }
+                _swallowedControl.Clear();
+                ReplayDown(e);
+                return;
+            }
         }
         if (VirtualKeys.IsModifier(vk))
         {
@@ -1673,6 +1711,18 @@ public sealed class CompositionController
     }
 
     private static bool IsShift(int vk) => vk is VirtualKeys.Shift or VirtualKeys.LShift or VirtualKeys.RShift;
+
+    private static bool IsControl(int vk) => vk is VirtualKeys.Control or VirtualKeys.LControl or VirtualKeys.RControl;
+
+    /// <summary>入力中の Ctrl+英字で、かな・英字を切り替えるもの (U ひらがな / I カタカナ / O 半角英数 / P 全角英数)。</summary>
+    private static int? ControlShortcut(int vk) => vk switch
+    {
+        'U' => VirtualKeys.F6,
+        'I' => VirtualKeys.F7,
+        'O' => VirtualKeys.F10,
+        'P' => VirtualKeys.F9,
+        _ => null,
+    };
 
     private static bool IsCommandModifier(int vk) => VirtualKeys.IsModifier(vk) && !IsShift(vk);
 }
