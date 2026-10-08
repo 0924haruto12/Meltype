@@ -525,6 +525,8 @@ internal static class LanguageLearningTests
         {
             ("AInituite", "AIについて"), ("AInitsuite", "AIについて"), ("AIdekiru", "AIできる"), ("GPTnituite", "GPTについて"),
             ("AIde", "AIで"), ("iOSdekiru", "iOSできる"),
+            // 略語に英単語が続くもの・英文の中の略語は英語のまま
+            ("HTTPserver", "HTTPserver"), ("GPT is great", "GPT is great"), ("use HTTPS for login", "use HTTPS for login"),
         })
         {
             var k = new CompositionTests.Keyboard();
