@@ -22,7 +22,7 @@ Windows 版のほか、Mac 版・Linux 版のプレビュー版があります (
 1. [Releases](https://github.com/yksr-melt/Meltype/releases) から、インストーラー `Meltype-<version>-setup.exe` をダウンロードして実行する (管理者権限は不要)
    - zip で入れたいときは `Meltype-<version>-windows.zip` をダウンロードして展開し、`Install.cmd` をダブルクリックする。どちらで入れても同じ場所 (`%LOCALAPPDATA%\Programs\Meltype`) に入る
    - Mac 版は `Meltype-<version>-mac.zip`、Linux 版は `Meltype-<version>-linux.zip` (どちらもプレビュー版)
-2. インストーラー (または `Install.cmd`) の案内に従う
+2. インストーラー (または `Install.cmd`) の案内に従う。Meltype IME を入れるときだけ管理者権限の確認が出ます。断っても変換ボックス方式は使えます。
    - Meltype はコード署名をしていないので、「Windows によって PC が保護されました」と出ることがあります。「詳細情報」→「実行」で入れられます。
    - 「ウイルスを検出しました」などの脅威検出は、上の SmartScreen の警告とは別です。誤検知の可能性もありますが、検出名だけでは判断できません。Windows セキュリティ →「ウイルスと脅威の防止」→「保護の更新」で定義を更新し、公式リリースを再ダウンロードして再検査してください。引き続き検出される場合は、保護を無効にしたりフォルダーを除外したりせず、「保護の履歴」で検出名・影響を受けた項目を確認し、版と検出名を [Issues](https://github.com/yksr-melt/Meltype/issues) に報告してください (個人名・パス・ダウンロード URL の一時トークンは隠してください)。
    - ダウンロードした zip が本物か確かめたいときは、リリースのページに出ている SHA-256 と比べてください (PowerShell: `Get-FileHash .\Meltype-<version>-windows.zip`)。
@@ -37,7 +37,8 @@ Windows 版のほか、Mac 版・Linux 版のプレビュー版があります (
 
 メモ帳やブラウザーの入力欄で、IME を気にせずそのままローマ字で打ってください。
 
-- 日本語はかなで、英単語は英字のまま、カーソルの下の変換ボックスに出ます
+- インストールで Meltype IME を入れた場合は、**Win + Space** で「Meltype」を選びます。打った文字は入力欄にそのまま下線付きで入り、変換の候補は入力位置の下に一覧で出ます ([使い方](docs/USAGE.md#meltype-ime))
+- Meltype IME を入れていない場合は、日本語はかなで、英単語は英字のまま、カーソルの下の変換ボックスに出ます
 - **Enter** で確定、**Space** で漢字に変換 (英単語のときは確定して空白)
 - 変換中は ← → で文節を選び、Space / ↓ で候補を切り替え
 - **F7** でカタカナ、**F10** で英字 (続けて押すと 大文字 → 先頭だけ大文字)。英字にして確定した語は、次から英字になります

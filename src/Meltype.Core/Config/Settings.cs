@@ -49,6 +49,28 @@ public enum CompositionPlacement
     /// <summary>打っている行に重ねる (入力欄の中に打っているように見える)。</summary>
     [Description("入力位置に重ねる")] Overlay,
     [Description("カーソルの下")] BelowCaret,
+    /// <summary>入力位置の上に別の枠で出す (下の行や入力欄の下の部分を隠さない)。</summary>
+    [Description("カーソルの上")] AboveCaret,
+}
+
+/// <summary>変換ボックスの色。</summary>
+public enum CompositionTheme
+{
+    /// <summary>既定。黒っぽい背景に白い文字。</summary>
+    [Description("ダーク")] Dark,
+    /// <summary>白っぽい背景に黒い文字。</summary>
+    [Description("ライト")] Light,
+    /// <summary>Windows の「既定のアプリ モード」(ライト / ダーク) に合わせる。</summary>
+    [Description("Windows の設定に合わせる")] System,
+}
+
+/// <summary>変換ボックスの不透明度。</summary>
+public enum CompositionOpacity
+{
+    [Description("100% (透けない)")] Opaque,
+    [Description("90%")] Percent90,
+    [Description("80%")] Percent80,
+    [Description("70%")] Percent70,
 }
 
 /// <summary>かな漢字変換のエンジン。</summary>
@@ -78,6 +100,8 @@ public enum InputMode
     [Description("Meltype キーボード (変換ボックスで入力)")] Keyboard,
     /// <summary>入力開始時に判定して Microsoft IME の ON/OFF を切り替える (v1 の動作)。</summary>
     [Description("IME 自動切替 (Microsoft IME を使う)")] AutoSwitch,
+    /// <summary>Windows の IME (TSF) として、入力欄に直接入力する。キーボードフックは使わない。</summary>
+    [Description("Meltype IME (入力欄に直接入力)")] Tsf,
 }
 
 [TypeConverter(typeof(ExpandableObjectConverter))]
@@ -162,7 +186,7 @@ public sealed class Settings
     public bool AllowInjectedInput { get; set; }
 
     [Category("1. 全般"), DisplayName("動作モード"),
-     Description("Keyboard = Meltype の変換ボックスで入力 (英単語は自動で英字、Space で変換、Enter で確定) / AutoSwitch = 入力開始時に判定して Microsoft IME を自動で ON にする")]
+     Description("Tsf = Windows の IME として入力欄に直接入力 (Win + Space で Meltype を選ぶ) / Keyboard = Meltype の変換ボックスで入力 (英単語は自動で英字、Space で変換、Enter で確定) / AutoSwitch = 入力開始時に判定して Microsoft IME を自動で ON にする")]
     public InputMode Mode { get; set; } = InputMode.Keyboard;
 
     [Category("1. 全般"), DisplayName("半角/全角 で Meltype を ON/OFF"),
@@ -234,7 +258,7 @@ public sealed class Settings
     public bool ShowModeIndicatorOnFocus { get; set; } = true;
 
     [Category("1. 全般"), DisplayName("変換ボックスの位置"),
-     Description("入力位置に重ねる: 打っている文字が入力欄の中の入力位置にそのまま出ているように見えます。カーソルの下: 入力位置の下に別の枠で出します (今までの出し方)。入力位置が分からないアプリでは、どちらも入力欄の下に出します。")]
+     Description("入力位置に重ねる: 打っている文字が入力欄の中の入力位置にそのまま出ているように見えます。カーソルの下: 入力位置の下に別の枠で出します (今までの出し方)。カーソルの上: 入力位置の上に別の枠で出します (候補の一覧が入力欄や下の行を隠さない)。入力位置が分からないアプリでは、どれも入力欄の下に出します。")]
     public CompositionPlacement CompositionPlacement { get; set; } = CompositionPlacement.Overlay;
 
     [Category("1. 全般"), DisplayName("変換ボックスの文字の大きさ"),
@@ -244,6 +268,32 @@ public sealed class Settings
     [Category("1. 全般"), DisplayName("変換ボックスのフォント"),
      Description("変換ボックスの文字のフォントです。既定は Yu Gothic UI です。この PC に無いフォントを選んでいたときは既定のフォントで出します。絵文字はカラーで出せるときはそのフォントで描きます。")]
     public string CompositionFont { get; set; } = "";
+
+    [Category("1. 全般"), DisplayName("変換ボックスの色"),
+     Description("ダーク: 黒っぽい背景に白い文字 (今までの見た目)。ライト: 白っぽい背景に黒い文字。Windows の設定に合わせる: Windows の「既定のアプリ モード」(設定の 個人用設定 > 色) に合わせます。")]
+    public CompositionTheme CompositionTheme { get; set; } = CompositionTheme.Dark;
+
+    [Category("1. 全般"), DisplayName("変換ボックスの不透明度"),
+     Description("変換ボックスを少し透かして、後ろの文字を見えるようにします。100% は透けません。")]
+    public CompositionOpacity CompositionOpacity { get; set; } = CompositionOpacity.Opaque;
+
+    /// <summary>変換ボックスをライトの色で出すか。windowsLight は Windows のアプリ モードがライトか (分からなければ null = ダーク)。</summary>
+    public bool CompositionIsLight(bool? windowsLight) => CompositionTheme switch
+    {
+        CompositionTheme.Light => true,
+        CompositionTheme.System => windowsLight ?? false,
+        _ => false,
+    };
+
+    /// <summary>変換ボックスの不透明度 (0.7〜1)。</summary>
+    [Browsable(false), JsonIgnore]
+    public double CompositionOpacityValue => CompositionOpacity switch
+    {
+        CompositionOpacity.Percent90 => 0.9,
+        CompositionOpacity.Percent80 => 0.8,
+        CompositionOpacity.Percent70 => 0.7,
+        _ => 1.0,
+    };
 
     [Category("1. 全般"), DisplayName("通知を出す"),
      Description("Meltype を有効・一時停止にしたときなどに、画面の右下に通知を出します (Windows の通知の音も鳴ります)。OFF にすると通知も音も出しません。")]
@@ -292,6 +342,12 @@ public sealed class Settings
     [Browsable(false)]
     public bool WelcomeShown { get; set; }
 
+    /// <summary>
+    /// Meltype IME (TSF) が入っているのを見つけて、動作モードを Meltype IME にしたか (一度だけ切り替える。後でユーザーが戻したら、そのまま)。
+    /// </summary>
+    [Browsable(false)]
+    public bool TsfIntroduced { get; set; }
+
     /// <summary>プロファイル (仕事用・趣味用・SNS 用など)。設定画面の上と、トレイのメニューで切り替える。</summary>
     [Browsable(false)]
     public List<SettingsProfile> Profiles { get; set; } = [];
@@ -309,6 +365,8 @@ public sealed class Settings
     [
         nameof(Profiles), nameof(ActiveProfile), nameof(SettingsVersion), nameof(WelcomeShown),
         nameof(Enabled), nameof(JapaneseKeyboardOnly), nameof(AllowInjectedInput), nameof(FileLog), nameof(LogTypedText), nameof(AutoUpdate),
+        // 入力の方式 (Windows の IME として入力するか) は PC 全体の選び方なので、プロファイルで変えない
+        nameof(Mode), nameof(TsfIntroduced),
     ];
 
     /// <summary>今の設定の値のうち、プロファイルに入れるもの。</summary>
@@ -333,7 +391,11 @@ public sealed class Settings
         current.Profiles.First(p => p.Name == current.ActiveProfile).Values = current.ProfileValues();
         // 共通の項目は今の値のまま、プロファイルの項目だけを切り替え先の値にする
         var merged = JsonSerializer.SerializeToNode(current, JsonType)!.AsObject();
-        foreach (var (key, value) in target.Values ?? []) merged[key] = value?.DeepClone();
+        // 前の版で保存したプロファイルには、今は共通にした項目 (動作モードなど) が入っていることがあるので飛ばす
+        foreach (var (key, value) in target.Values ?? [])
+        {
+            if (!SharedKeys.Contains(key)) merged[key] = value?.DeepClone();
+        }
         var next = merged.Deserialize(JsonType) ?? current;
         next.ActiveProfile = name;
         return next.Normalize();

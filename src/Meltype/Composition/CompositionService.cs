@@ -19,6 +19,8 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     private readonly Func<Config.CompositionPlacement> _placement;
     private readonly Func<Config.CompositionSize> _size;
     private readonly Func<string> _font;
+    private readonly Func<bool> _lightTheme;
+    private readonly Func<double> _opacity;
     private readonly Func<bool> _directMode;
     private readonly MsImeKanjiConverter _converter = new();
     private readonly KeyInjector _injector = new();
@@ -73,12 +75,15 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         };
         Phrases = resolved.Predictor?.Phrases;
         _hybrid = new HybridConverter(options.Engine, _mozc, _converter, reading => _windowsCandidates.Get(reading));
+        _resolved = resolved;
         Controller = new CompositionController(Gate, detector, _hybrid, this, resolved);
         if (options.Engine() != Config.ConversionEngine.System && _mozc.IsInstalled) _mozc.WarmUp();
         _showIndicator = options.ModeIndicator;
         _placement = options.Placement;
         _size = options.Size;
         _font = options.Font;
+        _lightTheme = options.LightTheme;
+        _opacity = options.Opacity;
         _directMode = options.DirectMode;
         var onFocus = options.ModeIndicatorOnFocus;
         Focus.TextInputEntered += () => { if (onFocus()) ShowMode(!_directMode()); };
@@ -89,6 +94,15 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     }
 
     public CaptureGate Gate { get; }
+
+    private readonly CompositionOptions _resolved;
+
+    /// <summary>
+    /// Meltype IME (TSF) の入力欄 1 つ分の入力の本体を作る。辞書・学習データ・変換エンジンは変換ボックスと共有する
+    /// (UI スレッドからだけ使うので排他は要らない)。英数状態は IME の ON/OFF で決まるので、フック用の英数の判定は外す。
+    /// </summary>
+    public MeltypeSession CreateSession(Func<Config.Settings> settings) =>
+        new(_detector, _hybrid, _resolved with { DirectMode = () => false, ClassifyDirect = null, DirectDecided = null }, settings);
 
     public CompositionController Controller { get; }
 
@@ -508,6 +522,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         };
         Diagnostics.Log.Info($"変換ボックスを出す入力位置: {(caret is { } r ? $"{r.X},{r.Y} 高さ {r.Height}{(wholeField ? " (入力欄の枠)" : "")}" : "分からない")}");
         _window.SetFontFamily(_font());
+        _window.SetAppearance(_lightTheme(), _opacity());
         // 文字の大きさ: 自動なら、入力欄の文字の高さに合わせる。小さな入力欄で大きく出すぎないように。
         _window.SetScale(_size() switch
         {
@@ -539,6 +554,12 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             // 1 行の入力欄の枠なら、その上下の真ん中。複数行の欄全体 (高すぎる) なら、上端の 1 行目。
             var middle = at.Height <= MaxLineHeight ? at.Height / 2 : offset.Y - 8;
             _window.ShowView(view, new Point(at.Left - offset.X, at.Top + middle - offset.Y), overlay: true);
+            return;
+        }
+        // カーソルの上: 入力位置の上に出す (候補の一覧で入力欄や下の行を隠さない)。
+        if (_placement() == Config.CompositionPlacement.AboveCaret && caret is { } line)
+        {
+            _window.ShowView(view, new Point(line.Left, line.Top - 4), above: true, belowY: FindAnchor(caret).Y);
             return;
         }
         _window.ShowView(view, FindAnchor(caret));

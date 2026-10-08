@@ -68,6 +68,69 @@ internal static class SessionFacadeTests
     }
 
     [Test]
+    public static void AutoCorrect_ReplacesPreviousWord()
+    {
+        // i を確定したあと、want で英文と分かったら i を確定し直す (前の文字を消して入れ直す)
+        var session = Create();
+        Type(session, "i ");
+        var results = Type(session, "want ");
+        Assert.True(results.SelectMany(r => r.Commits).Any(c => c.DeleteBefore > 0), "前の語を確定し直す");
+    }
+
+    [Test]
+    public static void AutoCorrect_TellsWhatToDelete()
+    {
+        // 確定し直すときは、消す文字 (前に確定した文字) も渡す。DLL は入力欄の文字が同じときだけ消す
+        var session = Create();
+        // i の確定 (Space で変換したものは、次の w で確定する) → want の確定のときに確定し直す
+        var commits = Type(session, "i want ").SelectMany(r => r.Commits).ToList();
+        var index = commits.FindIndex(c => c.DeleteBefore > 0);
+        Assert.True(index > 0, "前の語を確定し直す");
+        var first = commits[0].Text;
+        var correction = commits[index];
+        Assert.Equal(first, correction.Expect);
+        Assert.Equal(first.Length, correction.DeleteBefore);
+        Assert.True(new SessionResult(true, [correction], null).ToJson().Contains("\"expect\":"), "JSON にも入れる");
+    }
+
+    [Test]
+    public static void Commits_WithoutDeleteHaveNoExpect()
+    {
+        var session = Create();
+        var commit = Type(session, "kyouha\n")[^1].Commits.Single();
+        Assert.True(commit.Expect is null, "消さない確定には付けない");
+        Assert.True(!new SessionResult(true, [commit], null).ToJson().Contains("expect"), "JSON にも入れない");
+    }
+
+    [Test]
+    public static void AutoCorrect_NotAfterKeyPassedToApp()
+    {
+        // 確定したあと、アプリに渡したキー (矢印など) でキャレットが動いたかもしれない: 消す位置がずれるので確定し直さない
+        // Enter で確定したあとも、次の語で確定し直す (動かさなければ)
+        var control = Create();
+        Type(control, "i\n");
+        Assert.True(Type(control, "want ").SelectMany(r => r.Commits).Any(c => c.DeleteBefore > 0), "動かさなければ確定し直す");
+
+        var session = Create();
+        Type(session, "i\n");
+        var left = session.HandleKey(VirtualKeys.Left, null, false, false, false, false);
+        Assert.True(!left.Consumed, "変換していないときの矢印はアプリに渡す");
+        var results = Type(session, "want ");
+        Assert.True(!results.SelectMany(r => r.Commits).Any(c => c.DeleteBefore > 0), "関係ない文字を消さない");
+    }
+
+    [Test]
+    public static void AutoCorrect_NotAfterCaretMovedOutside()
+    {
+        // OS の IME がアプリに通したキー・クリックで動いたと知らせてきた (Meltype IME の "moved")
+        var session = Create();
+        Type(session, "i\n");
+        session.ForgetLastCommit();
+        var results = Type(session, "want ");
+        Assert.True(!results.SelectMany(r => r.Commits).Any(c => c.DeleteBefore > 0), "関係ない文字を消さない");
+    }
+
+    [Test]
     public static void ShortcutWhileComposing_CommitsThenPassesTheKey()
     {
         var session = Create();
@@ -101,7 +164,7 @@ internal static class SessionFacadeTests
     public static void Json_IsEscaped()
     {
         var result = new SessionResult(true, [new TextEdit(2, "a\"b\\c\n")], new CompositionView("x", ["y"], 0, true, "h", ["x"], 0));
-        const string expected = """{"consumed":true,"commits":[{"deleteBefore":2,"text":"a\"b\\c\n"}],"view":{"text":"x","converting":true,"selectedIndex":0,"selectedClause":0,"hint":"h","candidates":["y"],"clauses":["x"],"suggestion":null,"meaning":null}}""";
+        const string expected = """{"consumed":true,"commits":[{"deleteBefore":2,"text":"a\"b\\c\n"}],"view":{"text":"x","converting":true,"selectedIndex":0,"selectedClause":0,"hint":"h","candidates":["y"],"clauses":["x"],"suggestion":null,"meaning":null,"notes":[null]}}""";
         Assert.Equal(expected, result.ToJson());
     }
 

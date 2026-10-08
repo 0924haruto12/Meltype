@@ -8,8 +8,11 @@ using Meltype.Input;
 
 namespace Meltype.Composition;
 
-/// <summary>入力欄への書き込み 1 回分。DeleteBefore 文字をキャレットの前から消してから Text を入れる (確定し直すとき以外は 0)。</summary>
-public readonly record struct TextEdit(int DeleteBefore, string Text);
+/// <summary>
+/// 入力欄への書き込み 1 回分。DeleteBefore 文字をキャレットの前から消してから Text を入れる (確定し直すとき以外は 0)。
+/// Expect は消す文字 (このセッションで確定した文字。分からなければ null)。入力欄の文字がこれと違えば、消さないほうが安全。
+/// </summary>
+public readonly record struct TextEdit(int DeleteBefore, string Text, string? Expect = null);
 
 /// <summary>
 /// 1 回のキー入力の結果。Consumed が false ならそのキーはアプリにそのまま渡す (Commits を入れた後で)。
@@ -27,6 +30,11 @@ public sealed record SessionResult(bool Consumed, IReadOnlyList<TextEdit> Commit
             if (i > 0) builder.Append(',');
             builder.Append("{\"deleteBefore\":").Append(Commits[i].DeleteBefore).Append(",\"text\":");
             AppendString(builder, Commits[i].Text);
+            if (Commits[i].Expect is { } expect)
+            {
+                builder.Append(",\"expect\":");
+                AppendString(builder, expect);
+            }
             builder.Append('}');
         }
         builder.Append("],\"view\":");
@@ -53,6 +61,15 @@ public sealed record SessionResult(bool Consumed, IReadOnlyList<TextEdit> Commit
         builder.Append(",\"meaning\":");
         if (view.Meaning is { } meaning) AppendString(builder, meaning);
         else builder.Append("null");
+        // 候補ごとの注釈 (英訳の候補なら「英訳」、無ければ null)
+        builder.Append(",\"notes\":[");
+        for (var i = 0; i < view.Candidates.Count; i++)
+        {
+            if (i > 0) builder.Append(',');
+            if (view.Notes?.ElementAtOrDefault(i) is { } note) AppendString(builder, note);
+            else builder.Append("null");
+        }
+        builder.Append(']');
         builder.Append("}}");
         return builder.ToString();
     }
@@ -197,6 +214,9 @@ public sealed class MeltypeSession
         // このキーをアプリに送り直した (= 使わなかった) なら、アプリに渡す。
         var consumed = swallowed && !_host.ReplayedCurrent;
         Feed(down with { IsUp = true });
+        // アプリに渡したキー (変換していないときの BackSpace・矢印・Enter など) はキャレットを動かすかもしれない。
+        // 前に確定した語を確定し直さない (Windows のフックの方式と同じ。消す位置がずれて関係ない文字を消さないように)
+        if (!consumed && !_controller.IsComposing) ForgetLastCommit();
         if (modifier && _controller.IsComposing) Feed(new KeyEvent(control ? VirtualKeys.LControl : VirtualKeys.LMenu, 0, false, true, false, down.TimeMs));
         if (shift && _controller.IsComposing) Feed(new KeyEvent(VirtualKeys.LShift, 0, false, true, false, down.TimeMs));
         return Track(_host.Result(consumed), vk, ch, modifier);
@@ -214,6 +234,16 @@ public sealed class MeltypeSession
         if (modifier) _sigil.Lose();
         else _sigil.OnKey(vk, ch);
         return result;
+    }
+
+    /// <summary>
+    /// このセッションの外でキャレットが動いた (OS の IME がアプリに通したキー・クリック・別の入力欄に移った) とき。
+    /// 前に確定した語を、次の語の文脈で確定し直さないようにする。
+    /// </summary>
+    public void ForgetLastCommit()
+    {
+        _controller.ForgetLastCommit();
+        _host.ForgetCommitted();
     }
 
     /// <summary>フォーカスが外れたときなど。未確定の内容をそのまま確定する。</summary>
@@ -256,6 +286,9 @@ public sealed class MeltypeSession
     {
         private readonly List<TextEdit> _commits = [];
         private int _pendingDelete;
+        // このセッションで続けて確定した文字の終わりの部分 (確定し直しで消す文字を、DLL などで確かめられるように)
+        private readonly StringBuilder _committed = new();
+        private const int MaxCommitted = 256;
         private char? _char;
         private bool _shift;
         private string? _before, _after;
@@ -280,15 +313,32 @@ public sealed class MeltypeSession
 
         public SessionResult Result(bool consumed)
         {
-            if (_pendingDelete > 0) _commits.Add(new TextEdit(_pendingDelete, ""));
-            _pendingDelete = 0;
+            if (_pendingDelete > 0) Add("");
+            // アプリに渡したキーの文字は、確定した文字の続きとしては分からない
+            if (!consumed) ForgetCommitted();
             return new SessionResult(consumed, _commits.ToList(), _hidden ? null : _view);
         }
 
-        public void CommitText(string text)
+        public void CommitText(string text) => Add(text);
+
+        public void ForgetCommitted() => _committed.Clear();
+
+        private void Add(string text)
         {
-            _commits.Add(new TextEdit(_pendingDelete, text));
+            string? expect = null;
+            if (_pendingDelete > 0)
+            {
+                if (_committed.Length >= _pendingDelete)
+                {
+                    expect = _committed.ToString(_committed.Length - _pendingDelete, _pendingDelete);
+                    _committed.Length -= _pendingDelete;
+                }
+                else _committed.Clear();
+            }
+            _commits.Add(new TextEdit(_pendingDelete, text, expect));
             _pendingDelete = 0;
+            _committed.Append(text);
+            if (_committed.Length > MaxCommitted) _committed.Remove(0, _committed.Length - MaxCommitted);
         }
 
         public void DeleteBackward(int count) => _pendingDelete += count;
