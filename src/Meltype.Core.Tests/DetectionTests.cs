@@ -284,6 +284,23 @@ internal static class DetectionTests
         // 表に無い綴りは今までどおり
         Assert.Equal("かった", romaji.AnalyzeFragment("katta").Kana);
         Assert.Equal("きっく", new RomajiDetector().AnalyzeFragment("kikku").Kana, "表が無ければ kk は っ");
+        var plain = new RomajiDetector();
+        Assert.Equal("しんぶん", plain.AnalyzeFragment("shinnbunn").Kana, "表が無ければ sh・nn も今までどおり");
+        Assert.Equal("ん", plain.AnalyzeFragment("nn").Kana);
+    }
+
+    [Test]
+    public static void CustomRomajiTable_AzikSampleKeepsCommonSpellings()
+    {
+        // 同梱の AZIK の例 (docs/romaji-azik-sample.txt) を読んでも、ふつうのローマ字の語は今までどおり読める (AZIK では sh は すう なので し は si)
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null && !File.Exists(Path.Combine(dir, "docs", "romaji-azik-sample.txt"))) dir = Path.GetDirectoryName(dir);
+        Assert.True(dir is not null, "docs/romaji-azik-sample.txt が見つからない");
+        var table = RomajiDetector.ParseCustomTable(File.ReadAllText(Path.Combine(dir!, "docs", "romaji-azik-sample.txt")));
+        Assert.True(table.Count >= 50, "例の綴りを読む: " + table.Count);
+        var romaji = new RomajiDetector(table);
+        foreach (var (typed, kana) in new[] { ("arigatou", "ありがとう"), ("nihongo", "にほんご"), ("watasi", "わたし"), ("katta", "かった"), ("kz", "かん") })
+            Assert.Equal(kana, romaji.AnalyzeFragment(typed).Kana, typed);
     }
 
     [Test]
