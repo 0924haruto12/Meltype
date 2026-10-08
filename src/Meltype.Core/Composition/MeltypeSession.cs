@@ -149,6 +149,7 @@ public sealed class MeltypeSession
             RomajiTypos = RomajiTypoCorrector.Load(detector.Romaji),
             CorrectTypos = () => settings.CorrectTypos,
             SpaceAroundEnglish = () => settings.SpaceAroundEnglish,
+            Punctuation = () => settings.Punctuation,
             TranslationHistory = new TranslationHistory(AppPaths.TranslationHistoryFile),
         };
         return new MeltypeSession(detector, converter, options, () => settings);

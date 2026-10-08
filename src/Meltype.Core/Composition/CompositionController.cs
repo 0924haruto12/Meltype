@@ -137,6 +137,9 @@ public sealed class CompositionOptions
     /// <summary>確定するときに、日本語と英単語の間に半角スペースを入れるか (設定)。</summary>
     public Func<bool> SpaceAroundEnglish { get; init; } = () => false;
 
+    /// <summary>句読点の組み合わせ (設定)。</summary>
+    public Func<Config.PunctuationStyle> Punctuation { get; init; } = () => Config.PunctuationStyle.Japanese;
+
     /// <summary>ユーザーが英字 / かなに直した語の学習。</summary>
     public LanguageMemory? Languages { get; init; }
 
@@ -602,6 +605,7 @@ public sealed class CompositionController
     private void BeginComposition()
     {
         _text.KanaInput = _options.KanaInput();
+        _text.Punctuation = _options.Punctuation();
         var id = ++_compositionId;
         // 自分が確定した直後は、アプリ側のテキストがまだ更新されていないかもしれないので自分の記録を信じる。
         var recentOwnCommit = Environment.TickCount64 - _lastCommitTime < OwnCommitTrustMs;
@@ -1134,7 +1138,7 @@ public sealed class CompositionController
         return text.Length == 0 ? null : text.Length > 10 ? text[^10..] : text;
     }
 
-    private static readonly char[] SentenceEnds = ['。', '！', '？', '\n', '\r'];
+    private static readonly char[] SentenceEnds = ['。', '．', '！', '？', '\n', '\r'];
 
     private static readonly HashSet<string> Particles = ["は", "が", "を", "に", "で", "と", "も", "へ", "の", "や", "か", "から", "まで", "より"];
 
