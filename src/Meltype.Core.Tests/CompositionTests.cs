@@ -214,8 +214,8 @@ internal static class CompositionTests
                 RomajiTypos = Typos,
                 CorrectTypos = () => CorrectTypos,
                 SpaceAroundEnglish = () => SpaceAroundEnglish,
-                SlashAsMiddleDot = () => slashAsMiddleDot,
                 Punctuation = () => Punctuation,
+                SlashAsMiddleDot = () => slashAsMiddleDot,
             });
         }
 
@@ -328,19 +328,21 @@ internal static class CompositionTests
     }
 
     [Test]
-    public static void Slash_AsMiddleDot_WhenEnabled()
+    public static void Emoji_AreLastAndReachedByUp()
     {
-        // #122: 設定が ON なら、かなの後ろの / は ・。英字・数字の後ろ・打ち始めは / のまま。OFF なら今までどおり /
-        foreach (var (typed, on, expected) in new[]
-        {
-            ("iron/masuku", true, "いろん・ますく"), ("iron/masuku", false, "いろん/ますく"),
-            ("3/4", true, "3/4"), ("/help", true, "/help"), ("and/or", true, "and/or"),
-        })
-        {
-            var k = new Keyboard(slashAsMiddleDot: on);
-            k.Type(typed + "\n");
-            Assert.Equal(expected, k.Host.Document, $"{typed} ({(on ? "ON" : "OFF")})");
-        }
+        // #133: 絵文字・顔文字は候補の最後に逆順でまとめる。変換してすぐ ↑ で、いちばんよく使う絵文字 (えがお → 😊) になる
+        var k = new Keyboard();
+        k.Type("egao ");
+        var view = k.Host.View!;
+        Assert.Equal("😊", view.Candidates[^1], string.Join(" ", view.Candidates));
+        var firstEmoji = view.Candidates.ToList().FindIndex(c => c is "😊" or "😄" or "(^^)" or "😀");
+        Assert.True(firstEmoji > view.Candidates.ToList().IndexOf("エガオ"), "絵文字はカタカナより後ろ: " + string.Join(" ", view.Candidates));
+        k.Press(VirtualKeys.Up);
+        Assert.Equal("😊", k.Showing);
+        k.Press(VirtualKeys.Up);
+        Assert.Equal("😄", k.Showing);
+    }
+  
       [Test]
       public static void ShiftSpace_DuringConversion_GoesBack()
       {
@@ -501,6 +503,22 @@ internal static class CompositionTests
         var digit = (char)('0' + count + 1);
         k.Press(digit);
         Assert.True(k.Host.Document.EndsWith(digit) || k.Showing == digit.ToString(), "番号の無い数字は普通に打った数字: " + k.Host.Document + " / " + k.Showing);
+    }
+
+    [Test]
+    public static void Slash_AsMiddleDot_WhenEnabled()
+    {
+        // #122: 設定が ON なら、かなの後ろの / は ・。英字・数字の後ろ・打ち始めは / のまま。OFF なら今までどおり /
+        foreach (var (typed, on, expected) in new[]
+        {
+            ("iron/masuku", true, "いろん・ますく"), ("iron/masuku", false, "いろん/ますく"),
+            ("3/4", true, "3/4"), ("/help", true, "/help"), ("and/or", true, "and/or"),
+        })
+        {
+            var k = new Keyboard(slashAsMiddleDot: on);
+            k.Type(typed + "\n");
+            Assert.Equal(expected, k.Host.Document, $"{typed} ({(on ? "ON" : "OFF")})");
+        }
     }
 
     [Test]
