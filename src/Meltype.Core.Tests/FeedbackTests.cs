@@ -515,6 +515,54 @@ internal static class LanguageLearningTests
         Assert.Equal("半角", notes.ElementAtOrDefault(view.Candidates.ToList().IndexOf("@")), string.Join(" ", view.Candidates));
         Assert.Equal("全角", notes.ElementAtOrDefault(view.Candidates.ToList().IndexOf("＠")), string.Join(" ", view.Candidates));
     }
+  
+  [Test]
+  public static void Brand_TeamsFromChiimusu()
+  {
+    // ちーむす でも Teams を出す (issue #47。ちーむず だけだった)
+    var candidates = CandidateDictionary.Load(null);
+    Assert.True(candidates.Lookup("ちーむす").Contains("Teams"), string.Join(" ", candidates.Lookup("ちーむす")));
+    Assert.True(candidates.Lookup("ちーむず").Contains("Teams"), "ちーむず も今までどおり");
+  }
+
+  [Test]
+  public static void Phrase_AgeashiWoToru()
+  {
+    // 揚げ足取るな が 揚げ足とルナ になっていた (issue #147)。同梱の語句で 揚げ足取る を 1 つの文節にする
+    var k = new CompositionTests.Keyboard(userDictionary: new UserDictionary(null));
+    k.Type("ageashitoruna ");
+    var view = k.Host.View!;
+    Assert.True(view.Converting, "変換中");
+    Assert.Equal("揚げ足取る", view.Clauses![0], string.Join("|", view.Clauses));
+  }
+
+    [Test]
+    public static void TesterNames_AreCandidates()
+    {
+        // 協力してくださった方々の名前を変換しやすくする (issue #156)
+        var candidates = CandidateDictionary.Load(null);
+        foreach (var (reading, name) in new[] { ("くらいど", "くらいど！"), ("ことね", "琴音"), ("ことねりんく", "琴音Link"), ("れい", "Ray") })
+            Assert.True(candidates.Lookup(reading).Contains(name), reading + ": " + string.Join(" ", candidates.Lookup(reading)));
+    }
+
+    [Test]
+    public static void CompositionSize_LargerChoicesAreSaved()
+    {
+        // 変換ボックスの文字をもっと大きくしたい (issue #164): 特大・最大 を選べて、保存しても残る
+        var path = Path.Combine(Path.GetTempPath(), $"meltype-size-{Guid.NewGuid():N}.json");
+        try
+        {
+            foreach (var size in new[] { CompositionSize.ExtraLarge, CompositionSize.Huge })
+            {
+                new Settings { CompositionSize = size }.Save(path);
+                Assert.Equal(size, Settings.Load(path).CompositionSize);
+            }
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
 
     [Test]
     public static void UnitsAfterNumbers_StayLetters()

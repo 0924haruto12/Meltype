@@ -506,6 +506,55 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void DigitKey_SelectsCandidateByNumber()
+    {
+        // #35: 変換中に候補の番号 (1〜9) を押すと、その候補を選ぶ (打った数字が入るのではなく)。
+        var k = new Keyboard();
+        k.Type("kawa ");
+        var view = k.Host.View!;
+        Assert.True(view.Converting && view.Candidates.Count >= 2, "候補の一覧が出る");
+        var second = view.Candidates[1];
+        k.Press('2');
+        Assert.Equal(second, k.Host.Document);
+        Assert.True(!k.Gate.IsCaptured, "最後の文節を番号で選んだら確定する");
+    }
+
+    [Test]
+    public static void DigitKey_MovesToNextClause()
+    {
+        var k = new Keyboard();
+        k.Type("tanniwotoru ");
+        var first = k.Host.View!.Candidates;
+        k.Press('2');
+        var view = k.Host.View!;
+        Assert.True(view.Converting, "途中の文節なら確定せずに次の文節へ");
+        Assert.Equal(1, view.SelectedClause);
+        Assert.Equal(first[1], view.Clauses![0]);
+        Assert.Equal(0, k.Host.Output.Count);
+    }
+
+    [Test]
+    public static void DigitKey_WithoutCandidateTypesDigit()
+    {
+        // 候補の数ちょうど (最後の候補) は選べて、その次の番号 (候補の無い番号) は打った数字になる (境界を必ず確かめる)。
+        // 辞書に無い読み (ぞぞぞ) にして、候補を ひらがな・カタカナ・半角カタカナ・打ったままの英字・全角の英字 に決める
+        // (辞書の語が増えても候補の数が変わらないように)
+        var k = new Keyboard();
+        k.Type("zozozo ");
+        var candidates = k.Host.View!.Candidates;
+        var count = candidates.Count;
+        Assert.Equal("ぞぞぞ,ゾゾゾ,ｿﾞｿﾞｿﾞ,zozozo,ｚｏｚｏｚｏ", string.Join(",", candidates));
+        k.Press('0' + count);
+        Assert.Equal(candidates[^1], k.Host.Document, "最後の番号は最後の候補");
+
+        k = new Keyboard();
+        k.Type("zozozo ");
+        var digit = (char)('0' + count + 1);
+        k.Press(digit);
+        Assert.True(k.Host.Document.EndsWith(digit) || k.Showing == digit.ToString(), "番号の無い数字は普通に打った数字: " + k.Host.Document + " / " + k.Showing);
+    }
+
+    [Test]
     public static void Reconversion_WithoutSelectionDoesNothing()
     {
         var k = new Keyboard();
@@ -695,6 +744,7 @@ internal static class CompositionTests
         Assert.True(extra.Lookup("いんゆめ").Contains("淫夢"), "いんゆめ → 淫夢");
         Assert.True(extra.Lookup("いん").Contains("淫"), "文節が分かれた いん + ゆめ でも 淫夢 にできる");
         Assert.True(extra.Lookup("おとこのこ").Contains("男の娘"), "おとこのこ → 男の娘");
+        Assert.True(extra.Lookup("しょたこん").Contains("ショタコン"), "しょたこん → ショタコン");
     }
 
     [Test]
@@ -1169,6 +1219,8 @@ internal static class CompositionTests
         var dictionary = new UserDictionary(null);
         Assert.True(dictionary.Split("はくばのおうじさま")?.Any(p => p.Word == "白馬の王子様") == true, "白馬の王子様");
         Assert.True(dictionary.Split("ばらまいてたあい")?.First().Word == "ばらまいてた", "ばらまいてた|あい");
+        // 報告 (#196): しょたこん → ショタこん
+        Assert.True(dictionary.Split("しょたこん")?.Any(p => p.Word == "ショタコン") == true, "しょたこん → ショタコン");
         Assert.Equal(0, dictionary.Count, "同梱の語句はユーザー辞書の一覧に出さない");
     }
 
