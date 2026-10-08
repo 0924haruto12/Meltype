@@ -188,7 +188,7 @@ internal static class CompositionTests
 
         public Keyboard(bool live = false, bool direct = false, ConversionHistory? history = null, IKanjiConverter? converter = null,
             Func<string, IReadOnlyList<string>>? moreCandidates = null, UserDictionary? userDictionary = null, LanguageMemory? languages = null,
-            TranslationDictionary? translations = null, TranslationHistory? translationHistory = null)
+            TranslationDictionary? translations = null, TranslationHistory? translationHistory = null, Predictor? predictor = null)
         {
             Direct = direct;
             Controller = new CompositionController(Gate, Detector, converter ?? Converter, Host, new CompositionOptions
@@ -211,6 +211,8 @@ internal static class CompositionTests
                 RomajiTypos = Typos,
                 CorrectTypos = () => CorrectTypos,
                 SpaceAroundEnglish = () => SpaceAroundEnglish,
+                Predictor = predictor,
+                Predictions = () => predictor is not null,
             });
         }
 
@@ -320,6 +322,52 @@ internal static class CompositionTests
         Assert.True(!k.Host.Events.Any(e => e.StartsWith("replace:")), "別の選択範囲を置換しない");
         Assert.Equal(0, k.Host.Output.Count);
         Assert.True(!k.Gate.IsCaptured, "置換失敗後もキーを解放する");
+    }
+
+    [Test]
+    public static void Prediction_RemembersCommittedPhrase()
+    {
+        // #38: 確定した語句を覚え、次に読みを打ちかけたら予測の候補に出す。Tab で選んで Enter で確定
+        var k = new Keyboard(predictor: new Predictor(new PhraseHistory(null), null, null));
+        k.Type("kyou ");
+        k.Press(VirtualKeys.Return);
+        Assert.Equal("今日", k.Host.Document);
+        k.Type("kyo");
+        Assert.True(k.Host.View!.Predictions?.Contains("今日") == true, "予測の候補に出る: " + string.Join(",", k.Host.View.Predictions ?? []));
+        k.Press(VirtualKeys.Tab);
+        Assert.Equal("今日", k.Showing);
+        Assert.Equal(0, k.Host.View!.SelectedPrediction);
+        k.Press(VirtualKeys.Return);
+        Assert.Equal("今日今日", k.Host.Document);
+    }
+
+    [Test]
+    public static void Prediction_CompletesEnglishWord()
+    {
+        // #38: 英単語の打ちかけ (decis) から続きの候補 (decision, decisions …)
+        var k = new Keyboard(predictor: new Predictor(null, null, null));
+        k.Host.PrecedingText = "I made ";
+        k.Type("decis");
+        var predictions = k.Host.View!.Predictions ?? [];
+        Assert.True(predictions.Contains("decision") && predictions.Contains("decisions"), string.Join(",", predictions));
+        var typing = k.Showing;
+        k.Press(VirtualKeys.Tab);
+        k.Press(VirtualKeys.Tab);
+        k.Press(VirtualKeys.Escape);
+        Assert.Equal(typing, k.Showing, "Esc で選ぶのをやめる (打った内容は残る)");
+        Assert.Equal(-1, k.Host.View!.SelectedPrediction);
+        k.Press(VirtualKeys.Tab);
+        var first = predictions[0];
+        k.Press(VirtualKeys.Return);
+        Assert.Equal(first, k.Host.Document);
+    }
+
+    [Test]
+    public static void Prediction_OffWithoutPredictor()
+    {
+        var k = new Keyboard();
+        k.Type("decis");
+        Assert.True(k.Host.View!.Predictions is null, "予測の元が無ければ出さない");
     }
 
     [Test]

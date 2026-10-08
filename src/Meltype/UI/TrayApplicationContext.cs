@@ -61,6 +61,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ModeIndicatorOnFocus = () => _engine.Settings.ShowModeIndicatorOnFocus,
             Placement = () => _engine.Settings.CompositionPlacement,
             Size = () => _engine.Settings.CompositionSize,
+            Predictions = () => _engine.Settings.PredictiveCandidates,
         });
         _engine.AttachComposition(_composition);
 
@@ -478,12 +479,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ResetLearning()
     {
-        var answer = MessageBox.Show("学習データ (model.json と、選び直した変換の記録 conversions.json) をすべて削除します。よろしいですか？", "Meltype", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
+        var answer = MessageBox.Show("学習データ (model.json と、選び直した変換の記録 conversions.json、予測変換の語句 phrases.txt) をすべて削除します。よろしいですか？", "Meltype", MessageBoxButtons.OKCancel, MessageBoxIcon.Question);
         if (answer == DialogResult.OK)
         {
             _engine.ResetLearning();
             _composition.History.Clear();
             _composition.Languages.Clear();
+            _composition.Phrases?.Clear();
         }
     }
 

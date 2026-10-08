@@ -21,7 +21,9 @@ public sealed record CompositionView(
     int SelectedClause = -1,
     IReadOnlyList<string?>? Notes = null,
     string? Meaning = null,
-    string? Suggestion = null);
+    string? Suggestion = null,
+    IReadOnlyList<string>? Predictions = null,
+    int SelectedPrediction = -1);
 
 /// <summary>CompositionController が外界とやり取りする口。テストでは偽物に差し替える。</summary>
 public interface ICompositionHost
@@ -149,6 +151,12 @@ public sealed class CompositionOptions
     /// <summary>変換ボックスの文字の大きさ。</summary>
     public Func<Config.CompositionSize> Size { get; init; } = () => Config.CompositionSize.Auto;
 
+    /// <summary>予測変換の候補を出す元 (null なら出さない)。</summary>
+    public Predictor? Predictor { get; init; }
+
+    /// <summary>予測変換の候補を出すか (設定)。変換ボックスに候補の一覧を出せる画面 (Windows) だけ true にする。</summary>
+    public Func<bool> Predictions { get; init; } = () => false;
+
     /// <summary>入力欄に入った (フォーカスが入った) ときにも入力モードを出すか。false なら 半角/全角 を押したときだけ。</summary>
     public Func<bool> ModeIndicatorOnFocus { get; init; } = () => true;
 }
@@ -201,6 +209,11 @@ public sealed class CompositionController
     private long _lastCommitTime = long.MinValue / 2;
     private int _compositionId;
     private ReconversionSelection? _reconversion;
+
+    // 予測変換: 打ちかけの読み・英字の続きの候補と、Tab で選んでいるもの (-1 なら選んでいない)。
+    private IReadOnlyList<string> _predictions = [];
+    private string _predictionKey = "";
+    private int _predictionIndex = -1;
 
     // 英数状態で判定中の語。打鍵はすぐアプリに送り (待たせない)、ローマ字と分かったら消して変換ボックスに入れ直す。
     private readonly StringBuilder _heldLetters = new();
@@ -461,6 +474,10 @@ public sealed class CompositionController
                 _text.FixTypos();
                 StartConversion(preferJapanese: true);
                 return;
+            case VirtualKeys.Return when _predictionIndex >= 0 && _predictionIndex < _predictions.Count && _predictionKey == PredictionKey():
+                // 予測変換の候補を選んでいれば、それを確定する。
+                CommitPrediction(_predictions[_predictionIndex]);
+                return;
             case VirtualKeys.Return:
                 _text.FixTypos();
                 Commit();
@@ -492,6 +509,10 @@ public sealed class CompositionController
             case VirtualKeys.Back:
                 _text.RemoveLast();
                 return;
+            case VirtualKeys.Escape when _predictionIndex >= 0:
+                // 予測の候補を選んでいたら、選ぶのをやめるだけ (打った内容は残す)。
+                _predictionIndex = -1;
+                return;
             case VirtualKeys.Escape:
                 _text.Clear();
                 return;
@@ -502,6 +523,11 @@ public sealed class CompositionController
             case VirtualKeys.Tab when _text.Suggestion() is not null:
                 // 判定の強さが手動: 提案どおり英字にする。
                 _text.LevelOverride = DetectionLevel.Balanced;
+                return;
+            case VirtualKeys.Tab when CurrentPredictions().Count > 0:
+                // 予測変換の候補を選ぶ (Tab で次、Shift+Tab で前。最後の次は選ばない状態に戻る)。
+                var step = _swallowedShift.Count > 0 ? -1 : 1;
+                _predictionIndex = (_predictionIndex + 1 + step + _predictions.Count + 1) % (_predictions.Count + 1) - 1;
                 return;
             case VirtualKeys.F6: SetMode(DisplayMode.Hiragana); return;
             case VirtualKeys.F7: SetMode(DisplayMode.Katakana); return;
@@ -1365,8 +1391,31 @@ public sealed class CompositionController
         }
         if (converting) Learn();
         else LearnLanguage();
+        RememberPhrase(converting ? string.Concat(_clauses.Select(c => c.IsEnglish ? "" : c.Reading)) : _text.AllKana(final: true), text, english);
         CommitText(text + suffix, english, _text.Raw, chosen);
     }
+
+    /// <summary>漢字を含む日本語の語句を確定したら、予測変換のために読みと一緒に覚える (英字だけ・かなのままは覚えない)。</summary>
+    private void RememberPhrase(string reading, string text, bool english)
+    {
+        if (english || _options.Predictor?.Phrases is not { } phrases || !_options.Predictions()) return;
+        if (!text.Any(c => c is >= '一' and <= '鿿' or >= '㐀' and <= '䶿') || reading.Length < 3 || reading.Any(char.IsAsciiLetter)) return;
+        phrases.Remember(reading, text);
+    }
+
+    /// <summary>予測変換の候補を確定する。日本語なら覚え直して、次からより前に出す。</summary>
+    private void CommitPrediction(string prediction)
+    {
+        var english = prediction.All(c => c < 0x80);
+        var reading = _text.AllKana(final: true);
+        _predictionIndex = -1;
+        if (!english) _options.Predictor?.Phrases?.Remember(PredictionReading(prediction, reading), prediction);
+        CommitText(prediction, english, english ? prediction : _text.Raw, chosen: true);
+    }
+
+    /// <summary>予測の候補の読み (前に確定したときの読み)。分からなければ打ちかけの読み。</summary>
+    private string PredictionReading(string prediction, string typed) =>
+        _options.Predictor?.Phrases?.ReadingOf(prediction, typed) ?? typed;
 
     /// <summary>
     /// 英単語で終わる文字列の最後の語が、よくある打ち間違い (teh、recieve) なら正しい綴りにする (Space で確定するとき)。
@@ -1644,8 +1693,54 @@ public sealed class CompositionController
         {
             var hint = _text.IsAlphanumeric ? "Enter 確定　Space 確定+空白　Shift+Space 日本語で変換　半角/全角 日本語に" : "Space 変換　←→ 文節　Enter 確定　F7 カタカナ　F10 英字";
             if (_text.Suggestion() is { } suggestion) hint = $"Tab → {suggestion} (英字に)　" + hint;
-            _host.Show(new CompositionView(CurrentDisplay(final: false), [], -1, false, hint, Suggestion: MisspellingSuggestion()));
+            var misspelling = MisspellingSuggestion();
+            UpdatePredictions(blocked: misspelling is not null || _text.Suggestion() is not null);
+            if (_predictions.Count > 0) hint = "Tab 予測の候補を選ぶ　" + hint;
+            var selected = _predictionIndex >= 0 ? _predictions[_predictionIndex] : null;
+            _host.Show(new CompositionView(selected ?? CurrentDisplay(final: false), [], -1, false, hint, Suggestion: misspelling,
+                Predictions: _predictions.Count > 0 ? _predictions : null, SelectedPrediction: _predictionIndex));
         }
+    }
+
+    /// <summary>
+    /// 予測変換の候補を、今の打ちかけから作り直す。打った内容が変わったら選んでいた候補は戻す。
+    /// もしかして・手動の提案があるときは、Tab をそちらに使うので出さない。
+    /// </summary>
+    private void UpdatePredictions(bool blocked)
+    {
+        var key = PredictionKey();
+        if (key == _predictionKey && !blocked) return;
+        _predictionKey = key;
+        _predictionIndex = -1;
+        _predictions = [];
+        if (blocked || _options.Predictor is not { } predictor || !_options.Predictions() || _text.Mode != DisplayMode.Auto) return;
+        if (_text.IsAlphanumeric)
+        {
+            // 英単語 1 語の打ちかけ (decis → decisions)
+            if (_text.Raw.All(char.IsAsciiLetter)) _predictions = predictor.PredictEnglish(_text.Raw);
+            return;
+        }
+        var kana = _text.AllKana(final: false);
+        var predictions = new List<string>();
+        if (kana.All(c => c is >= 'ぁ' and <= 'ゖ' or 'ー')) predictions.AddRange(predictor.PredictJapanese(kana));
+        // 長い英単語は、打ち終わるまでローマ字として見えていることがある (decis → でしs)。英字だけを 4 文字以上打っていれば英単語の続きも出す
+        if (_text.Raw.Length >= 4 && _text.Raw.All(char.IsAsciiLetter))
+        {
+            foreach (var word in predictor.PredictEnglish(_text.Raw))
+            {
+                if (predictions.Count < Predictor.MaxPredictions && !predictions.Contains(word)) predictions.Add(word);
+            }
+        }
+        _predictions = predictions;
+    }
+
+    private string PredictionKey() => _text.Raw + "\u0001" + _text.Mode;
+
+    /// <summary>今の打ちかけの予測の候補 (キーをまとめて処理しているときにも、打った内容に合わせて作り直す)。</summary>
+    private IReadOnlyList<string> CurrentPredictions()
+    {
+        UpdatePredictions(blocked: false);
+        return _predictions;
     }
 
     private static bool IsShift(int vk) => vk is VirtualKeys.Shift or VirtualKeys.LShift or VirtualKeys.RShift;

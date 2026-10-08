@@ -179,6 +179,10 @@ public sealed class Settings
      Description("変換の候補の後ろに英訳も出します (複雑な → complex, complicated)。JMdict のよく使う語から。選んだ英訳は少しずつ前に出ます。")]
     public bool TranslationCandidates { get; set; } = true;
 
+    [Category("1. 全般"), DisplayName("予測変換の候補"),
+     Description("打っている途中に、続きの候補を変換ボックスの下に出します (前に確定した語句・ユーザー辞書・選び直した変換の学習・英単語の続き)。Tab / Shift+Tab で選んで Enter で確定します。確定した語句は phrases.txt に覚え、「学習データをリセット」で消えます。")]
+    public bool PredictiveCandidates { get; set; } = true;
+
     [Category("1. 全般"), DisplayName("候補の意味を表示"),
      Description("変換中に同じ候補で少し (約 1.5 秒) 止まると、その候補の意味をウィクショナリー日本語版から候補の一覧の横に出します (日本語の意味が無い語は JMdict の英訳: 橋 → bridge)。同音異義語を選ぶときの手がかりに。")]
     public bool ShowCandidateMeanings { get; set; } = true;
