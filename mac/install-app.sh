@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Yukishiro
+
 # Prepare and verify the new bundle before stopping or replacing the current IME.
 set -euo pipefail
 source_app="${1:?Usage: install-app.sh source.app target.app}"

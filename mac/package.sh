@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Yukishiro
+
 # Package the built app and all installer helpers without installing anything.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
