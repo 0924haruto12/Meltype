@@ -521,7 +521,7 @@ internal static class LanguageLearningTests
     {
         // 協力してくださった方々の名前を変換しやすくする (issue #156)
         var candidates = CandidateDictionary.Load(null);
-        foreach (var (reading, name) in new[] { ("くらいど", "くらいど！"), ("ことねりんく", "琴音Link"), ("れい", "Ray") })
+        foreach (var (reading, name) in new[] { ("くらいど", "くらいど！"), ("ことね", "琴音"), ("ことねりんく", "琴音Link"), ("れい", "Ray") })
             Assert.True(candidates.Lookup(reading).Contains(name), reading + ": " + string.Join(" ", candidates.Lookup(reading)));
     }
 
