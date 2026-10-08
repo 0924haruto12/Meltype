@@ -201,6 +201,50 @@
     (unless (equal failure "replace")
       (assert (null (uiop:read-file-lines (merge-pathnames "calls" work)))))))
 
+(defun test-partial-install-rollback (work)
+  (test-install-rollback work)
+  (fake-tool work "mktemp"
+             "mkdir -p \"$MELTYPE_START_LOG_DIR/staging\"; echo \"$MELTYPE_START_LOG_DIR/staging\"")
+  (dolist (restore-fails '(nil t))
+    (fake-tool work "mv"
+               (concatenate 'string
+                            "if [[ \"$1\" == */Meltype.app && \"$2\" == */installed.app ]]; then mkdir -p \"$2\"; echo incomplete > \"$2/version\"; exit 23; fi; "
+                            (if restore-fails
+                                "if [[ \"$1\" == */previous.app && \"$2\" == */installed.app ]]; then exit 27; fi; "
+                                "")
+                            "exec /bin/mv \"$@\""))
+    (let ((status nil))
+      (handler-case
+          (run-script work "install-app.sh"
+                      (list (namestring (merge-pathnames "source.app" work))
+                            (namestring (merge-pathnames "installed.app" work))))
+        (uiop:subprocess-error (condition)
+          (setf status (uiop:subprocess-error-code condition))))
+      (assert (eql 23 status)))
+    (if restore-fails
+        (progn
+          (assert (equal "previous" (uiop:read-file-string (merge-pathnames "staging/previous.app/version" work))))
+          (assert (equal (format nil "incomplete~%") (uiop:read-file-string (merge-pathnames "staging/failed.app/version" work))))
+          (assert (not (probe-file (merge-pathnames "installed.app" work)))))
+        (progn
+          (assert (equal "previous" (uiop:read-file-string (merge-pathnames "installed.app/version" work))))
+          (assert (not (probe-file (merge-pathnames "staging" work))))))))
+
+(defun test-cross-volume-install-rejected (work)
+  (test-install-rollback work)
+  (write-file (merge-pathnames "calls" work) "")
+  (fake-tool work "stat"
+             "if [[ \"$3\" == */.meltype-install.* ]]; then echo 1; else echo 2; fi")
+  (let ((failed nil))
+    (handler-case
+        (run-script work "install-app.sh"
+                    (list (namestring (merge-pathnames "source.app" work))
+                          (namestring (merge-pathnames "installed.app" work))))
+      (uiop:subprocess-error () (setf failed t)))
+    (assert failed))
+  (assert (equal "previous" (uiop:read-file-string (merge-pathnames "installed.app/version" work))))
+  (assert (null (uiop:read-file-lines (merge-pathnames "calls" work)))))
+
 (handler-case
     (progn
       (call-with-work-directory #'test-build-only)
@@ -220,7 +264,11 @@
       (call-with-work-directory #'test-install-rollback)
       (format t "PASS install copy/signature/replacement failure rollback~%")
       (call-with-work-directory #'test-launchd-retry)
-      (format t "PASS bounded startup retry and exhaustion~%9/9 passed~%"))
+      (format t "PASS bounded startup retry and exhaustion~%")
+      (call-with-work-directory #'test-partial-install-rollback)
+      (format t "PASS partial replacement rollback and backup preservation~%")
+      (call-with-work-directory #'test-cross-volume-install-rejected)
+      (format t "PASS cross-volume switch rejected before stopping IME~%11/11 passed~%"))
   (error (condition)
     (format *error-output* "FAIL: ~A~%" condition)
     (uiop:quit 1)))
