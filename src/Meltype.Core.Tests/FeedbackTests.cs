@@ -546,6 +546,25 @@ internal static class LanguageLearningTests
     }
 
     [Test]
+    public static void CompositionSize_LargerChoicesAreSaved()
+    {
+        // 変換ボックスの文字をもっと大きくしたい (issue #164): 特大・最大 を選べて、保存しても残る
+        var path = Path.Combine(Path.GetTempPath(), $"meltype-size-{Guid.NewGuid():N}.json");
+        try
+        {
+            foreach (var size in new[] { CompositionSize.ExtraLarge, CompositionSize.Huge })
+            {
+                new Settings { CompositionSize = size }.Save(path);
+                Assert.Equal(size, Settings.Load(path).CompositionSize);
+            }
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Test]
     public static void UnitsAfterNumbers_StayLetters()
     {
         // 単位 (mm、min) が打ちにくく、日本語になることがあった (10mmで → 10っまで、5min → 5みん)。
