@@ -161,7 +161,7 @@ public sealed class CompositionOptions
 ///   ←→      → 文節を選ぶ (変換前に押しても文節の選択に入る) / Space・↓↑ でその文節の候補 / Shift+←→ で区切りを変える
 ///   Enter   → 確定してテキストボックスへ入力
 ///   BackSpace / Esc → 1 音削除 / 変換取り消し・入力取り消し
-///   F6 / F7 / F9 / F10, 半角/全角 → ひらがな / カタカナ / 全角英数 / 半角英数 / 日本語⇔英字
+///   F6 / F7 / F9 / F10, 半角/全角 → ひらがな / カタカナ / 全角英数 / 半角英数 (続けて押すと 大文字 → 先頭だけ大文字) / 日本語⇔英字
 ///   その他のキー・クリック → 確定してからそのキーやクリックを通す
 /// 英数状態でも、打ち始めの数文字でローマ字 (日本語) かを判定し (打鍵は待たせずに送る)、日本語なら送った分を消して日本語入力に戻し、変換ボックスに入れる。
 /// UI スレッドだけで動く。フックからは CaptureGate 経由で入力が順番どおり届く。
@@ -505,8 +505,8 @@ public sealed class CompositionController
                 return;
             case VirtualKeys.F6: SetMode(DisplayMode.Hiragana); return;
             case VirtualKeys.F7: SetMode(DisplayMode.Katakana); return;
-            case VirtualKeys.F9: SetMode(DisplayMode.FullWidthAlphanumeric); return;
-            case VirtualKeys.F10: SetMode(DisplayMode.HalfWidthAlphanumeric); return;
+            case VirtualKeys.F9: SetAlphanumericMode(DisplayMode.FullWidthAlphanumeric); return;
+            case VirtualKeys.F10: SetAlphanumericMode(DisplayMode.HalfWidthAlphanumeric); return;
             case VirtualKeys.Left or VirtualKeys.Right or VirtualKeys.Up or VirtualKeys.Down when !_text.IsAlphanumeric:
                 // 変換前でも矢印キーで文節の選択に入る (Mac のライブ変換と同じ)。
                 EnterClauseSelection(vk);
@@ -855,6 +855,30 @@ public sealed class CompositionController
     {
         _converting = false;
         _text.Mode = mode;
+        _text.Case = LetterCase.AsTyped;
+    }
+
+    /// <summary>
+    /// F9 / F10: 英字にする。もう英字で見せているときに押すと、大文字・小文字を 打ったまま → すべて大文字 → 先頭だけ大文字 → … と切り替える
+    /// (ai → AI → Ai → ai。Microsoft IME と同じ)。見た目の変わらない段 (打ったままが既にすべて大文字など) は飛ばす。
+    /// </summary>
+    private void SetAlphanumericMode(DisplayMode mode)
+    {
+        var before = _converting ? null : CurrentDisplay(final: false);
+        var sameMode = !_converting && _text.Mode == mode;
+        _converting = false;
+        if (!sameMode)
+        {
+            _text.Mode = mode;
+            _text.Case = LetterCase.AsTyped;
+            // 英単語と判定して英字で見せていた (Auto) ときは、F10 を押した時点で見た目が変わるように次の段へ進める。
+            if (CurrentDisplay(final: false) != before) return;
+        }
+        for (var i = 0; i < 3; i++)
+        {
+            _text.Case = (LetterCase)(((int)_text.Case + 1) % 3);
+            if (CurrentDisplay(final: false) != before) return;
+        }
     }
 
     /// <summary>

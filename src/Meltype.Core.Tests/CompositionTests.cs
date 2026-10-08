@@ -323,6 +323,67 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void F10_CyclesLetterCase()
+    {
+        // #58 #61: F10 を続けて押すと ai → AI → Ai → ai
+        var k = new Keyboard();
+        k.Type("aiueo");
+        Assert.Equal("あいうえお", k.Showing);
+        var shown = new List<string?>();
+        for (var i = 0; i < 4; i++)
+        {
+            k.Press(VirtualKeys.F10);
+            shown.Add(k.Showing);
+        }
+        Assert.Equal("aiueo,AIUEO,Aiueo,aiueo", string.Join(",", shown));
+        k.Press(VirtualKeys.F10);
+        k.Press(VirtualKeys.Return);
+        Assert.Equal("AIUEO", k.Host.Document);
+    }
+
+    [Test]
+    public static void F9_CyclesLetterCase_FullWidth()
+    {
+        var k = new Keyboard();
+        k.Type("aiueo");
+        k.Press(VirtualKeys.F9);
+        Assert.Equal("ａｉｕｅｏ", k.Showing);
+        k.Press(VirtualKeys.F9);
+        Assert.Equal("ＡＩＵＥＯ", k.Showing);
+        // F10 に切り替えたら打ったまま (小文字) から
+        k.Press(VirtualKeys.F10);
+        Assert.Equal("aiueo", k.Showing);
+    }
+
+    [Test]
+    public static void F10_OnEnglishWord_GoesStraightToUpperCase()
+    {
+        // 英単語と判定して英字で見せている語は、1 回目の F10 で大文字にする (押しても何も変わらないように見えないように)
+        var k = new Keyboard();
+        k.Type("hello");
+        Assert.Equal("hello", k.Showing);
+        k.Press(VirtualKeys.F10);
+        Assert.Equal("HELLO", k.Showing);
+        k.Press(VirtualKeys.F10);
+        Assert.Equal("Hello", k.Showing);
+        k.Press(VirtualKeys.F10);
+        Assert.Equal("hello", k.Showing);
+    }
+
+    [Test]
+    public static void F10_CaseResetsAfterCommit()
+    {
+        var k = new Keyboard();
+        k.Type("ai");
+        k.Press(VirtualKeys.F10);
+        k.Press(VirtualKeys.F10);
+        k.Press(VirtualKeys.Return);
+        k.Type("aiueo");
+        k.Press(VirtualKeys.F10);
+        Assert.Equal("aiueo", k.Showing);
+    }
+
+    [Test]
     public static void Reconversion_WithoutSelectionDoesNothing()
     {
         var k = new Keyboard();
