@@ -160,6 +160,10 @@ public sealed class Settings
      Description("Windows の入力言語が日本語のときだけ動作します。韓国語・英語などでは入力処理と IME の自動制御を停止し、日本語に戻すと再開します。物理キーボードの JIS / US 配列や IME の「あ」「A」の状態は問いません。全プロファイル共通です。")]
     public bool JapaneseKeyboardOnly { get; set; }
 
+    [Category("1. 全般"), DisplayName("遠隔操作などの入力も処理する"),
+     Description("AnyDesk・VNC などの遠隔操作ソフトから届いたキーも、手で打ったキーと同じように処理します (OFF だと、ほかのソフトが送ったキーはそのままアプリに渡し、変換ボックスを開きません)。遠隔操作ソフトとキーボードのマクロ・自動入力のソフトは見分けられないので、ON にするとどちらも処理の対象になります。Meltype 自身が送ったキーは、ON でも処理しません。全プロファイル共通です。")]
+    public bool AllowInjectedInput { get; set; }
+
     [Category("1. 全般"), DisplayName("動作モード"),
      Description("Keyboard = Meltype の変換ボックスで入力 (英単語は自動で英字、Space で変換、Enter で確定) / AutoSwitch = 入力開始時に判定して Microsoft IME を自動で ON にする")]
     public InputMode Mode { get; set; } = InputMode.Keyboard;
@@ -291,7 +295,7 @@ public sealed class Settings
     private static readonly HashSet<string> SharedKeys =
     [
         nameof(Profiles), nameof(ActiveProfile), nameof(SettingsVersion), nameof(WelcomeShown),
-        nameof(Enabled), nameof(JapaneseKeyboardOnly), nameof(FileLog), nameof(LogTypedText), nameof(AutoUpdate),
+        nameof(Enabled), nameof(JapaneseKeyboardOnly), nameof(AllowInjectedInput), nameof(FileLog), nameof(LogTypedText), nameof(AutoUpdate),
     ];
 
     /// <summary>今の設定の値のうち、プロファイルに入れるもの。</summary>

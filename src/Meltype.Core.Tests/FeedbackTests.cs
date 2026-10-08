@@ -635,6 +635,25 @@ internal static class LanguageLearningTests
     }
 
     [Test]
+    public static void AllowInjectedInput_IsSharedAndOffByDefault()
+    {
+        // 遠隔操作 (AnyDesk・VNC) のキーも処理する設定 (issue #110)。既定は OFF、保存して残り、全プロファイル共通
+        var path = Path.Combine(Path.GetTempPath(), $"meltype-injected-{Guid.NewGuid():N}.json");
+        try
+        {
+            File.WriteAllText(path, "{}");
+            Assert.True(!Settings.Load(path).AllowInjectedInput, "既存の設定ファイルでは OFF");
+            var settings = new Settings { AllowInjectedInput = true };
+            settings.Clone().Normalize().Save(path);
+            Assert.True(Settings.Load(path).AllowInjectedInput, "保存・複製・読み込みで設定が残る");
+            var profile = settings.Normalize().AddProfile("仕事用")!;
+            profile.AllowInjectedInput = false;
+            Assert.True(!profile.SwitchProfile(Settings.DefaultProfileName).AllowInjectedInput, "全プロファイル共通の設定");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Test]
     public static void UnitsAfterNumbers_StayLetters()
     {
         // 単位 (mm、min) が打ちにくく、日本語になることがあった (10mmで → 10っまで、5min → 5みん)。
