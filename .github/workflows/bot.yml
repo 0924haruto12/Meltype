@@ -45,6 +45,7 @@ jobs:
   parse:
     if: github.event_name != 'pull_request_target'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       contents: read
       issues: write
@@ -60,13 +61,13 @@ jobs:
       sha: ${{ steps.parse.outputs.sha }}
       comment: ${{ steps.parse.outputs.comment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           sparse-checkout: .github/bot
           persist-credentials: false
       - id: app
         if: vars.BOT_APP_ID != ''
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@7e473efe3cb98aa54f8d4bac15400b15fad77d94 # v2.2.0
         with:
           app-id: ${{ vars.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
@@ -84,11 +85,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: 10.0.x
       - name: Mozc helper from latest release
@@ -138,7 +139,7 @@ jobs:
             $env:MELTYPE_MOZC = $env:MELTYPE_MOZC  # 同じヘルパーを共有
             dotnet run --project ../release/src/Meltype.Tests -c Release -- --repro $env:KEYS $env:LAST | Out-File "results/repro-$tag.json" -Encoding utf8
           }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: bot-results
           path: results/
@@ -153,11 +154,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ needs.parse.outputs.sha }}
           persist-credentials: false
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: 10.0.x
       - name: Mozc helper from latest release
@@ -215,7 +216,7 @@ jobs:
           path: results/
           retention-days: 7
       - if: needs.parse.outputs.action == 'pack'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: meltype-pr-${{ needs.parse.outputs.issue }}
           path: dist/Meltype-test-*.zip
@@ -231,18 +232,18 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           sparse-checkout: .github/bot
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         continue-on-error: true
         with:
           name: bot-results
           path: results/
       - id: app
         if: vars.BOT_APP_ID != ''
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@7e473efe3cb98aa54f8d4bac15400b15fad77d94 # v2.2.0
         with:
           app-id: ${{ vars.BOT_APP_ID }}
           private-key: ${{ secrets.BOT_APP_PRIVATE_KEY }}
