@@ -493,6 +493,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
     /// </summary>
     private void Uninstall()
     {
+        // インストーラー (Meltype-<版>-setup.exe) で入れたときは、そのアンインストーラーを使う (確認もアンインストーラーが出す)
+        var installer = Path.Combine(AppContext.BaseDirectory, "unins000.exe");
+        if (File.Exists(installer))
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo(installer) { UseShellExecute = true, WorkingDirectory = Path.GetTempPath() });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"アンインストールを始められませんでした: {ex.Message}", "Meltype", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            return;
+        }
         var script = Path.Combine(AppContext.BaseDirectory, "uninstall.ps1");
         if (!File.Exists(script))
         {
