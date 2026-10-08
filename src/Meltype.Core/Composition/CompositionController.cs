@@ -137,6 +137,9 @@ public sealed class CompositionOptions
     /// <summary>確定するときに、日本語と英単語の間に半角スペースを入れるか (設定)。</summary>
     public Func<bool> SpaceAroundEnglish { get; init; } = () => false;
 
+    /// <summary>句読点の組み合わせ (設定)。</summary>
+    public Func<Config.PunctuationStyle> Punctuation { get; init; } = () => Config.PunctuationStyle.Japanese;
+
     /// <summary>ユーザーが英字 / かなに直した語の学習。</summary>
     public LanguageMemory? Languages { get; init; }
 
@@ -148,6 +151,9 @@ public sealed class CompositionOptions
 
     /// <summary>変換ボックスの文字の大きさ。</summary>
     public Func<Config.CompositionSize> Size { get; init; } = () => Config.CompositionSize.Auto;
+
+    /// <summary>変換ボックスのフォント (空なら既定のフォント)。</summary>
+    public Func<string> Font { get; init; } = () => "";
 
     /// <summary>入力欄に入った (フォーカスが入った) ときにも入力モードを出すか。false なら 半角/全角 を押したときだけ。</summary>
     public Func<bool> ModeIndicatorOnFocus { get; init; } = () => true;
@@ -605,6 +611,7 @@ public sealed class CompositionController
     private void BeginComposition()
     {
         _text.KanaInput = _options.KanaInput();
+        _text.Punctuation = _options.Punctuation();
         var id = ++_compositionId;
         // 自分が確定した直後は、アプリ側のテキストがまだ更新されていないかもしれないので自分の記録を信じる。
         var recentOwnCommit = Environment.TickCount64 - _lastCommitTime < OwnCommitTrustMs;
@@ -792,6 +799,10 @@ public sealed class CompositionController
         var shift = _swallowedShift.Count > 0;
         switch (vk)
         {
+            case VirtualKeys.Space when shift || _host.IsShiftDown():
+                // Shift+Space: 前の候補へ (Microsoft IME と同じ。Mac でも Shift を押したまま Space で戻れるように: issue #140)
+                NextCandidate(-1);
+                return true;
             case VirtualKeys.Convert:
             case VirtualKeys.Space:
             case VirtualKeys.Down:
@@ -1183,7 +1194,7 @@ public sealed class CompositionController
         return text.Length == 0 ? null : text.Length > 10 ? text[^10..] : text;
     }
 
-    private static readonly char[] SentenceEnds = ['。', '！', '？', '\n', '\r'];
+    private static readonly char[] SentenceEnds = ['。', '．', '！', '？', '\n', '\r'];
 
     private static readonly HashSet<string> Particles = ["は", "が", "を", "に", "で", "と", "も", "へ", "の", "や", "か", "から", "まで", "より"];
 
@@ -1521,6 +1532,9 @@ public sealed class CompositionController
             // 英語で確定した語を日本語に (Space で空白を入れていたら取る)。
             targets = [previous];
             replacement = _detector.Romaji.ConvertLenient(previous.Raw.ToLowerInvariant(), final: true);
+            // ローマ字として読んでもよく使う語の読みにならない語 (issue → いっすえ、api → あぴ) は英語のまま (issue #121, #124)。
+            // sushi → すし のように、日本語の語として読めるときだけ直す。
+            if (_options.RomajiTypos is { } lexicon && !lexicon.IsWord(replacement)) return;
         }
         var original = string.Concat(targets.Select(t => t.Text));
         if (replacement is null || replacement == original) return;
