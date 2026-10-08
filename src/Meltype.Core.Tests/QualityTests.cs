@@ -102,8 +102,13 @@ internal static class Quality
 
         // --- 日本語の中の英単語 ---
         new("混在", "kyouhagoogledekensaku", "きょうはgoogleでけんさく"),
-        new("混在", "tanaka@gmail.com", "tanaka@gmail.com"),
+        new("混在", "tanaka@example.com", "tanaka@example.com"),
         new("混在", "yamada.taro@example.co.jp", "yamada.taro@example.co.jp"),
+        new("混在", "foo_bar@example.com", "foo_bar@example.com"),
+        new("混在", "taro+news@example.com", "taro+news@example.com"),
+        new("混在", "yamada-taro@example.com", "yamada-taro@example.com"),
+        new("混在", "inviteshimashita", "inviteしました"),
+        new("混在", "invitewookutta", "inviteをおくった"),
         new("混在", "githubnipushshita", "githubにpushした"),
         new("混在", "pythondekaita", "pythonでかいた"),
         new("混在", "zoomdekaigi", "zoomでかいぎ"),
