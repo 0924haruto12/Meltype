@@ -323,6 +323,22 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Emoji_AreLastAndReachedByUp()
+    {
+        // #133: 絵文字・顔文字は候補の最後に逆順でまとめる。変換してすぐ ↑ で、いちばんよく使う絵文字 (えがお → 😊) になる
+        var k = new Keyboard();
+        k.Type("egao ");
+        var view = k.Host.View!;
+        Assert.Equal("😊", view.Candidates[^1], string.Join(" ", view.Candidates));
+        var firstEmoji = view.Candidates.ToList().FindIndex(c => c is "😊" or "😄" or "(^^)" or "😀");
+        Assert.True(firstEmoji > view.Candidates.ToList().IndexOf("エガオ"), "絵文字はカタカナより後ろ: " + string.Join(" ", view.Candidates));
+        k.Press(VirtualKeys.Up);
+        Assert.Equal("😊", k.Showing);
+        k.Press(VirtualKeys.Up);
+        Assert.Equal("😄", k.Showing);
+    }
+
+    [Test]
     public static void Reconversion_WithoutSelectionDoesNothing()
     {
         var k = new Keyboard();
