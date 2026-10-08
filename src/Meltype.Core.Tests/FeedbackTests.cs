@@ -524,6 +524,11 @@ internal static class LanguageLearningTests
         {
             ("10mmde", "10mmで"), ("kyouha10mmdesu", "きょうは10mmです"), ("5min", "5min"), ("3mol", "3mol"), ("2mmol", "2mmol"),
             ("100mlnomizu", "100mlのみず"), ("3nin", "3にん"), ("1man", "1まん"), ("10mina", "10みな"), ("5ko", "5こ"),
+            // cc も 1 語の単位 (50cc原付 が 50っc原付 になっていた: issue #130)。ppm・ppb・ppt も同じく促音になっていた
+            ("50cc", "50cc"), ("50ccgenntuki", "50ccげんつき"), ("150ccdattara", "150ccだったら"), ("50ccwokatta", "50ccをかった"),
+            ("100ppm", "100ppm"), ("50ppbhikaku", "50ppbひかく"),
+            // 数字の後ろでない っ (ccha・tchi 系) は今までどおりかな
+            ("cchau", "っちゃう"), ("yacchatta", "やっちゃった"), ("50ccha", "50ccは"), ("50ccchan", "50ccちゃん"),
         })
         {
             var k = new CompositionTests.Keyboard();

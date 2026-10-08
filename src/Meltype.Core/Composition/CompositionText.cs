@@ -287,13 +287,14 @@ public sealed class CompositionText
 
     /// <summary>
     /// 数字のすぐ後ろの単位 (10mm、5min、3mol)。ローマ字として読める綴りでも英字のままにする
-    /// (10mmで が 10っまで、5min が 5みん になっていた)。ローマ字として読めない単位 (kg、cm、px) は今までどおり英字になる。
+    /// (10mmで が 10っまで、5min が 5みん、50ccで が 50っcで になっていた: issue #130)。
+    /// ローマ字として読めない単位 (kg、cm、px) は今までどおり英字になる。
     /// 数字の後ろでよく打つ日本語 (人 nin、個 ko、回 kai、万 man、度 do、時 ji) と同じ綴りの単位は入れない。
     /// </summary>
     private static readonly string[] UnitWords =
     [
-        "mmol", "kcal", "mhz", "ghz", "khz", "kwh", "mah", "mol", "min", "sec", "rem", "dpi", "ppi", "fps", "bpm", "rpm", "mph", "kph",
-        "mm", "cm", "km", "nm", "um", "mg", "kg", "ml", "dl", "ms", "ns", "hz", "kb", "mb", "gb", "tb", "px", "pt", "em", "wh",
+        "mmol", "kcal", "mhz", "ghz", "khz", "kwh", "mah", "mol", "min", "sec", "rem", "dpi", "ppi", "fps", "bpm", "rpm", "mph", "kph", "ppm", "ppb", "ppt",
+        "mm", "cm", "km", "nm", "um", "mg", "kg", "ml", "dl", "ms", "ns", "hz", "kb", "mb", "gb", "tb", "px", "pt", "em", "wh", "cc",
     ];
 
     /// <summary>
