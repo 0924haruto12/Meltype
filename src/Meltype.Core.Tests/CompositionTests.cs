@@ -337,7 +337,25 @@ internal static class CompositionTests
             k.Type(typed + "\n");
             Assert.Equal(expected, k.Host.Document, $"{typed} ({(on ? "ON" : "OFF")})");
         }
-    }
+      [Test]
+      public static void ShiftSpace_DuringConversion_GoesBack()
+      {
+        // #140: 変換中の Shift+Space は前の候補へ (Space と同じに進んでいた)
+        var k = new Keyboard();
+        k.Type("kawa ");
+        k.Press(VirtualKeys.Space);
+        k.Press(VirtualKeys.Space);
+        Assert.Equal(2, k.Host.View!.SelectedIndex);
+        k.Key(VirtualKeys.LShift);
+        k.Press(VirtualKeys.Space);
+        k.Key(VirtualKeys.LShift, up: true);
+        Assert.Equal(1, k.Host.View!.SelectedIndex);
+        k.Key(VirtualKeys.LShift);
+        k.Press(VirtualKeys.Space);
+        k.Press(VirtualKeys.Space);
+        k.Key(VirtualKeys.LShift, up: true);
+        Assert.Equal(k.Host.View!.Candidates.Count - 1, k.Host.View!.SelectedIndex, "先頭から戻ると最後の候補へ");
+      }
 
     [Test]
     public static void F10_CyclesLetterCase()

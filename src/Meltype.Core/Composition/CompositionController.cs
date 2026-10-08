@@ -796,6 +796,10 @@ public sealed class CompositionController
         var shift = _swallowedShift.Count > 0;
         switch (vk)
         {
+            case VirtualKeys.Space when shift || _host.IsShiftDown():
+                // Shift+Space: 前の候補へ (Microsoft IME と同じ。Mac でも Shift を押したまま Space で戻れるように: issue #140)
+                NextCandidate(-1);
+                return true;
             case VirtualKeys.Convert:
             case VirtualKeys.Space:
             case VirtualKeys.Down:
