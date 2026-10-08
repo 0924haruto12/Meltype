@@ -256,6 +256,12 @@ internal sealed class CompositionWindow : Form
             // 2 ページ以上あるときは、下に「3 / 27」を出す分
             if (view.Candidates.Count > PageSize) height += _hintFont.Height + 2;
         }
+        else if (view.Predictions is { Count: > 0 } predictions)
+        {
+            // 予測変換の候補 (番号は付けない。Tab で選ぶ)
+            foreach (var prediction in predictions) width = Math.Max(width, TextRenderer.MeasureText(g, $"▸ {prediction}", _candidateFont).Width + 28);
+            height += predictions.Count * (_candidateFont.Height + 4) + 6;
+        }
         width = Math.Max(width, TextRenderer.MeasureText(g, view.Hint, _hintFont).Width + 16);
         height += _hintFont.Height + 6;
         return new Size(Math.Min(width, 900), height);
@@ -347,6 +353,24 @@ internal sealed class CompositionWindow : Form
                 var pageWidth = TextRenderer.MeasureText(g, page, _hintFont).Width;
                 TextRenderer.DrawText(g, page, _hintFont, new Point(Width - pageWidth - 10, y + 1), Color.FromArgb(150, 150, 150), TextFormatFlags.NoPrefix);
                 y += _hintFont.Height + 2;
+            }
+            y += 6;
+        }
+        else if (view.Predictions is { Count: > 0 } predictions)
+        {
+            for (var i = 0; i < predictions.Count; i++)
+            {
+                var rowHeight = _candidateFont.Height + 4;
+                var selected = i == view.SelectedPrediction;
+                if (selected)
+                {
+                    using var highlight = new SolidBrush(Color.FromArgb(60, 76, 160, 255));
+                    g.FillRectangle(highlight, 4, y - 2, Width - 8, rowHeight);
+                }
+                DrawText(g, $"{(selected ? "▸" : "  ")} {predictions[i]}", _candidateFont, new Point(12, y),
+                    selected ? Color.White : Color.FromArgb(170, 170, 170),
+                    selected ? Blend(Background, Color.FromArgb(60, 76, 160, 255)) : Background, TextFormatFlags.NoPrefix);
+                y += rowHeight;
             }
             y += 6;
         }

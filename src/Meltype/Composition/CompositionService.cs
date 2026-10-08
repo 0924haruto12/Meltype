@@ -68,7 +68,10 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             SpaceAroundEnglish = options.SpaceAroundEnglish,
             Punctuation = options.Punctuation,
             TranslationHistory = options.TranslationHistory ?? new TranslationHistory(Config.AppPaths.TranslationHistoryFile),
+            Predictor = options.Predictor ?? new Predictor(new PhraseHistory(Config.AppPaths.PhraseHistoryFile), UserDictionary, History),
+            Predictions = options.Predictions,
         };
+        Phrases = resolved.Predictor?.Phrases;
         _hybrid = new HybridConverter(options.Engine, _mozc, _converter, reading => _windowsCandidates.Get(reading));
         Controller = new CompositionController(Gate, detector, _hybrid, this, resolved);
         if (options.Engine() != Config.ConversionEngine.System && _mozc.IsInstalled) _mozc.WarmUp();
@@ -97,6 +100,9 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     /// <summary>ユーザーが英字 / かなに直した語の学習 (トレイの「学習データをリセット」で消す)。</summary>
     public LanguageMemory Languages { get; }
+
+    /// <summary>予測変換のために覚えた、確定した語句。</summary>
+    public PhraseHistory? Phrases { get; }
 
     /// <summary>ユーザー辞書 (トレイの「ユーザー辞書...」で編集する)。</summary>
     public UserDictionary UserDictionary { get; }
