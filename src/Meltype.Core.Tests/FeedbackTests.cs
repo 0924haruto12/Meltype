@@ -213,6 +213,17 @@ internal static class KanaInputTests
     }
 
     [Test]
+    public static void KanaInput_Punctuation_FollowsSetting()
+    {
+        // かな入力の 、 (Shift+ね) と 。 (Shift+る) も句読点の設定に合わせる
+        var k = Kana();
+        k.Punctuation = PunctuationStyle.FullWidthCommaPeriod;
+        k.TypeKeys(KanaQualityTests.KeysFor("はい、はい。"));
+        k.Type("\n");
+        Assert.Equal("はい，はい．", k.Host.Document);
+    }
+
+    [Test]
     public static void KanaInput_SpaceAroundEnglish()
     {
         // かな入力でも、確定した英単語の前後に半角スペースが入る
