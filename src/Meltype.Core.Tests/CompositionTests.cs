@@ -533,6 +533,96 @@ internal static class CompositionTests
         Assert.Equal("aiueo", k.Showing);
     }
 
+    private static void CtrlPress(Keyboard k, int vk)
+    {
+        k.Key(VirtualKeys.LControl);
+        k.Press(vk);
+        k.Key(VirtualKeys.LControl, up: true);
+    }
+
+    [Test]
+    public static void CtrlUiop_SwitchesKanaAndLetters()
+    {
+        // #53: Ctrl+P → 全角英数、Ctrl+O → 半角英数 (続けて押すと大文字)、Ctrl+I → カタカナ、Ctrl+U → ひらがな
+        var k = new Keyboard();
+        k.Type("aiueo");
+        CtrlPress(k, 'P');
+        Assert.Equal("ａｉｕｅｏ", k.Showing);
+        CtrlPress(k, 'O');
+        Assert.Equal("aiueo", k.Showing);
+        CtrlPress(k, 'O');
+        Assert.Equal("AIUEO", k.Showing);
+        CtrlPress(k, 'I');
+        Assert.Equal("アイウエオ", k.Showing);
+        CtrlPress(k, 'U');
+        Assert.Equal("あいうえお", k.Showing);
+        Assert.Equal(0, k.Host.Output.Count);
+        Assert.True(!k.Host.Events.Any(e => e == "down:A2"), "Ctrl はアプリに送らない");
+    }
+
+    [Test]
+    public static void CtrlHeld_RepeatsShortcutAndMatchesUps()
+    {
+        // Ctrl を押したまま O を 2 回 (半角英数 → 大文字)。右 Ctrl でも同じ。Ctrl はアプリに送らず、上げ下げもそろったまま
+        foreach (var control in new[] { VirtualKeys.LControl, VirtualKeys.RControl })
+        {
+            var k = new Keyboard();
+            k.Type("aiueo");
+            k.Key(control);
+            k.Press('O');
+            k.Press('O');
+            k.Key(control, up: true);
+            Assert.Equal("AIUEO", k.Showing);
+            Assert.True(!k.Host.Events.Any(e => e.EndsWith($":{control:X2}")), "Ctrl を送らない: " + string.Join(" ", k.Host.Events));
+            k.Press(VirtualKeys.Return);
+            Assert.Equal("AIUEO", k.Host.Document);
+        }
+    }
+
+    [Test]
+    public static void CtrlShiftShortcut_SendsModifiersInOrder()
+    {
+        // Ctrl+Shift+Z: 確定してから Ctrl → Shift → Z の順に送り、離したことも送る
+        var k = new Keyboard();
+        k.Type("kana");
+        k.Key(VirtualKeys.LControl);
+        k.Key(VirtualKeys.LShift);
+        k.Press('Z');
+        k.Key(VirtualKeys.LShift, up: true);
+        k.Key(VirtualKeys.LControl, up: true);
+        var events = string.Join("|", k.Host.Events);
+        Assert.True(events.StartsWith("text:かな|down:A2|down:A0|down:5A"), events);
+        Assert.True(events.Contains("up:A0") || events.Contains("passed-up:A0"), "Shift を離したことも届く: " + events);
+        Assert.True(events.Contains("up:A2") || events.Contains("passed-up:A2"), "Ctrl を離したことも届く: " + events);
+        Assert.True(!k.Gate.IsCaptured, "ショートカットの後は横取りをやめる");
+    }
+
+    [Test]
+    public static void CtrlClick_CommitsThenSendsCtrlWithClick()
+    {
+        // Ctrl を押したままクリック: 確定してから、Ctrl とクリックを送る
+        var k = new Keyboard();
+        k.Type("kana");
+        k.Key(VirtualKeys.LControl);
+        k.Gate.OnMouseButton(new MouseButtonEvent(0x201, 10, 20, 0));
+        k.Controller.Pump();
+        var events = string.Join("|", k.Host.Events);
+        Assert.True(events.StartsWith("text:かな|down:A2|mouse:201"), events);
+        k.Key(VirtualKeys.LControl, up: true);
+        Assert.True(string.Join("|", k.Host.Events).Contains("A2", StringComparison.Ordinal) && k.Host.Events.Count(e => e.Contains(":A2")) == 2, "Ctrl の上げ下げがそろう: " + string.Join("|", k.Host.Events));
+    }
+
+    [Test]
+    public static void CtrlOtherShortcut_CommitsThenPasses()
+    {
+        var k = new Keyboard();
+        k.Type("aiueo");
+        CtrlPress(k, 'C');
+        Assert.Equal("あいうえお", k.Host.Document);
+        var down = k.Host.Events.IndexOf("down:A2");
+        Assert.True(down >= 0 && k.Host.Events.IndexOf("down:43") > down, "確定してから Ctrl+C を送る: " + string.Join(" ", k.Host.Events));
+    }
+
     [Test]
     public static void DigitKey_SelectsCandidateByNumber()
     {
@@ -1851,7 +1941,8 @@ internal static class CompositionTests
         k.Key(VirtualKeys.LControl);
         k.Press('C');
         k.Key(VirtualKeys.LControl, up: true);
-        Assert.Equal("text:かな|down:A2|passed:43|passed-up:43|passed-up:A2", string.Join("|", k.Host.Events), "確定 → Ctrl を送る → 以降は直接アプリへ");
+        // 入力中の Ctrl は次のキーを見るまで送らない (Ctrl+U/I/O/P はかな・英字の切り替え)。ほかのキーなら確定 → Ctrl → そのキーの順に送る
+        Assert.Equal("text:かな|down:A2|down:43|passed-up:43|passed-up:A2", string.Join("|", k.Host.Events), "確定 → Ctrl → C を送る → 以降は直接アプリへ");
         Assert.True(!k.Gate.IsCaptured, "ショートカットの後は横取りをやめる");
     }
 
