@@ -7,7 +7,7 @@ root="$(dirname "$here")"
 name="${1:-Meltype-mac-test-$(date +%Y%m%d-%H%M%S).zip}"
 [[ "$name" != */* && "$name" == *.zip ]] || { echo "Expected a zip filename without a directory." >&2; exit 1; }
 mkdir -p "$root/dist"
-stage="$(mktemp -d "$root/dist/meltype-package.XXXXXX")"
+stage="$(mktemp -d "$root/dist/.meltype-package.XXXXXX")"
 cleanup() {
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$stage/Meltype-mac/Meltype.app" 2>/dev/null || true
     rm -rf "$stage"
