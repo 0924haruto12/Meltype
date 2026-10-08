@@ -949,6 +949,7 @@ public sealed class CompositionController
                 AddOldKana(clause);
                 AddTranslations(clause);
                 AddRawCandidates(clause);
+                MoveEmojiLast(clause);
             }
             clauses.AddRange(japanese);
         }
@@ -1207,7 +1208,9 @@ public sealed class CompositionController
     }
 
     /// <summary>
-    /// 文節の候補: 文の中での変換結果 → その文節だけでの変換結果 → 補助辞書の同音異義語 → ひらがな → 全角カタカナ → 半角カタカナ。
+    /// 文節の候補: 文の中での変換結果 → その文節だけでの変換結果 → 補助辞書の同音異義語 → ひらがな → 全角カタカナ → 半角カタカナ
+    /// → 絵文字・顔文字 (逆順)。
+    /// 絵文字・顔文字は最後に逆順で並べるので、変換してすぐ ↑ を押すと、いちばんよく使う絵文字 (えがお → 😊) になる (issue #133)。
     /// </summary>
     private List<string> JapaneseCandidates(string reading, string? inContext)
     {
@@ -1215,7 +1218,7 @@ public sealed class CompositionController
         var candidates = Distinct(inContext);
         foreach (var word in _options.UserDictionary?.Lookup(reading) ?? []) if (!candidates.Contains(word)) candidates.Add(word);
         if (Convert(reading) is var standalone && !candidates.Contains(standalone)) candidates.Add(standalone);
-        foreach (var extra in _options.Candidates?.Lookup(reading) ?? [])
+        foreach (var extra in _options.Candidates?.LookupWords(reading) ?? [])
         {
             if (!candidates.Contains(extra)) candidates.Add(extra);
         }
@@ -1224,7 +1227,29 @@ public sealed class CompositionController
         {
             if (!candidates.Contains(kana)) candidates.Add(kana);
         }
+        foreach (var emoji in EmojiBlock(reading))
+        {
+            if (!candidates.Contains(emoji)) candidates.Add(emoji);
+        }
         return candidates;
+    }
+
+    /// <summary>絵文字・顔文字の候補を、最後に並べる順 (逆順: いちばんよく使うものが最後) で。</summary>
+    private IEnumerable<string> EmojiBlock(string reading) =>
+        (_options.Candidates?.LookupEmoji(reading) ?? []).Reverse();
+
+    /// <summary>
+    /// 絵文字・顔文字の候補を候補の一覧の最後に移す (英訳・打ったままの英字を足した後に呼ぶ)。
+    /// 変換エンジンが最初の候補に絵文字を返したときなど、今選んでいる候補は動かさない。
+    /// </summary>
+    private void MoveEmojiLast(Clause clause)
+    {
+        var block = EmojiBlock(clause.Reading).Where(e => clause.Candidates.IndexOf(e) > 0).ToList();
+        if (block.Count == 0) return;
+        var current = clause.Text;
+        clause.Candidates.RemoveAll(block.Contains);
+        clause.Candidates.AddRange(block);
+        clause.Index = Math.Max(0, clause.Candidates.IndexOf(current));
     }
 
     /// <summary>英語の文節の候補: 打ったまま → 固有名詞の正しい形 (GitHub) → 先頭だけ大文字 → すべて大文字 → 全角。</summary>

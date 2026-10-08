@@ -327,8 +327,24 @@ internal static class CompositionTests
     }
 
     [Test]
-    public static void ShiftSpace_DuringConversion_GoesBack()
+    public static void Emoji_AreLastAndReachedByUp()
     {
+        // #133: 絵文字・顔文字は候補の最後に逆順でまとめる。変換してすぐ ↑ で、いちばんよく使う絵文字 (えがお → 😊) になる
+        var k = new Keyboard();
+        k.Type("egao ");
+        var view = k.Host.View!;
+        Assert.Equal("😊", view.Candidates[^1], string.Join(" ", view.Candidates));
+        var firstEmoji = view.Candidates.ToList().FindIndex(c => c is "😊" or "😄" or "(^^)" or "😀");
+        Assert.True(firstEmoji > view.Candidates.ToList().IndexOf("エガオ"), "絵文字はカタカナより後ろ: " + string.Join(" ", view.Candidates));
+        k.Press(VirtualKeys.Up);
+        Assert.Equal("😊", k.Showing);
+        k.Press(VirtualKeys.Up);
+        Assert.Equal("😄", k.Showing);
+    }
+  
+      [Test]
+      public static void ShiftSpace_DuringConversion_GoesBack()
+      {
         // #140: 変換中の Shift+Space は前の候補へ (Space と同じに進んでいた)
         var k = new Keyboard();
         k.Type("kawa ");
@@ -344,7 +360,7 @@ internal static class CompositionTests
         k.Press(VirtualKeys.Space);
         k.Key(VirtualKeys.LShift, up: true);
         Assert.Equal(k.Host.View!.Candidates.Count - 1, k.Host.View!.SelectedIndex, "先頭から戻ると最後の候補へ");
-    }
+      }
 
     [Test]
     public static void F10_CyclesLetterCase()
