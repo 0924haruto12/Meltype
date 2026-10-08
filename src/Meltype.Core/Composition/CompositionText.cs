@@ -583,6 +583,31 @@ public sealed class CompositionText
         return builder.Length > 0 ? builder.ToString() : null;
     }
 
+    /// <summary>
+    /// <see cref="ConversionSegments"/> の segmentIndex 番目の区間を、打った英字をローマ字として読んだかな (thin → てぃん)。
+    /// 英語の区間を日本語の文節として読み直すのに使う。ローマ字として読めない英字はそのまま残る。かな入力では打ったかな。
+    /// </summary>
+    public string? KanaForSegment(int segmentIndex)
+    {
+        var segments = Segments(final: true);
+        if (segmentIndex < 0 || segmentIndex >= segments.Count) return null;
+        var unit = 0;
+        for (var s = 0; s < segmentIndex; s++)
+        {
+            var remaining = segments[s].Raw.Length;
+            while (unit < _units.Count && remaining > 0) remaining -= _units[unit++].Raw.Length;
+        }
+        var builder = new StringBuilder();
+        var rawLength = segments[segmentIndex].Raw.Length - (segmentIndex == segments.Count - 1 ? _pending.Length : 0);
+        while (unit < _units.Count && rawLength > 0)
+        {
+            builder.Append(_units[unit].Kana);
+            rawLength -= _units[unit++].Raw.Length;
+        }
+        if (segmentIndex == segments.Count - 1 && _pending.Length > 0) builder.Append(PendingText(final: true));
+        return builder.Length > 0 ? builder.ToString() : null;
+    }
+
     /// <param name="final">確定・変換のときは true (語末の n を ん にする)。</param>
     /// <param name="convert">日本語の区間を漢字に変換する関数 (ライブ変換)。null ならかなのまま。</param>
     public string Display(bool final, Func<string, string>? convert = null) => Mode switch
