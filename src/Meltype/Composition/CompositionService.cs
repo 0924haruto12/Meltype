@@ -602,13 +602,17 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     private Point FindAnchor(Rectangle? caret = null)
     {
         if ((caret ?? FindCaret()) is { } found) return new Point(found.Left, found.Bottom + 4);
-        if (Focus.Current.Bounds is { } bounds && bounds.Height is > 0 and < 120)
+        // 入力欄の四角形が潰れている・画面の外にある (Google ドキュメントの、文字を受け取るための見えない欄など) ときは、
+        // その左下に出すと画面の端や関係ない所に出てしまう (issue #128)。マウスカーソルの近くに出す。
+        if (Focus.Current.Bounds is { } bounds && bounds.Height is > 2 and < 120 && bounds.Width > 2 && IsOnScreen(bounds))
         {
             return new Point(bounds.Left, bounds.Bottom + 2);
         }
         Native.GetCursorPos(out var cursor);
         return new Point(cursor.X + 12, cursor.Y + 20);
     }
+
+    private static bool IsOnScreen(Rectangle bounds) => Screen.AllScreens.Any(s => s.Bounds.IntersectsWith(bounds));
 
     private static Native.INPUT UnicodeInput(char c, bool up) => new()
     {

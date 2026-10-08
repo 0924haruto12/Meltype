@@ -141,7 +141,9 @@ public sealed class FocusInspector : IDisposable
         {
             try
             {
-                if (Automation()?.Focused() is { IsPassword: false } element) result = element.CaretBounds();
+                // UI Automation で取れなければ、ウィンドウのキャレット (MSAA の OBJID_CARET) を見る。Chrome は、Google ドキュメントのように
+                // 入力位置を UI Automation で返さない編集画面でも、こちらでは返すことがある (拡大鏡などが使っている。issue #128)。
+                if (Automation()?.Focused() is { IsPassword: false } element) result = element.CaretBounds() ?? AccessibleCaretBounds();
             }
             finally
             {
@@ -149,6 +151,30 @@ public sealed class FocusInspector : IDisposable
             }
         });
         return done.Wait(waitMs) ? result : null;
+    }
+
+    /// <summary>フォーカスのあるウィンドウのキャレットの四角形 (MSAA の OBJID_CARET)。取れなければ null。</summary>
+    private static Rectangle? AccessibleCaretBounds()
+    {
+        var thread = Native.GetWindowThreadProcessId(Native.GetForegroundWindow(), out _);
+        var info = new Native.GUITHREADINFO { cbSize = System.Runtime.InteropServices.Marshal.SizeOf<Native.GUITHREADINFO>() };
+        if (!Native.GetGUIThreadInfo(thread, ref info) || info.hwndFocus == IntPtr.Zero) return null;
+        var iid = typeof(Accessibility.IAccessible).GUID;
+        if (Native.AccessibleObjectFromWindow(info.hwndFocus, Native.OBJID_CARET, ref iid, out var accessible) != 0 || accessible is not Accessibility.IAccessible caret) return null;
+        try
+        {
+            caret.accLocation(out var left, out var top, out var width, out var height, 0);
+            // キャレットが無いときは 0,0,0,0 が返る
+            return height is > 0 and < 200 && (left != 0 || top != 0) ? new Rectangle(left, top, Math.Max(1, width), height) : null;
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+        finally
+        {
+            System.Runtime.InteropServices.Marshal.ReleaseComObject(caret);
+        }
     }
 
     /// <summary>キャレットの前後の文字列 (それぞれ最大 20 文字) を調べて callback(前, 後ろ) に渡す (このクラスのスレッドから呼ばれる)。</summary>
