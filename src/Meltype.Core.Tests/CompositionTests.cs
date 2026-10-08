@@ -539,7 +539,7 @@ internal static class CompositionTests
             ("3/4", true, "3/4"), ("/help", true, "/help"), ("and/or", true, "and/or"),
         })
         {
-            var k = new Keyboard(slashAsMiddleDot: on);
+            var k = new Keyboard(slashAsMiddleDot: on) { SigilWords = false }; // 先頭の /help は #193 でそのまま入力になるので切って比べる
             k.Type(typed + "\n");
             Assert.Equal(expected, k.Host.Document, $"{typed} ({(on ? "ON" : "OFF")})");
         }
