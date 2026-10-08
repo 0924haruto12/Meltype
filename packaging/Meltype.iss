@@ -3,8 +3,8 @@
 ;
 ; Meltype の Windows インストーラー (Inno Setup 6)。Build-Package.ps1 で作った dist\Meltype\app を、
 ; zip の Install.cmd (install.ps1) と同じ場所 (%LOCALAPPDATA%\Programs\Meltype) に入れる。管理者権限は不要。
-;   ISCC.exe /DAppVersion=1.1.0 /DSourceDir=..\dist\Meltype /DOutputDir=..\dist packaging\Meltype.iss
-; → dist\Meltype-1.1.0-setup.exe
+;   ISCC.exe /DAppVersion=1.1.1 /DSourceDir=..\dist\Meltype /DOutputDir=..\dist packaging\Meltype.iss
+; → dist\Meltype-1.1.1-setup.exe
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
