@@ -61,6 +61,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ModeIndicatorOnFocus = () => _engine.Settings.ShowModeIndicatorOnFocus,
             Placement = () => _engine.Settings.CompositionPlacement,
             Size = () => _engine.Settings.CompositionSize,
+            Font = () => _engine.Settings.CompositionFont,
         });
         _engine.AttachComposition(_composition);
 

@@ -18,6 +18,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     private readonly Func<bool> _showIndicator;
     private readonly Func<Config.CompositionPlacement> _placement;
     private readonly Func<Config.CompositionSize> _size;
+    private readonly Func<string> _font;
     private readonly Func<bool> _directMode;
     private readonly MsImeKanjiConverter _converter = new();
     private readonly KeyInjector _injector = new();
@@ -71,6 +72,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
         _showIndicator = options.ModeIndicator;
         _placement = options.Placement;
         _size = options.Size;
+        _font = options.Font;
         _directMode = options.DirectMode;
         var onFocus = options.ModeIndicatorOnFocus;
         Focus.TextInputEntered += () => { if (onFocus()) ShowMode(!_directMode()); };
@@ -475,6 +477,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             { } c => c.Height,
         };
         Diagnostics.Log.Info($"変換ボックスを出す入力位置: {(caret is { } r ? $"{r.X},{r.Y} 高さ {r.Height}{(wholeField ? " (入力欄の枠)" : "")}" : "分からない")}");
+        _window.SetFontFamily(_font());
         // 文字の大きさ: 自動なら、入力欄の文字の高さに合わせる。小さな入力欄で大きく出すぎないように。
         _window.SetScale(_size() switch
         {

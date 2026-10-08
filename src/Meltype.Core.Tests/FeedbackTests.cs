@@ -565,6 +565,23 @@ internal static class LanguageLearningTests
     }
 
     [Test]
+    public static void CompositionFont_IsSaved()
+    {
+        // 変換ボックスのフォントを変えたい (issue #165): 既定は空 (Yu Gothic UI)、選んだフォントは保存しても残る
+        Assert.Equal("", new Settings().CompositionFont);
+        var path = Path.Combine(Path.GetTempPath(), $"meltype-font-{Guid.NewGuid():N}.json");
+        try
+        {
+            new Settings { CompositionFont = "Meiryo UI" }.Save(path);
+            Assert.Equal("Meiryo UI", Settings.Load(path).CompositionFont);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Test]
     public static void UnitsAfterNumbers_StayLetters()
     {
         // 単位 (mm、min) が打ちにくく、日本語になることがあった (10mmで → 10っまで、5min → 5みん)。

@@ -205,6 +205,10 @@ public sealed class Settings
      Description("自動: 入力欄の文字の高さに合わせます (小さな入力欄では小さく出ます)。入力欄の文字の高さが分からないアプリでは「中」になります。小さな文字が読みにくいときは「特大」「最大」も選べます。")]
     public CompositionSize CompositionSize { get; set; } = CompositionSize.Auto;
 
+    [Category("1. 全般"), DisplayName("変換ボックスのフォント"),
+     Description("変換ボックスの文字のフォントです。既定は Yu Gothic UI です。この PC に無いフォントを選んでいたときは既定のフォントで出します。絵文字はカラーで出せるときはそのフォントで描きます。")]
+    public string CompositionFont { get; set; } = "";
+
     [Category("1. 全般"), DisplayName("通知を出す"),
      Description("Meltype を有効・一時停止にしたときなどに、画面の右下に通知を出します (Windows の通知の音も鳴ります)。OFF にすると通知も音も出しません。")]
     public bool ShowNotifications { get; set; } = true;
