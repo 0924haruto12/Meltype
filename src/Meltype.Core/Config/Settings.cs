@@ -443,9 +443,30 @@ public sealed class Settings
     /// <summary>このアプリでは貼り付けを使わないか (<see cref="NoPasteApps"/>)。</summary>
     public bool UsesNoPaste(string? processName) => ContainsApp(NoPasteApps, processName);
 
-    private static bool ContainsApp(string? list, string? processName) =>
-        !string.IsNullOrEmpty(processName) &&
-        (list ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries).Any(app => string.Equals(app.Trim(), processName, StringComparison.OrdinalIgnoreCase));
+    [Category("7. アプリ"), DisplayName("入力欄とみなすアプリ"),
+     Description("画面を自分で描くため、文字を打つ所なのに入力欄と判定されず変換ボックスが出ないアプリ (Premiere Pro など)。ここに書いたアプリ (プロセス名、カンマ区切り。例: Adobe Premiere Pro.exe) では、入力欄と判定できなくても、フォーカスのある所を入力欄として扱います。1 文字のショートカット (V・C など) も変換ボックスに入るようになるので、ショートカットを使うときは Ctrl + 半角/全角 で一時停止してください。")]
+    public string TextInputApps { get; set; } = "";
+
+    /// <summary>このアプリでは、入力欄と判定できなくてもフォーカスのある所を入力欄として扱うか (<see cref="TextInputApps"/>)。</summary>
+    public bool TreatsAsTextInput(string? processName) => ContainsApp(TextInputApps, processName);
+
+    /// <summary>
+    /// カンマ・セミコロン区切りのプロセス名の一覧に processName があるか (大文字小文字は無視)。
+    /// 「Adobe Premiere Pro.exe」のように空白を含む名前はそのまま 1 つの名前として比べる。
+    /// 前からの書き方 (空白区切り「a.exe b.exe」) は、空白で分けたものがすべて .exe で終わるときだけ 1 つずつと比べる。
+    /// </summary>
+    private static bool ContainsApp(string? list, string? processName)
+    {
+        if (string.IsNullOrEmpty(processName)) return false;
+        foreach (var entry in (list ?? "").Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            if (string.Equals(entry, processName, StringComparison.OrdinalIgnoreCase)) return true;
+            var apps = entry.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (apps.Length > 1 && apps.All(app => app.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) &&
+                apps.Any(app => string.Equals(app, processName, StringComparison.OrdinalIgnoreCase))) return true;
+        }
+        return false;
+    }
 
     [Category("7. アプリ"), DisplayName("全画面アプリでは無効"), Description("ゲームや動画など全画面のウィンドウではキーを保留しません。")]
     public bool ExcludeFullscreen { get; set; } = true;

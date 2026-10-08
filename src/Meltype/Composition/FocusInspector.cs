@@ -83,6 +83,12 @@ public sealed class FocusInspector : IDisposable
 
     public FocusInfo Current => _info;
 
+    /// <summary>
+    /// 前面のアプリが設定「入力欄とみなすアプリ」にあるか (このクラスのスレッドから呼ばれる)。
+    /// そのアプリでは、入力欄と判定できなくてもフォーカスのある所を入力欄として扱う (issue #52)。
+    /// </summary>
+    public Func<bool>? TreatsAsTextInput { get; set; }
+
 
     private Func<UiAutomation.Element, bool>? _selectionMatches;
     private long _selectionSequence;
@@ -242,8 +248,9 @@ public sealed class FocusInspector : IDisposable
             // Meltype 自身の画面 (設定のドロップダウンなど) には UI Automation で問い合わせない。
             // 自分の UI スレッドに問い合わせが割り込むと、開いているドロップダウンが閉じてしまう。
             if (Input.ForegroundTracker.IsOwnWindow(Native.GetForegroundWindow())) return new FocusInfo(false, false, null, "Meltype の画面");
+            var forced = TreatsAsTextInput?.Invoke() == true;
             var element = Automation()?.Focused();
-            if (element is null) return new FocusInfo(false, false, null, "フォーカスなし");
+            if (element is null) return forced ? new FocusInfo(true, false, null, "フォーカスなし (入力欄とみなすアプリ)") : new FocusInfo(false, false, null, "フォーカスなし");
             var type = element.ControlType;
             var description = $"{ControlTypeName(type)} \"{Trim(element.Name)}\" ({element.ClassName})";
             if (element.IsPassword) return new FocusInfo(true, true, element.Bounds, description);
@@ -283,6 +290,13 @@ public sealed class FocusInspector : IDisposable
             {
                 editable = true;
                 description += " (エディターの画面)";
+            }
+            // それでも分からないアプリ (Premiere Pro など、画面を自分で描くアプリ) は、設定「入力欄とみなすアプリ」に
+            // 書いてあれば入力欄として扱う。1 文字のショートカットが多いアプリもあるので、既定では何もしない。
+            if (!editable && forced)
+            {
+                editable = true;
+                description += " (入力欄とみなすアプリ)";
             }
             return new FocusInfo(editable, false, element.Bounds, description, element.Name, element.ClassName);
         }
