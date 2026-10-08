@@ -68,7 +68,6 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
             SpaceAroundEnglish = options.SpaceAroundEnglish,
             Punctuation = options.Punctuation,
             TranslationHistory = options.TranslationHistory ?? new TranslationHistory(Config.AppPaths.TranslationHistoryFile),
-            SpaceAroundEnglish = options.SpaceAroundEnglish,
         };
         _hybrid = new HybridConverter(options.Engine, _mozc, _converter, reading => _windowsCandidates.Get(reading));
         _resolved = resolved;
