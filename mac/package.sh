@@ -8,11 +8,15 @@ name="${1:-Meltype-mac-test-$(date +%Y%m%d-%H%M%S).zip}"
 [[ "$name" != */* && "$name" == *.zip ]] || { echo "Expected a zip filename without a directory." >&2; exit 1; }
 mkdir -p "$root/dist"
 stage="$(mktemp -d "$root/dist/meltype-package.XXXXXX")"
-trap 'rm -rf "$stage"' EXIT
+cleanup() {
+    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$stage/Meltype-mac/Meltype.app" 2>/dev/null || true
+    rm -rf "$stage"
+}
+trap cleanup EXIT
 package="$stage/Meltype-mac"
 mkdir -p "$package"
 cp -R "$here/build/Meltype.app" "$package/"
-cp "$here/install.sh" "$here/Install Meltype.command" "$here/start-input-method.sh" "$here/select-input-source.swift" "$package/"
+cp "$here/install.sh" "$here/Install Meltype.command" "$here/install-app.sh" "$here/start-input-method.sh" "$here/select-input-source.swift" "$package/"
 cp "$here/TESTER-README.txt" "$package/はじめにお読みください.txt"
 cp "$root/LICENSE" "$root/THIRD-PARTY-NOTICES.md" "$package/"
 chmod +x "$package/install.sh" "$package/Install Meltype.command" "$package/start-input-method.sh"

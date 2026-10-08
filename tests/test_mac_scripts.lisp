@@ -24,7 +24,7 @@
                               (namestring (merge-pathnames "calls" work)))
                  (concatenate 'string "MELTYPE_START_LOG_DIR=" (namestring work))
                  "bash" (namestring (merge-pathnames name work)))
-           (when argument (list argument)))
+           (if (listp argument) argument (list argument)))
    :output *standard-output* :error-output *error-output*))
 
 (defun call-with-work-directory (test)
@@ -102,6 +102,23 @@
       (dolist (expected '("app:" "app:--register-input-source" "select"))
         (assert (member expected lines :test #'equal))))))
 
+(defun test-launchd-retry (work)
+  (test-launchd-start work)
+  (write-file (merge-pathnames "calls" work) "")
+  (fake-tool work "sleep" "exit 0")
+  (fake-tool work "launchctl"
+             (format nil "echo \"$*\" >> \"$MELTYPE_TEST_LOG\"~%case \"$1\" in~%submit) n=$(cat \"$MELTYPE_START_LOG_DIR/attempts\" 2>/dev/null || echo 0); echo $((n+1)) > \"$MELTYPE_START_LOG_DIR/attempts\" ;;~%list) n=$(cat \"$MELTYPE_START_LOG_DIR/attempts\"); if [[ $n -ge 2 ]]; then echo '\"PID\" = 123; Meltype_Connection'; fi ;;~%esac"))
+  (run-script work "start-input-method.sh" "/tmp/Meltype.app")
+  (assert (= 2 (parse-integer (uiop:read-file-string (merge-pathnames "attempts" work)))))
+  (write-file (merge-pathnames "attempts" work) "0")
+  (fake-tool work "launchctl"
+             (format nil "case \"$1\" in~%submit) n=$(cat \"$MELTYPE_START_LOG_DIR/attempts\"); echo $((n+1)) > \"$MELTYPE_START_LOG_DIR/attempts\" ;;~%esac"))
+  (let ((failed nil))
+    (handler-case (run-script work "start-input-method.sh" "/tmp/Meltype.app")
+      (uiop:subprocess-error () (setf failed t)))
+    (assert failed))
+  (assert (= 3 (parse-integer (uiop:read-file-string (merge-pathnames "attempts" work))))))
+
 (defun test-failed-start-does-not-select (work)
   (test-update work)
   (write-file (merge-pathnames "calls" work) "")
@@ -135,6 +152,10 @@
              "echo \"app:$*\" >> \"$MELTYPE_TEST_LOG\"")
   (fake-tool work "start-input-method.sh"
              "echo started >> \"$MELTYPE_TEST_LOG\"")
+  (write-file (merge-pathnames "install-app.sh" work)
+              (uiop:read-file-string (merge-pathnames "mac/install-app.sh" *root*)))
+  (fake-tool work "ditto" "cp -R \"$1\" \"$2\"")
+  (fake-tool work "codesign" "exit 0")
   (write-file (merge-pathnames "select-input-source.swift" work) "// fake selector")
   (fake-tool work "swift" "echo selected >> \"$MELTYPE_TEST_LOG\"")
   (dolist (name '("pkill" "killall" "xattr" "lsregister"))
@@ -154,6 +175,32 @@
     (assert failed))
   (assert (null (uiop:read-file-lines (merge-pathnames "calls" work)))))
 
+(defun test-install-rollback (work)
+  (write-file (merge-pathnames "install-app.sh" work)
+              (uiop:read-file-string (merge-pathnames "mac/install-app.sh" *root*)))
+  (write-file (merge-pathnames "source.app/version" work) "new")
+  (write-file (merge-pathnames "installed.app/version" work) "previous")
+  (fake-tool work "pkill" "echo stopped >> \"$MELTYPE_TEST_LOG\"")
+  (dolist (failure '("copy" "signature" "replace"))
+    (write-file (merge-pathnames "calls" work) "")
+    (fake-tool work "ditto" (if (equal failure "copy") "exit 23" "cp -R \"$1\" \"$2\""))
+    (fake-tool work "codesign" (if (equal failure "signature") "exit 23" "exit 0"))
+    (fake-tool work "mv"
+               (if (equal failure "replace")
+                   "if [[ \"$1\" == */Meltype.app && \"$2\" == */installed.app ]]; then exit 23; fi; exec /bin/mv \"$@\""
+                   "exec /bin/mv \"$@\""))
+    (let ((status nil))
+      (handler-case
+          (run-script work "install-app.sh"
+                      (list (namestring (merge-pathnames "source.app" work))
+                            (namestring (merge-pathnames "installed.app" work))))
+        (uiop:subprocess-error (condition)
+          (setf status (uiop:subprocess-error-code condition))))
+      (assert (eql 23 status)))
+    (assert (equal "previous" (uiop:read-file-string (merge-pathnames "installed.app/version" work))))
+    (unless (equal failure "replace")
+      (assert (null (uiop:read-file-lines (merge-pathnames "calls" work)))))))
+
 (handler-case
     (progn
       (call-with-work-directory #'test-build-only)
@@ -169,7 +216,11 @@
       (call-with-work-directory #'test-incomplete-package)
       (format t "PASS incomplete package preflight~%")
       (call-with-work-directory #'test-update-failure-recovery)
-      (format t "PASS update failure recovery~%7/7 passed~%"))
+      (format t "PASS update failure recovery~%")
+      (call-with-work-directory #'test-install-rollback)
+      (format t "PASS install copy/signature/replacement failure rollback~%")
+      (call-with-work-directory #'test-launchd-retry)
+      (format t "PASS bounded startup retry and exhaustion~%9/9 passed~%"))
   (error (condition)
     (format *error-output* "FAIL: ~A~%" condition)
     (uiop:quit 1)))

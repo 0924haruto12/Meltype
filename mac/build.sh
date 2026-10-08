@@ -101,13 +101,12 @@ echo "作成しました: $APP"
 
 if [[ $INSTALL -eq 1 ]]; then
     TARGET="$HOME/Library/Input Methods"
-    mkdir -p "$TARGET"
-    pkill -x Meltype 2>/dev/null || true
-    rm -rf "$TARGET/Meltype.app"
-    cp -R "$APP" "$TARGET/"
+    bash "$PWD/install-app.sh" "$APP" "$TARGET/Meltype.app"
     echo "インストールしました: $TARGET/Meltype.app"
     enable_input_source
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$TARGET/Meltype.app"
+    # Keep the build copy out of the input-source add dialog after installing.
+    /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$PWD/$APP" 2>/dev/null || true
     if [[ "${MELTYPE_SKIP_START:-0}" != 1 ]]; then
         bash "$PWD/start-input-method.sh" "$TARGET/Meltype.app"
     fi

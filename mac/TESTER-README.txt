@@ -19,7 +19,7 @@ Meltype はアプリではなく「入力ソース」(日本語入力) です。
           bash ~/Downloads/Meltype-mac/install.sh  )
   3. インストーラーが Meltype を登録・起動し、入力ソースを選びます。
      通常の更新ではシステム設定を開く必要はありません。
-     start-input-method.sh と select-input-source.swift も必要なので、zip 全体を展開してください。
+     install-app.sh、start-input-method.sh、select-input-source.swift も必要なので、zip 全体を展開してください。
      起動エラーが出た場合は入力メニューから ABC または標準の日本語入力を選んでください。
      初回に入力ソースが見つからない場合だけ、ログアウト・ログイン後に入力メニューを確認してください。
 

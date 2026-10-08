@@ -11,7 +11,7 @@ if [[ ! -d Meltype.app ]]; then
     echo "Meltype.app が見つかりません。zip を展開したフォルダーで実行してください。" >&2
     exit 1
 fi
-for helper in start-input-method.sh select-input-source.swift; do
+for helper in install-app.sh start-input-method.sh select-input-source.swift; do
     [[ -f "$helper" ]] || { echo "必要なファイルがありません: ${helper}。zip 全体を展開してください。" >&2; exit 1; }
 done
 
@@ -24,10 +24,7 @@ enable_input_source() {
 }
 
 TARGET="$HOME/Library/Input Methods"
-mkdir -p "$TARGET"
-pkill -x Meltype 2>/dev/null || true
-rm -rf "$TARGET/Meltype.app"
-cp -R Meltype.app "$TARGET/"
+bash ./install-app.sh Meltype.app "$TARGET/Meltype.app"
 # インターネットから取ってきた印 (隔離属性) を外す。署名が自分用なので、外さないと macOS が起動させない。
 xattr -dr com.apple.quarantine "$TARGET/Meltype.app" 2>/dev/null || true
 
