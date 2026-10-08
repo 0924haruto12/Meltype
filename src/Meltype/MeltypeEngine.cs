@@ -193,6 +193,8 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
             }
             return true;
         }
+        // Meltype IME (TSF): 入力は IME の側で受け持つので、フックでは何もしない。
+        if (settings.Mode == InputMode.Tsf) return false;
         if (settings.Mode != InputMode.Keyboard)
         {
             if (!e.Injected) TrackLine(e);
@@ -441,6 +443,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
 
     private bool OnMouseButton(Composition.MouseButtonEvent e)
     {
+        if (_settings.Mode == InputMode.Tsf) return false;
         if (_settings.Mode == InputMode.Keyboard && _composition is { } composition)
         {
             if (composition.Gate.OnMouseButton(e)) return true;
@@ -490,6 +493,12 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     {
         var next = settings.Clone().Normalize();
         var previous = _settings;
+        // 設定画面で Meltype IME を選んだが、登録されていない: どこでも何も起きなくなるので選ばせない
+        if (next.Mode == InputMode.Tsf && previous.Mode != InputMode.Tsf && !Tip.TipServer.IsRegistered)
+        {
+            next.Mode = previous.Mode;
+            Log.Warn("Meltype IME が登録されていないので、動作モードは変えません (Install.cmd か Install-Meltype.ps1 で Meltype IME を入れてください)。");
+        }
         _settings = next;
         if (!next.Enabled || next.Mode != InputMode.Keyboard || !KeyboardLayoutPolicy.AllowsInput(next)) _composition?.Flush();
         if (next.Mode == InputMode.Keyboard && (previous.Mode != InputMode.Keyboard || !previous.Enabled)) CloseSystemImeAsync();
@@ -671,7 +680,7 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
         if (Interlocked.Exchange(ref _polling, 1) == 1) return;
         try
         {
-            if (!_settings.Enabled) return;
+            if (!_settings.Enabled || _settings.Mode == InputMode.Tsf) return;
             // Meltype 自身の画面には IME の問い合わせを送らない (設定のドロップダウンが閉じてしまう)。
             if (ForegroundTracker.IsOwnWindow(Native.GetForegroundWindow())) return;
             var target = ImeTarget.FromForeground();

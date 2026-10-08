@@ -27,6 +27,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _levelItem;
     private readonly ToolStripMenuItem _profileItem;
     private readonly Composition.CompositionService _composition;
+    private readonly Tip.TipServer _tipServer;
+    private readonly ToolStripMenuItem _tsfModeItem;
     private SettingsForm? _settingsForm;
     private LogForm? _logForm;
     private UserDictionaryForm? _dictionaryForm;
@@ -66,15 +68,32 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Font = () => _engine.Settings.CompositionFont,
         });
         _engine.AttachComposition(_composition);
+        _tipServer = new Tip.TipServer(_invoker, _composition, () => _engine.Settings);
+        _tipServer.Start();
+        // Meltype IME (TSF) を入れたら、一度だけ動作モードを Meltype IME にする
+        // (PC に登録されていても、このユーザーのキーボードの一覧に無ければ Win + Space で選べないので切り替えない)
+        // (ARM64 の Windows には Meltype IME は対応していないので切り替えない)
+        if (!_engine.Settings.TsfIntroduced && Tip.TipServer.IsRegistered && Tip.TipServer.IsInUserLanguageList &&
+            System.Runtime.InteropServices.RuntimeInformation.OSArchitecture != System.Runtime.InteropServices.Architecture.Arm64)
+        {
+            var next = _engine.Settings.Clone();
+            next.TsfIntroduced = true;
+            next.Mode = InputMode.Tsf;
+            _engine.ApplySettings(next);
+            Diagnostics.Log.Info("Meltype IME が入っているので、動作モードを Meltype IME にしました。");
+            Tip.TipServer.ActivateForSession();
+        }
 
         var menu = new ContextMenuStrip();
         _statusItem = new ToolStripMenuItem { Enabled = false };
         _enabledItem = new ToolStripMenuItem("Meltype を有効にする", null, (_, _) => ToggleEnabled()) { CheckOnClick = false };
         _keyboardModeItem = new ToolStripMenuItem("Meltype キーボード (変換ボックスで入力)", null, (_, _) => SetMode(InputMode.Keyboard));
         _autoSwitchModeItem = new ToolStripMenuItem("IME 自動切替 (Microsoft IME を使う)", null, (_, _) => SetMode(InputMode.AutoSwitch));
+        _tsfModeItem = new ToolStripMenuItem("Meltype IME (入力欄に直接入力)", null, (_, _) => SetMode(InputMode.Tsf));
         menu.Items.Add(_statusItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_enabledItem);
+        menu.Items.Add(_tsfModeItem);
         menu.Items.Add(_keyboardModeItem);
         menu.Items.Add(_autoSwitchModeItem);
         // 自動判定の強さ (積極的 / 標準 / 慎重 / 手動)
@@ -309,6 +328,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         next.Mode = mode;
         next.Enabled = true;
         _engine.ApplySettings(next);
+        // Meltype IME のモードにしたら、いま使う入力方式も Meltype IME にする (Win + Space で選び直さなくてよいように)
+        if (_engine.Settings.Mode == InputMode.Tsf) Tip.TipServer.ActivateForSession();
     }
 
     private void UpdateStatus()
@@ -316,9 +337,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var settings = _engine.Settings;
         var enabled = settings.Enabled;
         var keyboard = settings.Mode == InputMode.Keyboard;
+        var tsf = settings.Mode == InputMode.Tsf;
         _enabledItem.Checked = enabled;
         _keyboardModeItem.Checked = keyboard;
-        _autoSwitchModeItem.Checked = !keyboard;
+        _autoSwitchModeItem.Checked = settings.Mode == InputMode.AutoSwitch;
+        _tsfModeItem.Checked = tsf;
+        // Meltype IME を Windows に登録していなければ選べない (選ぶとキーボードフックが止まり、どこでも何も起きなくなる)
+        var registered = Tip.TipServer.IsRegistered;
+        _tsfModeItem.Enabled = tsf || registered;
         foreach (ToolStripMenuItem item in _levelItem.DropDownItems) item.Checked = item.Tag is DetectionLevel level && level == settings.DetectionLevel;
         _levelItem.Text = $"自動判定の強さ: {LevelName(settings.DetectionLevel).Split(' ')[0]}";
         _profileItem.Text = $"プロファイル: {settings.ActiveProfile}";
@@ -328,6 +354,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             _tray.Icon = _offIcon;
             status = "一時停止中";
+        }
+        else if (tsf)
+        {
+            _tray.Icon = _onIcon;
+            status = registered ? "Meltype IME (Win + Space で Meltype を選んで入力)" : "Meltype IME が登録されていません (Install.cmd か Install-Meltype.ps1 で入れるか、別の動作モードを選んでください)";
         }
         else if (keyboard)
         {
@@ -499,7 +530,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var script = Path.Combine(AppContext.BaseDirectory, "uninstall.ps1");
         if (!File.Exists(script))
         {
-            MessageBox.Show("アンインストール用のファイルが見つかりません。Windows の「設定」→「アプリ」→「インストールされているアプリ」か、zip の中の Uninstall.cmd でアンインストールしてください。", "Meltype", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show("アンインストール用のファイルが見つかりません。Windows の「設定」→「アプリ」→「インストールされているアプリ」か、zip の中の Uninstall.cmd でアンインストールしてください。\nソースから Install-Meltype.ps1 で入れた場合は、ソースのフォルダーの Uninstall-Meltype.ps1 を実行してください (Meltype IME の登録も外します)。", "Meltype", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
         var answer = MessageBox.Show("Meltype をアンインストールします。設定・学習データ・ユーザー辞書も削除します。よろしいですか？\n(残したいときは、先に「バックアップ」→「バックアップを書き出す...」で書き出してください)", "Meltype のアンインストール", MessageBoxButtons.OKCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
@@ -524,6 +555,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _engine.StatusChanged -= OnEngineStatusChanged;
         _engine.ToggleRequested -= OnToggleRequested;
         _engine.ImeSuggested -= OnImeSuggested;
+        _tipServer.Dispose();
         _engine.DetachComposition();
         _composition.Dispose();
         _settingsForm?.Close();

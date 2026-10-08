@@ -78,6 +78,8 @@ public enum InputMode
     [Description("Meltype キーボード (変換ボックスで入力)")] Keyboard,
     /// <summary>入力開始時に判定して Microsoft IME の ON/OFF を切り替える (v1 の動作)。</summary>
     [Description("IME 自動切替 (Microsoft IME を使う)")] AutoSwitch,
+    /// <summary>Windows の IME (TSF) として、入力欄に直接入力する。キーボードフックは使わない。</summary>
+    [Description("Meltype IME (入力欄に直接入力)")] Tsf,
 }
 
 [TypeConverter(typeof(ExpandableObjectConverter))]
@@ -161,7 +163,7 @@ public sealed class Settings
     public bool JapaneseKeyboardOnly { get; set; }
 
     [Category("1. 全般"), DisplayName("動作モード"),
-     Description("Keyboard = Meltype の変換ボックスで入力 (英単語は自動で英字、Space で変換、Enter で確定) / AutoSwitch = 入力開始時に判定して Microsoft IME を自動で ON にする")]
+     Description("Tsf = Windows の IME として入力欄に直接入力 (Win + Space で Meltype を選ぶ) / Keyboard = Meltype の変換ボックスで入力 (英単語は自動で英字、Space で変換、Enter で確定) / AutoSwitch = 入力開始時に判定して Microsoft IME を自動で ON にする")]
     public InputMode Mode { get; set; } = InputMode.Keyboard;
 
     [Category("1. 全般"), DisplayName("半角/全角 で Meltype を ON/OFF"),
@@ -279,6 +281,12 @@ public sealed class Settings
     [Browsable(false)]
     public bool WelcomeShown { get; set; }
 
+    /// <summary>
+    /// Meltype IME (TSF) が入っているのを見つけて、動作モードを Meltype IME にしたか (一度だけ切り替える。後でユーザーが戻したら、そのまま)。
+    /// </summary>
+    [Browsable(false)]
+    public bool TsfIntroduced { get; set; }
+
     /// <summary>プロファイル (仕事用・趣味用・SNS 用など)。設定画面の上と、トレイのメニューで切り替える。</summary>
     [Browsable(false)]
     public List<SettingsProfile> Profiles { get; set; } = [];
@@ -296,6 +304,8 @@ public sealed class Settings
     [
         nameof(Profiles), nameof(ActiveProfile), nameof(SettingsVersion), nameof(WelcomeShown),
         nameof(Enabled), nameof(JapaneseKeyboardOnly), nameof(FileLog), nameof(LogTypedText), nameof(AutoUpdate),
+        // 入力の方式 (Windows の IME として入力するか) は PC 全体の選び方なので、プロファイルで変えない
+        nameof(Mode), nameof(TsfIntroduced),
     ];
 
     /// <summary>今の設定の値のうち、プロファイルに入れるもの。</summary>
@@ -320,7 +330,11 @@ public sealed class Settings
         current.Profiles.First(p => p.Name == current.ActiveProfile).Values = current.ProfileValues();
         // 共通の項目は今の値のまま、プロファイルの項目だけを切り替え先の値にする
         var merged = JsonSerializer.SerializeToNode(current, JsonOptions)!.AsObject();
-        foreach (var (key, value) in target.Values ?? []) merged[key] = value?.DeepClone();
+        // 前の版で保存したプロファイルには、今は共通にした項目 (動作モードなど) が入っていることがあるので飛ばす
+        foreach (var (key, value) in target.Values ?? [])
+        {
+            if (!SharedKeys.Contains(key)) merged[key] = value?.DeepClone();
+        }
         var next = merged.Deserialize<Settings>(JsonOptions) ?? current;
         next.ActiveProfile = name;
         return next.Normalize();

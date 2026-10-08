@@ -63,7 +63,7 @@ public interface ICompositionHost
 public sealed record ReconversionSelection(string Text, string Reading);
 
 /// <summary>CompositionController の設定と、外の判定器へのつなぎ。</summary>
-public sealed class CompositionOptions
+public sealed record CompositionOptions
 {
     /// <summary>打ったそばから漢字に変換して見せるか。</summary>
     public Func<bool> LiveConversion { get; init; } = () => false;
