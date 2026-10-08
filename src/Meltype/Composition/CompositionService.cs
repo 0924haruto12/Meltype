@@ -259,6 +259,8 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     public void CommitText(string text)
     {
+        // 変換ボックスを出したまま確定して、続けて打っている (kyouha Space iitenki): 次に見せるときに、確定した分だけ右へずらす
+        if (_window.Visible) _committedWhileVisible += text;
         EnsureSystemImeClosed();
         if (PasteCommit() && TryPaste(text))
         {
@@ -455,13 +457,25 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
     /// <summary>入力位置の高さとして信じる上限 (ピクセル)。これより高いのは入力欄や行全体の四角形。</summary>
     private const int MaxLineHeight = 48;
 
+    /// <summary>変換ボックスを出したまま確定した文字 (次に見せるときに、その幅だけ変換ボックスを右へずらす)。</summary>
+    private string _committedWhileVisible = "";
+
     public void Show(CompositionView view)
     {
         if (_window.Visible)
         {
-            _window.ShowView(view, null);
+            // 確定した文字の分だけ右へ (同じ位置のままだと、確定した文字を変換ボックスが隠してしまう: issue #57)。
+            // 入力欄のキャレットは確定した文字の入力が終わるまで動かないことがあるので、確定した文字の幅で動かす。
+            Point? moved = null;
+            if (_committedWhileVisible.Length > 0)
+            {
+                moved = new Point(_window.Left + _window.TextWidth(_committedWhileVisible.Replace("\n", "")), _window.Top);
+                _committedWhileVisible = "";
+            }
+            _window.ShowView(view, moved);
             return;
         }
+        _committedWhileVisible = "";
         var caret = FindCaret();
         // 入力欄が空のとき、アプリによっては入力位置ではなく入力欄の枠 (40px の欄など) や、複数行の欄全体の四角形が返る。
         // 枠と同じ高さなら、文字の高さは枠のおよそ半分 (1 行の欄の文字は上下の真ん中にある)。高すぎる四角形は、文字の高さが分からない。
@@ -511,6 +525,7 @@ internal sealed class CompositionService : ICompositionHost, IDisposable
 
     public void Hide()
     {
+        _committedWhileVisible = "";
         if (_window.Visible) _window.Hide();
     }
 

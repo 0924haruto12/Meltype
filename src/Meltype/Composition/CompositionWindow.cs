@@ -89,6 +89,13 @@ internal sealed class CompositionWindow : Form
         UpdateMeaning(view);
     }
 
+    /// <summary>打った文字の大きさで text を描いたときの幅 (ピクセル)。</summary>
+    public int TextWidth(string text)
+    {
+        using var g = CreateGraphics();
+        return TextRenderer.MeasureText(g, text, _textFont, Size.Empty, TextFormatFlags.NoPrefix | TextFormatFlags.NoPadding).Width;
+    }
+
     /// <summary>「もしかして」の行の高さ。</summary>
     private int SuggestionHeight => _candidateFont.Height + 10;
 
