@@ -165,6 +165,9 @@ internal sealed class MeltypeEngine : ISessionEnvironment, IDisposable
     private bool OnKey(KeyEvent e)
     {
         var settings = _settings;
+        // 遠隔操作 (AnyDesk・VNC) のキーは、ほかのソフトが送ったキー (LLKHF_INJECTED) として届く。設定で許可していれば手で打ったキーとして扱う。
+        // Meltype 自身が送り直したキーは、印 (InjectedMarker) でフックの入口で除いているので、ここには来ない (自分の出力を処理し直さない)。
+        if (e.Injected && settings.AllowInjectedInput) e = e with { Injected = false };
         // 飲み込んだ切替キーの解放は、入力言語が変わっても対にして処理する。
         if (e.IsUp && !e.Injected)
         {
