@@ -156,6 +156,9 @@ internal static class CompositionTests
         public bool CorrectTypos { get; set; } = true;
         public bool SpaceAroundEnglish { get; set; }
 
+        /// <summary>句読点の組み合わせ (設定)。</summary>
+        public Meltype.Config.PunctuationStyle Punctuation { get; set; }
+
         /// <summary>かな入力で、仮想キーを順に打つ (shift: その打鍵で Shift を押す)。</summary>
         public void TypeKeys(params (int Vk, bool Shift)[] keys)
         {
@@ -212,6 +215,7 @@ internal static class CompositionTests
                 CorrectTypos = () => CorrectTypos,
                 SpaceAroundEnglish = () => SpaceAroundEnglish,
                 SlashAsMiddleDot = () => slashAsMiddleDot,
+                Punctuation = () => Punctuation,
             });
         }
 
@@ -905,6 +909,52 @@ internal static class CompositionTests
     }
 
     [Test]
+    public static void Punctuation_FollowsSetting()
+    {
+        // 句読点の設定 (Microsoft IME と同じ 4 通り)。数字の間の . , (1.5、1,000) は半角のまま。
+        foreach (var (style, expected) in new[]
+        {
+            (Meltype.Config.PunctuationStyle.Japanese, "はい、そうです。1.5と1,000"),
+            (Meltype.Config.PunctuationStyle.FullWidthCommaPeriod, "はい，そうです．1.5と1,000"),
+            (Meltype.Config.PunctuationStyle.FullWidthCommaKuten, "はい，そうです。1.5と1,000"),
+            (Meltype.Config.PunctuationStyle.ToutenFullWidthPeriod, "はい、そうです．1.5と1,000"),
+        })
+        {
+            var k = new Keyboard { Punctuation = style };
+            k.Type("hai,soudesu.1.5to1,000\n");
+            Assert.Equal(expected, k.Host.Document, style.ToString());
+        }
+    }
+
+    [Test]
+    public static void Punctuation_CommaAfterDigit_FollowsSetting()
+    {
+        // x64,arm64 の , も設定の読点にする
+        var k = new Keyboard { Punctuation = Meltype.Config.PunctuationStyle.FullWidthCommaPeriod };
+        k.Type("x64,arm64\n");
+        Assert.Equal("x64，arm64", k.Host.Document);
+    }
+
+    [Test]
+    public static void Punctuation_IsSavedAsName()
+    {
+        // 設定ファイルにはほかの選択肢と同じく名前で保存する
+        var settings = new Meltype.Config.Settings { Punctuation = Meltype.Config.PunctuationStyle.FullWidthCommaKuten };
+        Assert.True(settings.ToJson().Contains("\"Punctuation\": \"FullWidthCommaKuten\""), "名前で保存");
+        var path = Path.Combine(Path.GetTempPath(), $"meltype-punctuation-{Guid.NewGuid():N}.json");
+        try
+        {
+            settings.Save(path);
+            Assert.Equal(Meltype.Config.PunctuationStyle.FullWidthCommaKuten, Meltype.Config.Settings.Load(path).Punctuation);
+            Assert.Equal(Meltype.Config.PunctuationStyle.Japanese, new Meltype.Config.Settings().Punctuation, "既定は 、。");
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Test]
     public static void ShortProperNoun_AfterJapanese_IsJapanese()
     {
         // ある程度は (aruteidoha) の doha を固有名詞 (Doha) として英字にしていた
@@ -1113,6 +1163,22 @@ internal static class CompositionTests
         k.Host.PrecedingText = null;
         k.Type("gasuki\n");
         Assert.Equal("すしがすき", k.Host.Document, "後ろに日本語が続いたので日本語に確定し直す");
+    }
+
+    [Test]
+    public static void AutoCorrect_KeepsEnglishWordThatIsNotJapanese()
+    {
+        // #121: issue を確定した後に たてた と続けても、issue を いっすえ に確定し直さない (いっすえ は日本語の語ではない)
+        // #124: api の後の って で、api を あぴ にしない
+        foreach (var (word, next, expected) in new[] { ("issue", "tateta", "issueたてた"), ("api", "tte", "apiって") })
+        {
+            var k = new Keyboard();
+            k.Host.PrecedingText = "I love ";
+            k.Type(word + "\n");
+            k.Host.PrecedingText = null;
+            k.Type(next + "\n");
+            Assert.Equal(expected, k.Host.Document, string.Join("|", k.Host.Events));
+        }
     }
 
     [Test]

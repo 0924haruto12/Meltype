@@ -138,7 +138,8 @@ public sealed class MeltypeSession
             Candidates = CandidateDictionary.Load(userDirectory),
             ContextRules = ContextRules.Load(userDirectory),
             History = new ConversionHistory(AppPaths.ConversionHistoryFile),
-            UserDictionary = new UserDictionary(AppPaths.UserDictionaryFile),
+            // dictionaries/ に置いた macOS の「ユーザ辞書」の .plist も読む (#40)
+            UserDictionary = new UserDictionary(AppPaths.UserDictionaryFile, importDirectory: userDirectory),
             MoreCandidates = moreCandidates,
             Misspellings = MisspellingDictionary.Load(userDirectory),
             Languages = languages,
@@ -150,6 +151,7 @@ public sealed class MeltypeSession
             CorrectTypos = () => settings.CorrectTypos,
             SlashAsMiddleDot = () => settings.SlashAsMiddleDot,
             SpaceAroundEnglish = () => settings.SpaceAroundEnglish,
+            Punctuation = () => settings.Punctuation,
             TranslationHistory = new TranslationHistory(AppPaths.TranslationHistoryFile),
         };
         return new MeltypeSession(detector, converter, options, () => settings);
