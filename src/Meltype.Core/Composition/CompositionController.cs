@@ -139,6 +139,9 @@ public sealed class CompositionOptions
     /// <summary>確定するときに、日本語と英単語の間に半角スペースを入れるか (設定)。</summary>
     public Func<bool> SpaceAroundEnglish { get; init; } = () => false;
 
+    /// <summary>句読点の組み合わせ (設定)。</summary>
+    public Func<Config.PunctuationStyle> Punctuation { get; init; } = () => Config.PunctuationStyle.Japanese;
+
     /// <summary>ユーザーが英字 / かなに直した語の学習。</summary>
     public LanguageMemory? Languages { get; init; }
 
@@ -156,6 +159,9 @@ public sealed class CompositionOptions
 
     /// <summary>予測変換の候補を出すか (設定)。変換ボックスに候補の一覧を出せる画面 (Windows) だけ true にする。</summary>
     public Func<bool> Predictions { get; init; } = () => false;
+
+    /// <summary>変換ボックスのフォント (空なら既定のフォント)。</summary>
+    public Func<string> Font { get; init; } = () => "";
 
     /// <summary>入力欄に入った (フォーカスが入った) ときにも入力モードを出すか。false なら 半角/全角 を押したときだけ。</summary>
     public Func<bool> ModeIndicatorOnFocus { get; init; } = () => true;
@@ -631,6 +637,7 @@ public sealed class CompositionController
     private void BeginComposition()
     {
         _text.KanaInput = _options.KanaInput();
+        _text.Punctuation = _options.Punctuation();
         var id = ++_compositionId;
         // 自分が確定した直後は、アプリ側のテキストがまだ更新されていないかもしれないので自分の記録を信じる。
         var recentOwnCommit = Environment.TickCount64 - _lastCommitTime < OwnCommitTrustMs;
@@ -818,6 +825,10 @@ public sealed class CompositionController
         var shift = _swallowedShift.Count > 0;
         switch (vk)
         {
+            case VirtualKeys.Space when shift || _host.IsShiftDown():
+                // Shift+Space: 前の候補へ (Microsoft IME と同じ。Mac でも Shift を押したまま Space で戻れるように: issue #140)
+                NextCandidate(-1);
+                return true;
             case VirtualKeys.Convert:
             case VirtualKeys.Space:
             case VirtualKeys.Down:
@@ -964,6 +975,7 @@ public sealed class CompositionController
                 AddOldKana(clause);
                 AddTranslations(clause);
                 AddRawCandidates(clause);
+                MoveEmojiLast(clause);
             }
             clauses.AddRange(japanese);
         }
@@ -1208,7 +1220,7 @@ public sealed class CompositionController
         return text.Length == 0 ? null : text.Length > 10 ? text[^10..] : text;
     }
 
-    private static readonly char[] SentenceEnds = ['。', '！', '？', '\n', '\r'];
+    private static readonly char[] SentenceEnds = ['。', '．', '！', '？', '\n', '\r'];
 
     private static readonly HashSet<string> Particles = ["は", "が", "を", "に", "で", "と", "も", "へ", "の", "や", "か", "から", "まで", "より"];
 
@@ -1222,7 +1234,9 @@ public sealed class CompositionController
     }
 
     /// <summary>
-    /// 文節の候補: 文の中での変換結果 → その文節だけでの変換結果 → 補助辞書の同音異義語 → ひらがな → 全角カタカナ → 半角カタカナ。
+    /// 文節の候補: 文の中での変換結果 → その文節だけでの変換結果 → 補助辞書の同音異義語 → ひらがな → 全角カタカナ → 半角カタカナ
+    /// → 絵文字・顔文字 (逆順)。
+    /// 絵文字・顔文字は最後に逆順で並べるので、変換してすぐ ↑ を押すと、いちばんよく使う絵文字 (えがお → 😊) になる (issue #133)。
     /// </summary>
     private List<string> JapaneseCandidates(string reading, string? inContext)
     {
@@ -1230,7 +1244,7 @@ public sealed class CompositionController
         var candidates = Distinct(inContext);
         foreach (var word in _options.UserDictionary?.Lookup(reading) ?? []) if (!candidates.Contains(word)) candidates.Add(word);
         if (Convert(reading) is var standalone && !candidates.Contains(standalone)) candidates.Add(standalone);
-        foreach (var extra in _options.Candidates?.Lookup(reading) ?? [])
+        foreach (var extra in _options.Candidates?.LookupWords(reading) ?? [])
         {
             if (!candidates.Contains(extra)) candidates.Add(extra);
         }
@@ -1239,7 +1253,29 @@ public sealed class CompositionController
         {
             if (!candidates.Contains(kana)) candidates.Add(kana);
         }
+        foreach (var emoji in EmojiBlock(reading))
+        {
+            if (!candidates.Contains(emoji)) candidates.Add(emoji);
+        }
         return candidates;
+    }
+
+    /// <summary>絵文字・顔文字の候補を、最後に並べる順 (逆順: いちばんよく使うものが最後) で。</summary>
+    private IEnumerable<string> EmojiBlock(string reading) =>
+        (_options.Candidates?.LookupEmoji(reading) ?? []).Reverse();
+
+    /// <summary>
+    /// 絵文字・顔文字の候補を候補の一覧の最後に移す (英訳・打ったままの英字を足した後に呼ぶ)。
+    /// 変換エンジンが最初の候補に絵文字を返したときなど、今選んでいる候補は動かさない。
+    /// </summary>
+    private void MoveEmojiLast(Clause clause)
+    {
+        var block = EmojiBlock(clause.Reading).Where(e => clause.Candidates.IndexOf(e) > 0).ToList();
+        if (block.Count == 0) return;
+        var current = clause.Text;
+        clause.Candidates.RemoveAll(block.Contains);
+        clause.Candidates.AddRange(block);
+        clause.Index = Math.Max(0, clause.Candidates.IndexOf(current));
     }
 
     /// <summary>英語の文節の候補: 打ったまま → 固有名詞の正しい形 (GitHub) → 先頭だけ大文字 → すべて大文字 → 全角。</summary>
@@ -1545,6 +1581,9 @@ public sealed class CompositionController
             // 英語で確定した語を日本語に (Space で空白を入れていたら取る)。
             targets = [previous];
             replacement = _detector.Romaji.ConvertLenient(previous.Raw.ToLowerInvariant(), final: true);
+            // ローマ字として読んでもよく使う語の読みにならない語 (issue → いっすえ、api → あぴ) は英語のまま (issue #121, #124)。
+            // sushi → すし のように、日本語の語として読めるときだけ直す。
+            if (_options.RomajiTypos is { } lexicon && !lexicon.IsWord(replacement)) return;
         }
         var original = string.Concat(targets.Select(t => t.Text));
         if (replacement is null || replacement == original) return;

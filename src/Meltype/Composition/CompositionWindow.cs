@@ -14,10 +14,13 @@ internal sealed class CompositionWindow : Form
     private const int WS_EX_NOACTIVATE = 0x08000000, WS_EX_TOOLWINDOW = 0x00000080, WS_EX_TOPMOST = 0x00000008;
     private static readonly Color Background = Color.FromArgb(32, 34, 40);
     private static readonly Color Accent = Color.FromArgb(76, 160, 255);
-    private Font _textFont = new("Yu Gothic UI", 13F);
-    private Font _candidateFont = new("Yu Gothic UI", 11F);
-    private Font _hintFont = new("Yu Gothic UI", 8.5F);
+    private const string DefaultFamily = "Yu Gothic UI";
+    private Font _textFont = new(DefaultFamily, 13F);
+    private Font _candidateFont = new(DefaultFamily, 11F);
+    private Font _hintFont = new(DefaultFamily, 8.5F);
     private float _scale = 1F;
+    private string _family = DefaultFamily;
+    private string? _requestedFamily;
 
     /// <summary>文字の大きさの倍率 (1 = 打った文字が 13pt)。変わったときだけ作り直す。</summary>
     public void SetScale(float scale)
@@ -25,13 +28,37 @@ internal sealed class CompositionWindow : Form
         scale = Math.Clamp(scale, 0.6F, 2F);
         if (Math.Abs(scale - _scale) < 0.01F) return;
         _scale = scale;
+        RebuildFonts();
+    }
+
+    /// <summary>フォント (設定の「変換ボックスのフォント」)。空・この PC に無いフォントなら既定のフォント。変わったときだけ作り直す。</summary>
+    public void SetFontFamily(string? name)
+    {
+        name = name?.Trim() ?? "";
+        if (name == _requestedFamily) return;
+        _requestedFamily = name;
+        var family = name.Length > 0 && IsInstalled(name) ? name : DefaultFamily;
+        if (name.Length > 0 && family != name) Diagnostics.Log.Warn($"変換ボックスのフォント「{name}」がこの PC に無いので、{DefaultFamily} で出します。");
+        if (family == _family) return;
+        _family = family;
+        RebuildFonts();
+    }
+
+    private static bool IsInstalled(string name)
+    {
+        using var fonts = new System.Drawing.Text.InstalledFontCollection();
+        return fonts.Families.Any(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void RebuildFonts()
+    {
         _textFont.Dispose();
         _candidateFont.Dispose();
         _hintFont.Dispose();
-        _textFont = new Font("Yu Gothic UI", 13F * scale);
-        _candidateFont = new Font("Yu Gothic UI", 11F * scale);
+        _textFont = new Font(_family, 13F * _scale);
+        _candidateFont = new Font(_family, 11F * _scale);
         // 案内の文字は小さくしすぎると読めないので、縮めるのは少しだけ
-        _hintFont = new Font("Yu Gothic UI", 8.5F * Math.Max(scale, 0.9F));
+        _hintFont = new Font(_family, 8.5F * Math.Max(_scale, 0.9F));
     }
 
     /// <summary>倍率 1 のときの、打った文字の行の高さ (ピクセル)。</summary>
@@ -39,7 +66,7 @@ internal sealed class CompositionWindow : Form
 
     private static int MeasureBaseHeight()
     {
-        using var font = new Font("Yu Gothic UI", 13F);
+        using var font = new Font(DefaultFamily, 13F);
         return font.Height;
     }
     private CompositionView? _view;

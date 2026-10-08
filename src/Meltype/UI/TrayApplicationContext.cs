@@ -56,12 +56,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
             CandidateMeanings = () => _engine.Settings.ShowCandidateMeanings,
             CorrectTypos = () => _engine.Settings.CorrectTypos,
             SpaceAroundEnglish = () => _engine.Settings.SpaceAroundEnglish,
+            Punctuation = () => _engine.Settings.Punctuation,
             KanaInput = () => _engine.Settings.InputStyle == InputStyle.Kana,
             ModeIndicator = () => _engine.Settings is { Enabled: true, Mode: InputMode.Keyboard, ShowModeIndicator: true },
             ModeIndicatorOnFocus = () => _engine.Settings.ShowModeIndicatorOnFocus,
             Placement = () => _engine.Settings.CompositionPlacement,
             Size = () => _engine.Settings.CompositionSize,
             Predictions = () => _engine.Settings.PredictiveCandidates,
+            Font = () => _engine.Settings.CompositionFont,
         });
         _engine.AttachComposition(_composition);
 
