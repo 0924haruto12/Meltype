@@ -365,6 +365,7 @@ public:
         auto *ic = event.inputContext();
         auto *state = ic->propertyFor(&factory_);
         if (!state->session()) return;
+        syncCanDelete(ic, state->session());
         const auto key = event.key();
         const auto sym = key.sym();
         // 半角/全角: 英数 (直接入力) ⇔ 日本語。英数・ひらがなのキーでも切り替える (JIS キーボード)。
@@ -403,7 +404,9 @@ public:
 
     void selectCandidate(fcitx::InputContext *ic, int index) {
         auto *state = ic->propertyFor(&factory_);
-        if (state->session()) apply(ic, native_.take(native_.selectCandidate(state->session(), index)));
+        if (!state->session()) return;
+        syncCanDelete(ic, state->session());
+        apply(ic, native_.take(native_.selectCandidate(state->session(), index)));
     }
 
 private:
@@ -414,7 +417,9 @@ private:
 
     void commitPending(fcitx::InputContext *ic) {
         auto *state = ic->propertyFor(&factory_);
-        if (state->session()) apply(ic, native_.take(native_.commit(state->session())));
+        if (!state->session()) return;
+        syncCanDelete(ic, state->session());
+        apply(ic, native_.take(native_.commit(state->session())));
     }
 
     // 入力欄のキャレットの前後の文字列 (それぞれ 20 文字まで)。入力欄が対応していなければ false。
@@ -430,6 +435,14 @@ private:
         return true;
     }
 
+    // 確定し直し (DeleteBefore) は、入力欄が周りの文字の削除に対応しているときだけ本体が行う。
+    // 本体を呼ぶ前に毎回伝える (入力欄を移った最初のキーで、前の入力欄の値のまま確定し直さないように)。
+    void syncCanDelete(fcitx::InputContext *ic, void *session) {
+        if (!native_.setCanDelete || !session) return;
+        bool canDelete = ic->capabilityFlags().test(fcitx::CapabilityFlag::SurroundingText) && ic->surroundingText().isValid();
+        native_.setCanDelete(session, canDelete ? 1 : 0);
+    }
+
     void apply(fcitx::InputContext *ic, const std::string &text) {
         if (text.empty()) return;
         Json result;
@@ -437,10 +450,6 @@ private:
     }
 
     void apply(fcitx::InputContext *ic, const Json &result) {
-        auto *state = ic->propertyFor(&factory_);
-        // 確定し直し (DeleteBefore) は、入力欄が周りの文字の削除に対応しているときだけ本体が行う
-        if (native_.setCanDelete && state->session())
-            native_.setCanDelete(state->session(), ic->capabilityFlags().test(fcitx::CapabilityFlag::SurroundingText) ? 1 : 0);
         if (auto *commits = result.get("commits"); commits && commits->kind == Json::Kind::Array) {
             for (const auto &edit : commits->items) {
                 hidePreedit(ic);
