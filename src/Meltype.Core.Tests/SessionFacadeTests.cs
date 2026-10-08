@@ -104,4 +104,35 @@ internal static class SessionFacadeTests
         const string expected = """{"consumed":true,"commits":[{"deleteBefore":2,"text":"a\"b\\c\n"}],"view":{"text":"x","converting":true,"selectedIndex":0,"selectedClause":0,"hint":"h","candidates":["y"],"clauses":["x"],"suggestion":null,"meaning":null}}""";
         Assert.Equal(expected, result.ToJson());
     }
+
+    [Test]
+    public static void SigilWord_PassesToTheAppUntilSpace()
+    {
+        // #193: 先頭の /review は打つたびにアプリへ渡し (補完を選べるように)、空白の後は日本語に戻る。
+        var session = Create();
+        Assert.True(Type(session, "/review").All(r => !r.Consumed && r.View is null), "/review はそのままアプリへ");
+        Assert.True(!Type(session, " ")[0].Consumed, "空白もアプリへ");
+        Assert.Equal("きょう", Type(session, "kyou")[^1].View?.Text);
+        // google を確定した後の空白に続く @ も。
+        session = Create();
+        Type(session, "google ");
+        Assert.True(Type(session, "@file").All(r => !r.Consumed), "空白の後の @file はアプリへ");
+    }
+
+    [Test]
+    public static void SigilWord_UsesTextBeforeCaret()
+    {
+        // キャレットの前の文字を教えてもらえば、それで決める (taro@ は対象外、"> " の後は対象)。
+        var session = Create();
+        Assert.True(Type(session, "@", before: "taro")[0].Consumed, "前が英字なら @ は変換ボックスへ");
+        session = Create();
+        session.HandleKey(VirtualKeys.Left, null, false, false, false, false);
+        Assert.True(!Type(session, "/", before: "> ")[0].Consumed, "前が空白なら / はアプリへ");
+        // 前の文字を打ったのを見ていれば、空 (前の文字を読めないアプリ) より自分の記録を信じる。
+        session = Create();
+        session.Direct = true;
+        Type(session, "taro");
+        session.Direct = false;
+        Assert.True(Type(session, "@", before: "")[0].Consumed, "taro と打った後の @ は変換ボックスへ");
+    }
 }
