@@ -104,6 +104,7 @@ public sealed class MeltypeSession
     private readonly CompositionController _controller;
     private readonly Host _host = new();
     private readonly Func<Settings> _settings;
+    private readonly SigilWord _sigil = new();
 
     public MeltypeSession(CompositionDetector detector, IKanjiConverter converter, CompositionOptions options, Func<Settings> settings)
     {
@@ -174,7 +175,12 @@ public sealed class MeltypeSession
         var modifier = control || alt || command;
         if (Direct || !_settings().Enabled)
         {
-            return _host.Result(consumed: false);
+            return Track(_host.Result(consumed: false), vk, ch, modifier);
+        }
+        // 先頭か空白の直後の /command・$skill・@ファイル名 は、変換せずにそのままアプリへ渡す (#193)。
+        if (!modifier && !_controller.IsComposing && ch is { } c && _settings().SigilWordsDirect && _sigil.PassesThrough(c, before))
+        {
+            return Track(_host.Result(consumed: false), vk, ch, modifier);
         }
         // 英数へ切り替えるときなどに、Shift を押したことを変換ボックスにも伝える (Shift + 英字は大文字)。
         if (shift && _controller.IsComposing) Feed(new KeyEvent(VirtualKeys.LShift, 0, false, false, false, down.TimeMs));
@@ -186,7 +192,21 @@ public sealed class MeltypeSession
         Feed(down with { IsUp = true });
         if (modifier && _controller.IsComposing) Feed(new KeyEvent(control ? VirtualKeys.LControl : VirtualKeys.LMenu, 0, false, true, false, down.TimeMs));
         if (shift && _controller.IsComposing) Feed(new KeyEvent(VirtualKeys.LShift, 0, false, true, false, down.TimeMs));
-        return _host.Result(consumed);
+        return Track(_host.Result(consumed), vk, ch, modifier);
+    }
+
+    /// <summary>アプリに届いた文字 (確定した文字列と、使わなかったキー) を、/ $ @ の名前の判定のために追いかける。</summary>
+    private SessionResult Track(SessionResult result, int vk, char? ch, bool modifier)
+    {
+        foreach (var edit in result.Commits)
+        {
+            if (edit.Text.Length > 0) _sigil.Append(edit.Text);
+            else if (edit.DeleteBefore > 0) _sigil.Lose();
+        }
+        if (result.Consumed) return result;
+        if (modifier) _sigil.Lose();
+        else _sigil.OnKey(vk, ch);
+        return result;
     }
 
     /// <summary>フォーカスが外れたときなど。未確定の内容をそのまま確定する。</summary>
@@ -195,6 +215,8 @@ public sealed class MeltypeSession
         _host.Begin(null, false, null, null);
         _controller.CommitPending();
         _controller.ResetContext();
+        // 別の入力欄に移ったかもしれない。次に打つ文字は先頭とみなす (前の文字はホストが教えてくれればそちらを使う)。
+        _sigil.Start();
         return _host.Result(consumed: true);
     }
 

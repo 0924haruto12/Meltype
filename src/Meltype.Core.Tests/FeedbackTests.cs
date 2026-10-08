@@ -96,7 +96,10 @@ internal static class FeedbackTests
     public static void TripleSlash_IsEllipsis()
     {
         // 報告 (Discord のリスト #4): /// を … にできるようにする。URL (file:///) はそのまま。
-        Assert.Equal("…", Showing("///"));
+        // 入力欄の先頭の /// は /command と同じくそのままアプリへ渡す (#193)。設定で OFF にすれば … にできる。
+        var k = new CompositionTests.Keyboard { SigilWords = false };
+        k.Type("///");
+        Assert.Equal("…", k.Showing);
         Assert.Equal("それで…", Showing("sorede///"));
         Assert.Equal("file:///", Showing("file:///"));
     }
@@ -518,7 +521,7 @@ internal static class LanguageLearningTests
     public static void SymbolCandidates_ShowHalfOrFullWidth()
     {
         // 変換の候補で、記号が半角か全角か分からなかった (@ と ＠)。両方あるときは右に「半角」「全角」と出す。
-        var k = new CompositionTests.Keyboard();
+        var k = new CompositionTests.Keyboard { SigilWords = false };
         k.Type("@ ");
         var view = k.Host.View!;
         Assert.True(view.Converting, "変換中");
@@ -748,7 +751,8 @@ internal static class LanguageLearningTests
                 ("atarashiifeaturewotsuika", "あたらしいfeatureをついか"), ("kyouharemotedesu", "きょうはremoteです"),
             })
             {
-                var k = new CompositionTests.Keyboard();
+                // 先頭の @ の語 (#193) はそのままアプリへ渡すので、ここは変換ボックスに入れたときの扱いを確かめる。
+                var k = new CompositionTests.Keyboard { SigilWords = false };
                 k.Type(typed + "\n");
                 Assert.Equal(expected, k.Host.Document, typed);
             }
