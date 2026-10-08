@@ -276,6 +276,14 @@ public sealed class FocusInspector : IDisposable
                 editable = true;
                 description += " (キャレットあり)";
             }
+            // 画面をすべて自分で描くエディター (Zed) は、UI Automation でもキャレットでも入力欄と分からない (issue #75)。
+            // フォーカスがウィンドウそのものにあるときは編集画面とみなす。Zed は「コード」の種類なので、変換ボックスを開くのは
+            // コメント・文字列の中か、半角/全角 で日本語にした行だけ (ほかの所のキーは今までどおりそのまま通す)。
+            if (!editable && element.ClassName is { } windowClass && EditorWindowClasses.Contains(windowClass))
+            {
+                editable = true;
+                description += " (エディターの画面)";
+            }
             return new FocusInfo(editable, false, element.Bounds, description, element.Name, element.ClassName);
         }
         catch (Exception ex)
@@ -283,6 +291,9 @@ public sealed class FocusInspector : IDisposable
             return new FocusInfo(false, false, null, $"確認できない: {ex.GetType().Name}");
         }
     }
+
+    /// <summary>入力欄が UI Automation に出てこない、画面をすべて自分で描くエディターのウィンドウのクラス名。</summary>
+    private static readonly HashSet<string> EditorWindowClasses = new(StringComparer.Ordinal) { "Zed::Window" };
 
     /// <summary>前面のウィンドウのスレッドが、フォーカスのあるウィンドウにキャレットを出しているか。</summary>
     private static bool HasCaret()

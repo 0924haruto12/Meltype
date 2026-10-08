@@ -9,6 +9,9 @@ namespace Meltype.Composition;
 /// <summary>変換ボックスの表示形式。Auto 以外は F6/F7/F9/F10 などでユーザーが明示的に選んだもの。</summary>
 public enum DisplayMode { Auto, Hiragana, Katakana, FullWidthAlphanumeric, HalfWidthAlphanumeric }
 
+/// <summary>英字 (F9 / F10) で見せるときの大文字・小文字。F9 / F10 を続けて押すと 打ったまま → すべて大文字 → 先頭だけ大文字 と切り替わる。</summary>
+public enum LetterCase { AsTyped, Upper, Capitalized }
+
 /// <summary>
 /// 変換ボックス内の 1 単位。ローマ字 1 音 (きょ, っ, ん …)・ローマ字として読めなかった英字 1 文字・記号 1 文字のいずれか。
 /// Raw は実際に打った文字 (英語として表示するときに使う)。
@@ -35,6 +38,9 @@ public sealed class CompositionText
     public string Pending => _pending.ToString();
     public bool IsEmpty => _units.Count == 0 && _pending.Length == 0;
     public DisplayMode Mode { get; set; } = DisplayMode.Auto;
+
+    /// <summary>英字 (F9 / F10) で見せるときの大文字・小文字。確定・取り消しで戻る。</summary>
+    public LetterCase Case { get; set; } = LetterCase.AsTyped;
 
     /// <summary>自動判定の強さ (設定)。</summary>
     public Func<DetectionLevel> Level { get; set; } = () => DetectionLevel.Balanced;
@@ -283,6 +289,7 @@ public sealed class CompositionText
         if (IsEmpty)
         {
             Mode = DisplayMode.Auto;
+            Case = LetterCase.AsTyped;
             LevelOverride = null;
         }
     }
@@ -292,6 +299,7 @@ public sealed class CompositionText
         _units.Clear();
         _pending.Clear();
         Mode = DisplayMode.Auto;
+        Case = LetterCase.AsTyped;
         LevelOverride = null;
     }
 
@@ -597,11 +605,19 @@ public sealed class CompositionText
     /// <param name="convert">日本語の区間を漢字に変換する関数 (ライブ変換)。null ならかなのまま。</param>
     public string Display(bool final, Func<string, string>? convert = null) => Mode switch
     {
-        DisplayMode.HalfWidthAlphanumeric => Raw,
-        DisplayMode.FullWidthAlphanumeric => ToFullWidth(Raw),
+        DisplayMode.HalfWidthAlphanumeric => ApplyCase(Raw, Case),
+        DisplayMode.FullWidthAlphanumeric => ToFullWidth(ApplyCase(Raw, Case)),
         DisplayMode.Hiragana => AllKana(final),
         DisplayMode.Katakana => ToKatakana(AllKana(final)),
         _ => IsNumeric ? Raw : RenderSegments(final, convert),
+    };
+
+    /// <summary>英字の大文字・小文字を変える (ai → AI / Ai)。</summary>
+    public static string ApplyCase(string text, LetterCase letterCase) => letterCase switch
+    {
+        LetterCase.Upper => text.ToUpperInvariant(),
+        LetterCase.Capitalized => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..].ToLowerInvariant(),
+        _ => text,
     };
 
     /// <summary>英語区間は英字のまま、日本語区間はかな (または漢字)。</summary>

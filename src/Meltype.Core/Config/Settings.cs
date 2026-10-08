@@ -39,6 +39,8 @@ public enum CompositionSize
     [Description("小")] Small,
     [Description("中")] Medium,
     [Description("大")] Large,
+    [Description("特大")] ExtraLarge,
+    [Description("最大")] Huge,
 }
 
 /// <summary>変換ボックスを出す位置。</summary>
@@ -204,7 +206,7 @@ public sealed class Settings
     public CompositionPlacement CompositionPlacement { get; set; } = CompositionPlacement.Overlay;
 
     [Category("1. 全般"), DisplayName("変換ボックスの文字の大きさ"),
-     Description("自動: 入力欄の文字の高さに合わせます (小さな入力欄では小さく出ます)。入力欄の文字の高さが分からないアプリでは「中」になります。")]
+     Description("自動: 入力欄の文字の高さに合わせます (小さな入力欄では小さく出ます)。入力欄の文字の高さが分からないアプリでは「中」になります。小さな文字が読みにくいときは「特大」「最大」も選べます。")]
     public CompositionSize CompositionSize { get; set; } = CompositionSize.Auto;
 
     [Category("1. 全般"), DisplayName("通知を出す"),
