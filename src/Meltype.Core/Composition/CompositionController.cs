@@ -174,6 +174,9 @@ public sealed class CompositionController
     /// </summary>
     private const int LiveConversionMinLength = 4;
 
+    /// <summary>候補の一覧の 1 ページの数 (変換ボックス・Linux の候補の一覧と合わせる)。数字キー 1〜9 でこのページの中から選ぶ。</summary>
+    internal const int CandidatePageSize = 9;
+
     /// <summary>英数状態の判定で、この時間打鍵が無ければ英語とみなして判定をやめる。</summary>
     private const long DirectHoldIdleMs = 700;
 
@@ -823,9 +826,30 @@ public sealed class CompositionController
                 // 変換を取り消して、かなの入力に戻る。
                 _converting = false;
                 return true;
+            case >= 0x31 and <= 0x39 when !shift:
+            case >= 0x61 and <= 0x69 when !shift:
+                // 候補の一覧の番号 (1〜9) で選ぶ。番号の無い候補 (一覧より後ろ) なら、普通に打った数字として扱う。
+                return SelectByNumber(vk >= 0x61 ? vk - 0x61 : vk - 0x31);
             default:
                 return false;
         }
+    }
+
+    /// <summary>
+    /// 数字キーで、今見えている候補の一覧のページから選ぶ (2 → そのページの 2 番目)。選んだら次の文節へ進み、
+    /// 最後の文節なら確定する (Microsoft IME と同じく、番号で選んだ候補はそのまま使う)。
+    /// </summary>
+    private bool SelectByNumber(int row)
+    {
+        var clause = _clauses[_selectedClause];
+        if (!clause.IsEnglish && !clause.Expanded) Expand(clause);
+        var index = Math.Max(0, clause.Index) / CandidatePageSize * CandidatePageSize + row;
+        if (index >= clause.Candidates.Count) return false;
+        clause.Index = index;
+        clause.Changed = true;
+        if (_selectedClause + 1 < _clauses.Count) _selectedClause++;
+        else Commit();
+        return true;
     }
 
     private (int Start, int End, Misspelling Misspelling)? FindMisspelling() =>
@@ -1657,7 +1681,7 @@ public sealed class CompositionController
                 selected.Candidates,
                 selected.Index,
                 true,
-                "←→ 文節　Space/↓ 候補　Shift+←→ 区切り　Enter 確定　Esc 戻る",
+                "←→ 文節　Space/↓ 候補　1〜9 選択　Shift+←→ 区切り　Enter 確定　Esc 戻る",
                 _clauses.Select(c => c.Text).ToList(),
                 _selectedClause,
                 CandidateNotes(selected),
