@@ -205,7 +205,8 @@ internal static class CompositionTests
 
         public Keyboard(bool live = false, bool direct = false, ConversionHistory? history = null, IKanjiConverter? converter = null,
             Func<string, IReadOnlyList<string>>? moreCandidates = null, UserDictionary? userDictionary = null, LanguageMemory? languages = null,
-            TranslationDictionary? translations = null, TranslationHistory? translationHistory = null, bool slashAsMiddleDot = false, Predictor? predictor = null)
+            TranslationDictionary? translations = null, TranslationHistory? translationHistory = null, bool slashAsMiddleDot = false, Predictor? predictor = null,
+            Func<DateTime>? now = null)
         {
             Direct = direct;
             Controller = new CompositionController(Gate, Detector, converter ?? Converter, Host, new CompositionOptions
@@ -232,6 +233,7 @@ internal static class CompositionTests
                 Predictions = () => predictor is not null,
                 Punctuation = () => Punctuation,
                 SlashAsMiddleDot = () => slashAsMiddleDot,
+                Now = now ?? (() => DateTime.Now),
             });
             Controller.Committed += Sigil.Append;
             Host.Replayed += e =>
@@ -444,6 +446,27 @@ internal static class CompositionTests
         Assert.Equal("😄", k.Showing);
     }
   
+    [Test]
+    public static void Now_ShowsCurrentTime()
+    {
+        // #208: いま・なう を変換すると、今の時刻 (17:22 / 17時22分 / 午後5時22分) も候補に出る
+        foreach (var keys in new[] { "ima ", "nau " })
+        {
+            var k = new Keyboard(now: () => new DateTime(2026, 10, 8, 17, 22, 0));
+            k.Type(keys);
+            var candidates = k.Host.View!.Candidates;
+            foreach (var expected in new[] { "17:22", "17時22分", "午後5時22分" })
+                Assert.True(candidates.Contains(expected), keys + ": " + string.Join(" ", candidates));
+        }
+        var morning = new Keyboard(now: () => new DateTime(2026, 10, 8, 9, 5, 0));
+        morning.Type("ima ");
+        Assert.True(morning.Host.View!.Candidates.Contains("09:05") && morning.Host.View!.Candidates.Contains("午前9時5分"),
+            string.Join(" ", morning.Host.View!.Candidates));
+        var other = new Keyboard(now: () => new DateTime(2026, 10, 8, 17, 22, 0));
+        other.Type("imada ");
+        Assert.True(!other.Host.View!.Candidates.Contains("17:22"), "いま だけの文節のとき");
+    }
+
       [Test]
       public static void ShiftSpace_DuringConversion_GoesBack()
       {

@@ -109,6 +109,9 @@ public sealed record CompositionOptions
     /// <summary>英訳の候補 (複雑な → complex)。null なら出さない。</summary>
     public TranslationDictionary? Translations { get; init; }
 
+    /// <summary>今の時刻 (いま・なう → 17:22 の候補に使う。テストで差し替える)。</summary>
+    public Func<DateTime> Now { get; init; } = () => DateTime.Now;
+
     /// <summary>英訳の候補を出すか (設定)。</summary>
     public Func<bool> TranslationCandidates { get; init; } = () => true;
 
@@ -1307,7 +1310,7 @@ public sealed class CompositionController
         var candidates = Distinct(inContext);
         foreach (var word in _options.UserDictionary?.Lookup(reading) ?? []) if (!candidates.Contains(word)) candidates.Add(word);
         if (Convert(reading) is var standalone && !candidates.Contains(standalone)) candidates.Add(standalone);
-        foreach (var extra in _options.Candidates?.LookupWords(reading) ?? [])
+        foreach (var extra in _options.Candidates?.LookupWords(reading).Concat(TimeCandidates(reading)) ?? TimeCandidates(reading))
         {
             if (!candidates.Contains(extra)) candidates.Add(extra);
         }
@@ -1321,6 +1324,18 @@ public sealed class CompositionController
             if (!candidates.Contains(emoji)) candidates.Add(emoji);
         }
         return candidates;
+    }
+
+    /// <summary>今の時刻を表す読み (issue #208)。きょう → 日付 は変換エンジンが出す。</summary>
+    private static readonly HashSet<string> NowReadings = ["いま", "なう"];
+
+    /// <summary>いま・なう の文節に、今の時刻 (17:22 / 17時22分 / 午後5時22分) を候補として出す。</summary>
+    private IEnumerable<string> TimeCandidates(string reading)
+    {
+        if (!NowReadings.Contains(reading)) return [];
+        var now = _options.Now();
+        var hour12 = now.Hour % 12;
+        return [$"{now:HH:mm}", $"{now.Hour}時{now.Minute}分", $"{(now.Hour < 12 ? "午前" : "午後")}{hour12}時{now.Minute}分"];
     }
 
     /// <summary>絵文字・顔文字の候補を、最後に並べる順 (逆順: いちばんよく使うものが最後) で。</summary>
