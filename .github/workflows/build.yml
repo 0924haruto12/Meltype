@@ -10,6 +10,7 @@ on:
       - 'Meltype.sln'
       - 'Build-Package.ps1'
       - 'Install-Meltype.ps1'
+      - 'packaging/**'
       - '.github/workflows/build.yml'
   pull_request:
     paths:
@@ -20,6 +21,7 @@ on:
       - 'Meltype.sln'
       - 'Build-Package.ps1'
       - 'Install-Meltype.ps1'
+      - 'packaging/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
 
@@ -47,6 +49,24 @@ jobs:
       # Microsoft IME (日本語) や英語のスペルチェッカーが無い環境では、それらを使うテストは飛ばされる。
       - name: Test
         run: dotnet run --project src/Meltype.Tests/Meltype.Tests.csproj -c Release --no-build
+
+  # インストーラーの台本 (packaging/Meltype.iss) が Inno Setup で通るか。中身はダミーのファイルで確かめる (本物は package で作る)。
+  installer-script:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Compile installer script
+        shell: pwsh
+        run: |
+          $iscc = .\packaging\Find-InnoSetup.ps1
+          $stage = Join-Path $env:RUNNER_TEMP 'Meltype'
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'app') | Out-Null
+          Set-Content -LiteralPath (Join-Path $stage 'app\Meltype.exe') -Value 'dummy'
+          Copy-Item -LiteralPath LICENSE -Destination (Join-Path $stage 'LICENSE.txt')
+          Copy-Item -LiteralPath THIRD-PARTY-NOTICES.md -Destination (Join-Path $stage 'THIRD-PARTY-NOTICES.txt')
+          & $iscc /Q "/DAppVersion=0.0.0-check" "/DSourceDir=$stage" "/DOutputDir=$env:RUNNER_TEMP" packaging\Meltype.iss
+          if ($LASTEXITCODE -ne 0) { throw "インストーラーの台本を Inno Setup で通せませんでした (exit code $LASTEXITCODE)。" }
 
   # OS に依存しない部分 (Meltype.Core) を Linux と Mac でもテストする (Mac 版・Linux 版の土台)。
   core:
@@ -164,6 +184,23 @@ jobs:
         run: |
           $version = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF_NAME.Substring(1) } else { '' }
           .\Build-Package.ps1 -Version $version
+      # インストーラー (dist\Meltype-<版>-setup.exe)。zip と同じ app フォルダーから作る (issue #161)。
+      - name: Installer
+        shell: pwsh
+        env:
+          MELTYPE_SIGN_PASSWORD: ${{ secrets.SIGN_PASSWORD }}
+        run: |
+          $iscc = .\packaging\Find-InnoSetup.ps1
+          $version = if ($env:GITHUB_REF -like 'refs/tags/v*') { $env:GITHUB_REF_NAME.Substring(1) } else { 'test-' + (Get-Date -Format 'yyyyMMdd-HHmm') }
+          & $iscc /Q "/DAppVersion=$version" "/DSourceDir=$PWD\dist\Meltype" "/DOutputDir=$PWD\dist" packaging\Meltype.iss
+          if ($LASTEXITCODE -ne 0) { throw "インストーラーを作れませんでした (exit code $LASTEXITCODE)。" }
+          $setup = Get-ChildItem -LiteralPath dist -Filter 'Meltype-*-setup.exe' -File | Select-Object -First 1
+          if ($env:MELTYPE_SIGN_PFX -and (Test-Path -LiteralPath $env:MELTYPE_SIGN_PFX)) {
+            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue |
+              Where-Object { $_.FullName -like '*\x64\*' } | Sort-Object FullName | Select-Object -Last 1
+            & $signtool.FullName sign /f $env:MELTYPE_SIGN_PFX /p $env:MELTYPE_SIGN_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $setup.FullName
+            if ($LASTEXITCODE -ne 0) { throw "インストーラーの署名に失敗しました (exit code $LASTEXITCODE)。" }
+          }
       # 検出・検査不能の配布物は、Artifacts にもリリースにも公開しない。
       - name: Scan Windows package with Defender
         shell: powershell
@@ -171,13 +208,19 @@ jobs:
         run: |
           $packages = @(Get-ChildItem -LiteralPath dist -Filter 'Meltype-*.zip' -File)
           if ($packages.Count -ne 1) { throw 'Expected one Meltype-*.zip file but found ' + $packages.Count }
-          .\tools\Scan-WindowsPackage.ps1 -Path @('.\dist\Meltype', $packages[0].FullName)
+          $setups = @(Get-ChildItem -LiteralPath dist -Filter 'Meltype-*-setup.exe' -File)
+          if ($setups.Count -ne 1) { throw 'Expected one Meltype-*-setup.exe file but found ' + $setups.Count }
+          .\tools\Scan-WindowsPackage.ps1 -Path @('.\dist\Meltype', $packages[0].FullName, $setups[0].FullName)
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: meltype-package
-          path: dist/Meltype-*.zip
+          path: |
+            dist/Meltype-*.zip
+            dist/Meltype-*-setup.exe
           retention-days: 14
       - if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
-          files: dist/Meltype-*.zip
+          files: |
+            dist/Meltype-*.zip
+            dist/Meltype-*-setup.exe

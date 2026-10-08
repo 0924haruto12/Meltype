@@ -19,16 +19,17 @@ Windows 版のほか、Mac 版・Linux 版のプレビュー版があります (
 
 ## インストール
 
-1. [Releases](https://github.com/yksr-melt/Meltype/releases) から `Meltype-<version>-windows.zip` をダウンロードして展開する
-   (Mac 版は `Meltype-<version>-mac.zip`、Linux 版は `Meltype-<version>-linux.zip`。どちらもプレビュー版)
-2. `Install.cmd` をダブルクリックする (管理者権限は不要)
+1. [Releases](https://github.com/yksr-melt/Meltype/releases) から、インストーラー `Meltype-<version>-setup.exe` をダウンロードして実行する (管理者権限は不要)
+   - zip で入れたいときは `Meltype-<version>-windows.zip` をダウンロードして展開し、`Install.cmd` をダブルクリックする。どちらで入れても同じ場所 (`%LOCALAPPDATA%\Programs\Meltype`) に入る
+   - Mac 版は `Meltype-<version>-mac.zip`、Linux 版は `Meltype-<version>-linux.zip` (どちらもプレビュー版)
+2. インストーラー (または `Install.cmd`) の案内に従う
    - Meltype はコード署名をしていないので、「Windows によって PC が保護されました」と出ることがあります。「詳細情報」→「実行」で入れられます。
    - 「ウイルスを検出しました」などの脅威検出は、上の SmartScreen の警告とは別です。誤検知の可能性もありますが、検出名だけでは判断できません。Windows セキュリティ →「ウイルスと脅威の防止」→「保護の更新」で定義を更新し、公式リリースを再ダウンロードして再検査してください。引き続き検出される場合は、保護を無効にしたりフォルダーを除外したりせず、「保護の履歴」で検出名・影響を受けた項目を確認し、版と検出名を [Issues](https://github.com/yksr-melt/Meltype/issues) に報告してください (個人名・パス・ダウンロード URL の一時トークンは隠してください)。
    - ダウンロードした zip が本物か確かめたいときは、リリースのページに出ている SHA-256 と比べてください (PowerShell: `Get-FileHash .\Meltype-<version>-windows.zip`)。
 3. タスクトレイに「あ」のアイコンが出れば動いています。Windows の起動時にも自動で起動します。
 
 1.0.0 以降は、新しい版が出ると自動で更新します (トレイのアイコンを右クリック →「更新」→「自動で更新する」で止められます)。
-アンインストールは、トレイの Meltype のアイコンを右クリック →「アンインストール...」か、Windows の「設定」→「アプリ」→「インストールされているアプリ」で Meltype の「…」→「アンインストール」を選びます (設定と学習データも消えます)。zip の中の `Uninstall.cmd` をダブルクリックしても同じです。
+アンインストールは、トレイの Meltype のアイコンを右クリック →「アンインストール...」か、Windows の「設定」→「アプリ」→「インストールされているアプリ」で Meltype の「…」→「アンインストール」を選びます。インストーラーで入れたときは、最後に設定と学習データも消すかを聞きます (既定は残す)。zip の中の `Uninstall.cmd` をダブルクリックしてもアンインストールできます (こちらは設定と学習データも消えます)。
 
 必要なもの: Windows 10 / 11 (64bit)、Microsoft IME (Windows 標準の日本語入力)。.NET は同梱しているので、別に入れる必要はありません。
 
