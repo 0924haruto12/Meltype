@@ -15,8 +15,8 @@ upm = font["head"].unitsPerEm
 hmtx = font["hmtx"]
 
 THEMES = {
-    "blue": ("#45b6ee", "#a6e0fa"),
-    "pink": ("#ff7aa8", "#ffc4d9"),
+    "blue": ("#3aaee8", "#7fd0f5"),
+    "pink": ("#ff6f9f", "#ffa6c6"),
 }
 OUTLINE = "#7391ee"
 DASH = "#ff8ab4"
@@ -54,20 +54,19 @@ def heading(text, theme, out, width=760, height=84, size=42):
     baseline = 58
     x0 = 66
     d, x_end = text_path(text, size, x0, baseline)
-    split = baseline - size * 0.36
     dash_y = 62
     dash = (f'<path d="M{x_end + 18:.1f} {dash_y} H{width - 24}" stroke="{OUTLINE}" stroke-width="9" stroke-linecap="round"/>'
             f'<path d="M{x_end + 18:.1f} {dash_y} H{width - 24}" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>'
             f'<path d="M{x_end + 22:.1f} {dash_y} H{width - 28}" stroke="{DASH}" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 9"/>')
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="{text}">
 <title>{text}</title>
-<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="{height}" gradientUnits="userSpaceOnUse">
-<stop offset="{split / height:.3f}" stop-color="{top}"/><stop offset="{split / height:.3f}" stop-color="{bottom}"/></linearGradient></defs>
+<defs><linearGradient id="g" x1="0" y1="{baseline - size * 0.9:.1f}" x2="0" y2="{baseline + 4}" gradientUnits="userSpaceOnUse">
+<stop offset="0" stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/></linearGradient></defs>
 {snowflake(30, 42, 20, top)}
 {dash}
-<path d="{d}" fill="{OUTLINE}" stroke="{OUTLINE}" stroke-width="16" stroke-linejoin="round" transform="translate(0 3)"/>
-<path d="{d}" fill="#ffffff" stroke="{OUTLINE}" stroke-width="16" stroke-linejoin="round"/>
-<path d="{d}" fill="#ffffff" stroke="#ffffff" stroke-width="10" stroke-linejoin="round"/>
+<path d="{d}" fill="{OUTLINE}" stroke="{OUTLINE}" stroke-width="10" stroke-linejoin="round" transform="translate(0 2.5)"/>
+<path d="{d}" fill="{OUTLINE}" stroke="{OUTLINE}" stroke-width="10" stroke-linejoin="round"/>
+<path d="{d}" fill="#ffffff" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"/>
 <path d="{d}" fill="url(#g)"/>
 </svg>
 '''
