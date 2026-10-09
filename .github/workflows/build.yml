@@ -63,6 +63,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Test setup IME registration launcher
+        shell: powershell
+        run: .\tools\Test-SetupIme.ps1
       - name: Compile installer script
         shell: pwsh
         run: |
@@ -74,6 +77,12 @@ jobs:
           Copy-Item -LiteralPath THIRD-PARTY-NOTICES.md -Destination (Join-Path $stage 'THIRD-PARTY-NOTICES.txt')
           & $iscc /Q "/DAppVersion=0.0.0-check" "/DSourceDir=$stage" "/DOutputDir=$env:RUNNER_TEMP" packaging\Meltype.iss
           if ($LASTEXITCODE -ne 0) { throw "インストーラーの台本を Inno Setup で通せませんでした (exit code $LASTEXITCODE)。" }
+          # IME を同梱する場合のチェックボックス・起動処理もコンパイルする。
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'app\tip') | Out-Null
+          Set-Content -LiteralPath (Join-Path $stage 'app\meltype-ime.ps1') -Value '# dummy'
+          Set-Content -LiteralPath (Join-Path $stage 'app\tip\Register-Tip.ps1') -Value '# dummy'
+          & $iscc /Q "/DAppVersion=0.0.0-check-ime" "/DSourceDir=$stage" "/DOutputDir=$env:RUNNER_TEMP" packaging\Meltype.iss
+          if ($LASTEXITCODE -ne 0) { throw "IME 同梱のインストーラーを Inno Setup で通せませんでした (exit code $LASTEXITCODE)。" }
 
   # OS に依存しない部分 (Meltype.Core) を Linux と Mac でもテストする (Mac 版・Linux 版の土台)。
   core:
