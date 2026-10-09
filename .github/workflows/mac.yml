@@ -80,15 +80,9 @@ jobs:
           xcrun stapler staple mac/build/Meltype.app
       - name: Package
         run: |
-          mkdir -p dist/Meltype-mac
-          cp -R mac/build/Meltype.app dist/Meltype-mac/
-          cp mac/install.sh "mac/Install Meltype.command" dist/Meltype-mac/
-          cp mac/TESTER-README.txt "dist/Meltype-mac/はじめにお読みください.txt"
-          cp LICENSE THIRD-PARTY-NOTICES.md dist/Meltype-mac/
-          chmod +x dist/Meltype-mac/install.sh "dist/Meltype-mac/Install Meltype.command"
           # タグ (v1.0.0) なら Meltype-1.0.0-mac.zip、それ以外はテスト版の名前
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then name="Meltype-${GITHUB_REF_NAME#v}-mac.zip"; else name="Meltype-mac-test-$(date +%Y%m%d-%H%M).zip"; fi
-          (cd dist && ditto -c -k --keepParent Meltype-mac "$name")
+          bash mac/package.sh "$name"
           ls -la dist
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:

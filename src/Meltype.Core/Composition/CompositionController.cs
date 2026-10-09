@@ -147,6 +147,7 @@ public sealed record CompositionOptions
 
     /// <summary>確定するときに、日本語と英単語の間に半角スペースを入れるか (設定)。</summary>
     public Func<bool> SpaceAroundEnglish { get; init; } = () => false;
+    public Func<bool> AutomaticEnglishSpacing { get; init; } = () => false;
 
     /// <summary>句読点の組み合わせ (設定)。</summary>
     public Func<Config.PunctuationStyle> Punctuation { get; init; } = () => Config.PunctuationStyle.Japanese;
@@ -335,6 +336,12 @@ public sealed class CompositionController
     /// <summary>変換中の文節の候補を番号で選ぶ (Mac の候補ウィンドウをクリックしたときなど)。</summary>
     public void SelectCandidate(int index)
     {
+        if (!_converting && PreviewCandidates() is { } preview && index >= 0 && index < preview.Count)
+        {
+            _clauses = [new Clause("ご", false, preview) { Raw = _text.Raw, Expanded = true }];
+            _selectedClause = 0;
+            _converting = true;
+        }
         if (!_converting || _clauses.Count == 0) return;
         var clause = _clauses[_selectedClause];
         if (index < 0 || index >= clause.Candidates.Count) return;
@@ -555,6 +562,11 @@ public sealed class CompositionController
                 StartConversion(preferJapanese: true);
                 return;
             case VirtualKeys.Space:
+                if (_text.PrecedingEnglish != true && PreviewCandidates() is not null)
+                {
+                    SelectCandidate(0);
+                    return;
+                }
                 _text.FixTypos();
                 // 英語と判定した語で終わっているなら、変換ではなく確定して空白を入れる
                 // (日本語の部分は、ライブ変換が ON なら漢字にして、OFF なら見えているかなのまま確定)。
@@ -1638,9 +1650,9 @@ public sealed class CompositionController
     /// 今確定しようとしている語 (raw) で文脈がはっきりしたら、直前に確定した英語とも日本語とも読める語を確定し直す。
     /// 例: 「i」を Space で「胃」にした後に want と打つ → 「I want」、「sushi 」の後に「がすき」 → 「すしがすき」。
     /// </summary>
-    private void CorrectPreviousCommit(string raw, bool english)
+    private string? CorrectPreviousCommit(string raw, bool english)
     {
-        if (_correctable.Count == 0 || !_options.AutoCorrect() || !_host.CanDeleteBackward) return;
+        if (_correctable.Count == 0 || !_options.AutoCorrect() || !_host.CanDeleteBackward) return null;
         var previous = _correctable[^1];
         List<CommitRecord> targets = [];
         string? replacement = null;
@@ -1653,7 +1665,7 @@ public sealed class CompositionController
             targets = _correctable.Skip(start).ToList();
             // 助詞と同じ形の短い語 (to, no) 1 語だけを、大文字で始まる語 (固有名詞) で直すことはしない (Google と Apple は日本語でもよく書く)。
             // 小文字の英単語で英文と分かったとき (let me know、do it) は直す。
-            if (targets.Count == 1 && targets[0].Raw.Length <= 2 && targets[0].Raw != "i" && char.IsAsciiLetterUpper(raw.FirstOrDefault(char.IsAsciiLetter))) return;
+            if (targets.Count == 1 && targets[0].Raw.Length <= 2 && targets[0].Raw != "i" && char.IsAsciiLetterUpper(raw.FirstOrDefault(char.IsAsciiLetter))) return null;
             replacement = string.Concat(targets.Select(t => (t.Raw == "i" ? "I" : t.Raw) + (t.SpaceIntended ? " " : "")));
         }
         else if (previous.English && !english && !_detector.IsAmbiguousWord(raw) && raw.Any(char.IsAsciiLetter))
@@ -1663,18 +1675,19 @@ public sealed class CompositionController
             replacement = _detector.Romaji.ConvertLenient(previous.Raw.ToLowerInvariant(), final: true);
             // ローマ字として読んでもよく使う語の読みにならない語 (issue → いっすえ、api → あぴ) は英語のまま (issue #121, #124)。
             // sushi → すし のように、日本語の語として読めるときだけ直す。
-            if (_options.RomajiTypos is { } lexicon && !lexicon.IsWord(replacement)) return;
+            if (_options.RomajiTypos is { } lexicon && !lexicon.IsWord(replacement)) return null;
         }
         // ユーザーが英字 / かなに直して覚えた語 (F10 で英字にした api) は、覚えたとおりなら書き換えない (issue #124)。
-        if (targets.Any(t => _options.Languages?.Get(t.Raw.ToLowerInvariant()) == t.English)) return;
+        if (targets.Any(t => _options.Languages?.Get(t.Raw.ToLowerInvariant()) == t.English)) return null;
         var original = string.Concat(targets.Select(t => t.Text));
-        if (replacement is null || replacement == original) return;
+        if (replacement is null || replacement == original) return null;
 
         Diagnostics.Log.Decision($"前後の文脈に合わせて確定し直しました: {Diagnostics.Log.Text(original)}→{Diagnostics.Log.Text(replacement)}");
         _host.DeleteBackward(original.Length);
         _host.CommitText(replacement);
         _lastCommitText = replacement;
         _correctable.Clear();
+        return replacement;
     }
 
     /// <summary>選び直した文節を学習する (次に同じ読みを変換したとき最初の候補にする)。</summary>
@@ -1740,6 +1753,7 @@ public sealed class CompositionController
     /// <summary>確定して入力する。英語だったか日本語だったか・確定した文字列を、次の入力の文脈として覚えておく。</summary>
     private void CommitText(string text, bool english, string raw = "", bool chosen = false)
     {
+        var formatEnglish = _options.AutomaticEnglishSpacing() && _text.Mode == DisplayMode.Auto;
         var spaceIntended = _spaceStartedConversion;
         _spaceStartedConversion = false;
         // 誤変換の報告を調べられるように、打った英字・読み・文節の区切りもログに残す (ログはファイルに書く設定のときだけ保存される)。
@@ -1752,8 +1766,9 @@ public sealed class CompositionController
         _converting = false;
         _clauses = [];
         if (text.Length == 0) return;
-        if (_options.SpaceAroundEnglish()) text = AddSpacesAroundEnglish(text, _precedingText, _followingText);
-        CorrectPreviousCommit(raw, english);
+        if (formatEnglish) text = EnglishPhraseSpacing.Format(text);
+        var corrected = CorrectPreviousCommit(raw, english);
+        if (_options.SpaceAroundEnglish()) text = AddSpacesAroundEnglish(text, corrected ?? _precedingText, _followingText);
         // 英語とも日本語とも読める語を、文脈を決めずに (選び直さずに) 確定したときだけ、後で確定し直せるようにしておく。
         if (!chosen && _detector.IsAmbiguousWord(raw))
         {
@@ -1862,11 +1877,13 @@ public sealed class CompositionController
         {
             var hint = _text.IsAlphanumeric ? "Enter 確定　Space 確定+空白　Shift+Space 日本語で変換　半角/全角 日本語に" : "Space 変換　←→ 文節　Enter 確定　F7 カタカナ　F10 英字";
             if (_text.Suggestion() is { } suggestion) hint = $"Tab → {suggestion} (英字に)　" + hint;
+            var preview = PreviewCandidates();
             var misspelling = MisspellingSuggestion();
             UpdatePredictions(blocked: misspelling is not null || _text.Suggestion() is not null);
             if (_predictions.Count > 0) hint = "Tab 予測の候補を選ぶ　" + hint;
             var selected = _predictionIndex >= 0 ? _predictions[_predictionIndex] : null;
-            _host.Show(new CompositionView(selected ?? CurrentDisplay(final: false), [], -1, false, hint, Suggestion: misspelling,
+            var display = selected ?? CurrentDisplay(final: false);
+            _host.Show(new CompositionView(display, preview ?? [], preview?.IndexOf(display) ?? -1, false, hint, Suggestion: misspelling,
                 Predictions: _predictions.Count > 0 ? _predictions : null, SelectedPrediction: _predictionIndex));
         }
     }
@@ -1912,6 +1929,10 @@ public sealed class CompositionController
         UpdatePredictions(blocked: false);
         return _predictions;
     }
+
+    private List<string>? PreviewCandidates() =>
+        _text.Mode == DisplayMode.Auto && _text.Raw.Equals("go", StringComparison.OrdinalIgnoreCase)
+            ? [_text.Raw, "ご"] : null;
 
     private static bool IsShift(int vk) => vk is VirtualKeys.Shift or VirtualKeys.LShift or VirtualKeys.RShift;
 
