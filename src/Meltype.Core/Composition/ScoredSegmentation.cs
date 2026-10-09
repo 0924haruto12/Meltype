@@ -108,6 +108,7 @@ public sealed partial class CompositionDetector
                 if (forced < 0 && level != DetectionLevel.Manual) forced = CapitalizedWordEnd(units, i, pending, final);
                 if (forced < 0 && level != DetectionLevel.Manual) forced = HyphenatedWordEnd(units, i, pending);
                 if (forced < 0 && level != DetectionLevel.Manual && (i > 0 && units[i - 1].Raw is [var digit] && char.IsAsciiDigit(digit) ? AlphanumericSuffixEnd(units, i, pending, Segments(), path.JapaneseStart) : -1) is var suffix and > 0) forced = suffix;
+                if (forced < 0 && level != DetectionLevel.Manual) forced = EnglishBeforeParticleAndEnglishTail(units, i, pending);
                 if (forced > i)
                 {
                     Offer(forced, true, Extend(path, i, forced, units, pending));
@@ -123,6 +124,7 @@ public sealed partial class CompositionDetector
                 {
                     var symbolsAfter = i == 0 && j < n && pending.Length == 0 && Enumerable.Range(j, n - j).All(k => IsAsciiSymbol(units[k]));
                     var after = j == n || symbolsAfter ? followingEnglish : false;
+                    if (!CanBeEnglishSpan(i, j, j == n ? pending : "", j == n && !final, j < n ? units[j].Raw : null)) continue;
                     if (PrecededByEnglish(i) == true && IsSuruForm(Kana(units, i, j))) continue;
                     if (!IsEnglishSpan(Raw(units, i, j) + (j == n ? pending : ""), atEnd: j == n, before, after, startOfInput: i == 0, level, final, endsWord: symbolsAfter,
                             unreadable: HasUnreadable(units, i, j) || EndsWithLoneSokuon(units, j), next: j < n ? units[j].Raw + (j + 1 == n ? pending : "") : null)) continue;
@@ -177,7 +179,7 @@ public sealed partial class CompositionDetector
     }
 
     /// <summary>単位 unit を含む、3 文字以上のよく使う日本語の読み (readings.txt) があるか。</summary>
-    private static bool CoveredByJapaneseWord(IReadOnlyList<CompositionUnit> units, int unit)
+    private bool CoveredByJapaneseWord(IReadOnlyList<CompositionUnit> units, int unit)
     {
         // 読みは長くても十数文字なので、前後 8 単位まで見れば足りる
         for (var start = Math.Max(0, unit - 8); start <= unit; start++)

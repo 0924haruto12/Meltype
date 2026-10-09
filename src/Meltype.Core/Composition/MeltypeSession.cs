@@ -314,6 +314,37 @@ public sealed class MeltypeSession
         return _host.Result(consumed: true);
     }
 
+    /// <summary>
+    /// 文字を伴わない・扱えないキーを、変換ボックスの状態を変えずにアプリへそのまま渡す (Consumed = false)。
+    /// 不正な C ABI の引数で不正な文字列を作らないための経路。
+    /// </summary>
+    public SessionResult PassThrough()
+    {
+        _host.Begin(null, false, null, null);
+        return _host.Result(consumed: false);
+    }
+
+    /// <summary>
+    /// 未確定の内容を確定したうえで、元の OS イベントを 1 回だけアプリへ通す (Consumed = false)。
+    /// 補助面の文字 (非 BMP) を char へ切り詰めずに渡すための経路。確定と pass-through を二重に行わない。
+    /// </summary>
+    public SessionResult CommitForPassThrough() => CommitForPassThrough(preserveLatinRaw: false, preserveText: false);
+
+    /// <summary>
+    /// 結合文字が直前の文字に付くよう、確定する文字列に自動空白を加えない。
+    /// 結合アクセントなら、明示的に選択していない ASCII 英字の原文を優先して確定する。
+    /// </summary>
+    public SessionResult CommitCombiningForPassThrough(bool preserveLatinRaw) =>
+        CommitForPassThrough(preserveLatinRaw, preserveText: true);
+
+    private SessionResult CommitForPassThrough(bool preserveLatinRaw, bool preserveText)
+    {
+        _host.Begin(null, false, null, null);
+        _controller.CommitPending(preserveLatinRaw, preserveText);
+        _controller.ResetContext();
+        return _host.Result(consumed: false);
+    }
+
     /// <summary>候補ウィンドウで候補をクリックしたとき。</summary>
     public SessionResult SelectCandidate(int index)
     {
