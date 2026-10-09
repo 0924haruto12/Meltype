@@ -70,6 +70,21 @@ struct EventTests {
     equal(client.document,expected); equal(client.marked,"")
    }
   }
+  for (raw,mark) in [("e","\u{1AB0}"),("cafe","\u{1DC0}"),("a","\u{FE20}")] {
+   for event in [mark,mark+"\u{0301}"] {
+    check("extended accent \(raw) + \(event.debugDescription)") { controller,client in
+     type(controller,client,raw)
+     precondition(!key(controller,client,event),"combining event must pass through")
+     equal(client.document,raw+event);equal(client.marked,"")
+     _=key(controller,client,"\u{0300}")
+     equal(client.document,raw+event+"\u{0300}")
+    }
+   }
+  }
+  check("F6 override before extended marks") { controller,client in
+   type(controller,client,"e");_=key(controller,client,"",code:UInt16(kVK_F6))
+   _=key(controller,client,"\u{1AB0}\u{0301}");equal(client.document,"え\u{1AB0}\u{0301}")
+  }
   for action in ["Enter","Space","Tab","focus"] {
    check("protected \(action)") { controller,client in
     type(controller,client,"@kuraido")

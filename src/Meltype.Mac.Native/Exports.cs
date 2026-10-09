@@ -104,11 +104,11 @@ public static unsafe class Exports
             // 文字列を作らず、状態も変えずにアプリへそのまま渡す。
             if (IsInvalidScalar(ch)) return session.PassThrough();
             // 結合文字は、未確定表示に取り込まず直前の内容を確定して元のイベントを通す。
-            // U+0300..036F の Latin アクセントのみ ASCII 英字の原文を優先する。
+            // Latin の結合アクセント (拡張・補助・半記号を含む) では ASCII 英字の原文を優先する。
             // 濁点・異体字セレクターでは、日本語の表示や明示的な候補をそのまま確定する。
             if (Rune.GetUnicodeCategory(new Rune(ch)) is UnicodeCategory.NonSpacingMark or
                 UnicodeCategory.SpacingCombiningMark or UnicodeCategory.EnclosingMark)
-                return session.CommitCombiningForPassThrough(preserveLatinRaw: ch is >= 0x0300 and <= 0x036F);
+                return session.CommitCombiningForPassThrough(preserveLatinRaw: IsLatinCombiningAccent(ch));
             // 補助面の有効なスカラー (U+10000..U+10FFFF) は char (UTF-16 1 コードユニット) へ切り詰められない。
             // 未確定の内容をここで確定してから、元の OS イベントを 1 回だけアプリへ通す (Consumed = false)。
             if (ch > 0xFFFF) return session.CommitForPassThrough();
@@ -120,6 +120,12 @@ public static unsafe class Exports
     /// <summary>不正な文字の引数か。0 は「文字を伴わないキー」なので不正ではない。</summary>
     private static bool IsInvalidScalar(int ch) =>
         ch < 0 || ch > 0x10FFFF || (ch >= 0xD800 && ch <= 0xDFFF);
+
+    private static bool IsLatinCombiningAccent(int ch) =>
+        ch is >= 0x0300 and <= 0x036F    // Combining Diacritical Marks
+            or >= 0x1AB0 and <= 0x1AFF  // Combining Diacritical Marks Extended
+            or >= 0x1DC0 and <= 0x1DFF  // Combining Diacritical Marks Supplement
+            or >= 0xFE20 and <= 0xFE2F; // Combining Half Marks
 
     /// <summary>未確定の内容を確定する (フォーカスが外れたときなど)。</summary>
     [UnmanagedCallersOnly(EntryPoint = "meltype_commit")]

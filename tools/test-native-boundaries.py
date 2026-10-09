@@ -79,6 +79,21 @@ class NativeBoundaryTests(unittest.TestCase):
         self.type_text("cafe")
         self.assert_pass(self.key(0x0301), "cafe")
 
+    def test_extended_accents_keep_raw_base(self):
+        for mark in (0x1AB0, 0x1ACB, 0x1DC0, 0x1DCD, 0x1DD4, 0xFE20, 0xFE22):
+            for raw in ("e", "cafe", "a"):
+                for after in (None, "world"):
+                    with self.subTest(mark=hex(mark), raw=raw, after=after):
+                        self.type_text(raw, after=after)
+                        result = self.key(mark, after=after)
+                        self.assert_pass(result, raw)
+                        self.assert_pass(self.key(0x0301))
+
+    def test_extended_accent_respects_explicit_kana(self):
+        self.type_text("e", after="world")
+        self.key(0, vk=0x75)  # F6
+        self.assert_pass(self.key(0x1AB0, after="world"), "え")
+
     def test_kana_combining_mark_keeps_display(self):
         self.type_text("ka")
         self.assert_pass(self.key(0x3099), "か")

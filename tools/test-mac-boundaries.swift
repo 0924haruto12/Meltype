@@ -18,9 +18,13 @@ enum BoundaryTests {
         let core = NativeCore.shared
         let cases: [(String, String, Int32?, String?)] = [
             ("e", "\u{0301}\u{0300}", nil, "e"),
+            ("e", "\u{1AB0}\u{0301}", nil, "e"),
+            ("cafe", "\u{1DC0}\u{0301}", nil, "cafe"),
+            ("a", "\u{FE20}\u{FE21}", nil, "a"),
             ("ka", "\u{3099}\u{FE0F}", nil, "か"),
             ("ka", "\u{E0100}\u{E0101}", nil, "か"),
             ("e", "\u{0301}\u{0300}", 0x75, "え"),
+            ("e", "\u{1AB0}\u{0301}", 0x75, "え"),
             ("ka", "👩‍👩‍👧‍👦", nil, "か "),
             ("ka", "e\u{0301}", nil, "か "),
             ("@kuraido", "\u{0301}\u{0300}", nil, "@kuraido"),
@@ -46,6 +50,6 @@ enum BoundaryTests {
             }
             print("PASS: \(raw.debugDescription) + \(external.debugDescription)")
         }
-        print("8/8 Swift + NativeAOT boundary cases passed (converter stub; no IMK GUI)")
+        print("\(cases.count)/\(cases.count) Swift + NativeAOT boundary cases passed (converter stub; no IMK GUI)")
     }
 }

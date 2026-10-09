@@ -82,6 +82,36 @@ internal static unsafe class NativeBoundaryTests
     }
 
     [Test]
+    public static void Native_ExtendedCombiningAccentsPreserveLatinRaw()
+    {
+        foreach (var mark in new[] { 0x1AB0, 0x1ACB, 0x1DC0, 0x1DCD, 0x1DD4, 0xFE20, 0xFE22 })
+        foreach (var raw in new[] { "e", "cafe", "a" })
+        foreach (var after in new string?[] { null, "world" })
+        {
+            using var native = new NativeSession();
+            native.Type(raw, after: after);
+            using var result = native.Key(mark, after: after);
+            AssertPassThrough(result, raw);
+            Assert.True(!native.Session.IsComposing, "拡張された結合アクセントの前に原文を確定する");
+            using var secondMark = native.Key(0x0301);
+            AssertPassThrough(secondMark, null);
+        }
+    }
+
+    [Test]
+    public static void Native_ExtendedCombiningAccentsRespectExplicitKana()
+    {
+        foreach (var mark in new[] { 0x1AB0, 0x1DC0, 0xFE20 })
+        {
+            using var native = new NativeSession();
+            native.Type("e", after: "world");
+            using var mode = native.Key(0, VirtualKeys.F6);
+            using var accent = native.Key(mark, after: "world");
+            AssertPassThrough(accent, "え");
+        }
+    }
+
+    [Test]
     public static void Native_CombiningMarksKeepExplicitJapaneseAndVariationForms()
     {
         foreach (var mark in new[] { 0x3099, 0xFE0F, 0xE0100 })
