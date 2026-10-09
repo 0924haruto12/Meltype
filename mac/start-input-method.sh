@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
-# Copyright (C) 2026 Yukishiro
+# Copyright (C) 2026 hrmcngs
 
 # Start in the GUI launchd session so terminal teardown cannot stop the IME.
 set -euo pipefail
