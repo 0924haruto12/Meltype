@@ -11,6 +11,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-7a96f0" alt="license"></a>
 </p>
 
+<p align="center">
+  <a href="https://trendshift.io/repositories/284759?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-284759" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/284759/daily?language=C%23" alt="yksr-melt%2FMeltype | Trendshift" width="250" height="55"/></a>
+</p>
+
 <h3 align="center">半角/全角 キーは、もう押さなくていい！</h3>
 
 <p align="center">
