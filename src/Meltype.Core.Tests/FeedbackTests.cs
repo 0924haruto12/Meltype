@@ -529,7 +529,7 @@ internal static class LanguageLearningTests
         Assert.Equal("半角", notes.ElementAtOrDefault(view.Candidates.ToList().IndexOf("@")), string.Join(" ", view.Candidates));
         Assert.Equal("全角", notes.ElementAtOrDefault(view.Candidates.ToList().IndexOf("＠")), string.Join(" ", view.Candidates));
     }
-  
+
   [Test]
   public static void Brand_TeamsFromChiimusu()
   {

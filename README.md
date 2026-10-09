@@ -221,6 +221,7 @@ General Public License for more details.
 
 - 送り方 → [CONTRIBUTING.md](CONTRIBUTING.md)
 - ビルド・仕組み → [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+- Mac の CLI ビルド → [docs/MAC-CLI.md](docs/MAC-CLI.md)、WSL / Linux の CLI ビルド → [docs/WSL.md](docs/WSL.md)
 
 <br><br>
 
