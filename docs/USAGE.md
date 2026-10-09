@@ -1,8 +1,14 @@
-# Meltype の使い方
+<a name="meltype-の使い方"></a>
+<img src="images/headings/usage/title.svg" alt="Meltype の使い方" height="80">
+
 
 [README](../README.md) の続きです。インストールは README を見てください。
 
-## 動作モード
+<br>
+
+<a name="動作モード"></a>
+<img src="images/headings/usage/01.svg" alt="動作モード" height="53"><br>
+
 
 Meltype のタスクトレイアイコンを右クリックし、次の 3 つから選びます。Meltype IME がインストールされていない場合、そのモードは選べません。
 
@@ -14,7 +20,11 @@ Meltype のタスクトレイアイコンを右クリックし、次の 3 つか
 
 もとの設計は [docs/AutoIME_technical_design_v2.md](AutoIME_technical_design_v2.md) を参照してください (開発時の仮の名前 AutoIME のときに書いたものです。Meltype キーボードは設計書の後に追加した機能です)。Meltype IME の仕組みは [docs/TSF_DESIGN.md](TSF_DESIGN.md) にあります。
 
-## Meltype IME
+<br>
+
+<a name="meltype-ime"></a>
+<img src="images/headings/usage/02.svg" alt="Meltype IME" height="53"><br>
+
 
 インストールのときに管理者権限の確認に「はい」と答えると入ります (Windows に IME として登録するため)。断った場合は Meltype キーボードで動きます。
 
@@ -29,7 +39,11 @@ Meltype のタスクトレイアイコンを右クリックし、次の 3 つか
 - Meltype キーボードにあった、コードエディター・ターミナルで「コメントと文字列の中だけ日本語」にする機能、アプリの種類ごとの「最初は英数」、カーソルの近くの「あ」「A」の表示、選んだ文字の再変換は、Meltype IME ではまだ使えません
 - 不具合を調べるときは、`%LOCALAPPDATA%\Meltype` に `tip-log` という名前の空のファイルを作ると、`tip.log` に Meltype IME の動きが残ります
 
-## Meltype キーボード
+<br>
+
+<a name="meltype-キーボード"></a>
+<img src="images/headings/usage/03.svg" alt="Meltype キーボード" height="53"><br>
+
 
 文字入力欄で英字を打つと、カーソルの下に変換ボックスが出ます。Enter を押すまで、入力欄には何も入りません。
 
@@ -245,7 +259,11 @@ Meltype キーボードを使っている間は、Windows の IME (Microsoft IME
 「入力欄とみなすアプリ」に書いたアプリでは、`V` `C` のような 1 文字のショートカットも変換ボックスに入るようになります。ショートカットを使うときは Ctrl + 半角/全角 で一時停止してください。
 Meltype キーボードの使用中は、二重に変換しないよう Microsoft IME を OFF にしておきます。
 
-## IME 自動切替
+<br>
+
+<a name="ime-自動切替"></a>
+<img src="images/headings/usage/04.svg" alt="IME 自動切替" height="53"><br>
+
 
 Microsoft IME を OFF (半角英数) のまま打ち始めると、打ち始めの数文字を保留して判定し、日本語なら IME を ON にしてから保留した文字を IME に渡し直します。
 
@@ -254,7 +272,11 @@ Microsoft IME を OFF (半角英数) のまま打ち始めると、打ち始め�
 - `kana` `sushi` `radio` `test` のような判断できない語は何もしない
 - 誤って日本語に切り替わったときは、そのまま 半角/全角 で戻す。その語は次から切り替えなくなる (学習)。逆に切り替わらなかった語で IME を ON にすると、次から切り替わるようになる
 
-## タスクトレイと設定
+<br>
+
+<a name="タスクトレイと設定"></a>
+<img src="images/headings/usage/05.svg" alt="タスクトレイと設定" height="53"><br>
+
 
 - アイコン: 青い「あ」= 日本語入力、青い「A」= 英数、灰色の「A」= 一時停止
 - **Ctrl + 半角/全角**、アイコンのダブルクリック、または Ctrl+Alt+F12 で一時停止/再開 (Ctrl+Alt+F12 が他のアプリと重なっていたら Ctrl+Alt+F11 → Ctrl+Shift+Alt+A → Ctrl+Alt+Pause の順に試します)
@@ -263,13 +285,21 @@ Microsoft IME を OFF (半角英数) のまま打ち始めると、打ち始め�
 - 設定画面の「判定テスト」欄に英字を打つと、IME 自動切替の判定結果と理由を確認できます
 - **プロファイル**: 仕事用・趣味用・SNS 用など、設定の値をまとめて切り替えられます。設定画面の上で作成・名前の変更・削除、トレイの右クリックの「プロファイル」で切り替え (Meltype の ON/OFF・動作モード・ログ・更新の設定はどのプロファイルでも共通)。「書き出す...」でファイル (`*.meltype-profile.json`) にして人に渡し、相手は「読み込む...」で新しいプロファイルとして足せます (アプリ別設定のプロセス名も入ります)
 
-## 日本語キーボードのときだけ動作させる (Windows)
+<br>
+
+<a name="日本語キーボードのときだけ動作させる-windows"></a>
+<img src="images/headings/usage/06.svg" alt="日本語キーボードのときだけ動作させる (Windows)" height="53"><br>
+
 
 トレイの「設定...」→「全般」→「日本語キーボードのときだけ動作」を ON にして「OK」を押すと、前面の入力欄で日本語のキーボード / IME が選ばれているときだけ動作します。全プロファイル共通で、既定は OFF (従来どおり) です。変更は再起動せずに反映されます。
 
 Win+Space などで韓国語・英語などに切り替えると、Meltype キーボードと IME 自動切替の両方が停止し、その言語の IME の ON/OFF も変更しません。日本語に戻すと自動で再開します。判定するのは Windows の入力言語で、物理キーボードの JIS / US 配列や「あ」「A」の状態ではありません。切り替え時に残っている未確定の変換は取り消し、まだ処理していないキーはそのまま通します。
 
-## 貼り付けで入力するアプリ (Windows)
+<br>
+
+<a name="貼り付けで入力するアプリ-windows"></a>
+<img src="images/headings/usage/07.svg" alt="貼り付けで入力するアプリ (Windows)" height="53"><br>
+
 
 確定した文字を 1 文字ずつ送ると取り違えるアプリがあります (DaVinci Resolve で「あいうえお」→「あああああ」)。設定の「アプリ」→「貼り付けで入力するアプリ」に書いたアプリ (プロセス名、カンマ区切り。最初は `Resolve.exe`) では、クリップボードを使って貼り付けで入れます。元のクリップボードの中身は 0.5 秒後に戻します。
 
@@ -277,7 +307,11 @@ Win+Space などで韓国語・英語などに切り替えると、Meltype キ�
 
 これを無効化したいアプリがある場合は、設定「貼り付けを使わないアプリ」にプロセス名を書くと、通常通り1文字ずつ送ります。
 
-## データと辞書
+<br>
+
+<a name="データと辞書"></a>
+<img src="images/headings/usage/08.svg" alt="データと辞書" height="53"><br>
+
 
 保存場所はすべて `%LOCALAPPDATA%\Meltype\` です。打った内容をネットワークに送ることはありません (通信するのは自動更新の確認だけ。[README](../README.md) の「プライバシー」)。
 
@@ -308,7 +342,11 @@ AZIK を使う場合は、見本 [romaji-azik-sample.txt](romaji-azik-sample.txt
 英語 / 日本語の自動判定は、同梱の日本語の語の一覧 (ヘボン式) で日本語らしさを見ているので、AZIK で短く打った語 (kzji = かんじ) は
 ふつうの綴りより英語と判定されやすくなります。英字になってしまうときは F6 / Shift+Space で日本語にしてください。
 
-## 制限
+<br>
+
+<a name="制限"></a>
+<img src="images/headings/usage/09.svg" alt="制限" height="53"><br>
+
 
 - 変換候補の一覧は Windows 標準の変換候補 API (TextConversionGenerator) から取るため、Microsoft IME の候補ウィンドウとは順番や数が違うことがあります。
 - 文脈に合わせた変換は、手がかり辞書 `contexts.txt` と学習にある範囲で効きます。

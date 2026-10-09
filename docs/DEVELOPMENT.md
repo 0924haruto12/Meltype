@@ -1,8 +1,14 @@
-# Meltype の開発
+<a name="meltype-の開発"></a>
+<img src="images/headings/development/title.svg" alt="Meltype の開発" height="80">
+
 
 ソースからのビルド、テスト、動作の仕組みです。使い方は [USAGE.md](USAGE.md)、貢献の方法は [CONTRIBUTING.md](../CONTRIBUTING.md)、リリースの手順は [RELEASE.md](RELEASE.md)。
 
-## ソースからビルドして入れる
+<br>
+
+<a name="ソースからビルドして入れる"></a>
+<img src="images/headings/development/01.svg" alt="ソースからビルドして入れる" height="53"><br>
+
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Install-Meltype.ps1
@@ -22,7 +28,11 @@ powershell -ExecutionPolicy Bypass -File .\Uninstall-Meltype.ps1 -RemoveData # �
 Meltype IME (入力欄に直接入力) も入れるときは、Visual Studio Build Tools の「C++ によるデスクトップ開発」(MSVC と Windows SDK) も要ります (無ければ Meltype IME を入れずに続けます。ARM64 では入れません)。
 アンインストール (`Uninstall-Meltype.ps1`) では、Meltype IME の登録も外します (登録してあれば、管理者権限の確認が出ます)。
 
-## 協力者に渡すテスト版
+<br>
+
+<a name="協力者に渡すテスト版"></a>
+<img src="images/headings/development/02.svg" alt="協力者に渡すテスト版" height="53"><br>
+
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\Build-Package.ps1
@@ -46,7 +56,11 @@ GitHub Actions の配布ジョブは、ZIP の公開前に Microsoft Defender �
 
 検査失敗時の処理は `powershell -NoProfile -File tools/Test-WindowsPackageScan.ps1` で確認できます。
 
-## 動作の仕組み
+<br>
+
+<a name="動作の仕組み"></a>
+<img src="images/headings/development/03.svg" alt="動作の仕組み" height="53"><br>
+
 
 どちらのモードも、キーボードフック (`WH_KEYBOARD_LL`) を専用スレッドで受けます。Meltype が送り直したキーには印 (`dwExtraInfo = "MELT"`) を付け、自分では判定しません。
 
@@ -81,7 +95,11 @@ IME 自動切替:
 - 保留は最大 6 文字、無入力 0.7 秒、最初の打鍵から 2.5 秒で打ち切り、そのまま出す
 - IME の切替は IMM32 → TSF → `VK_IME_ON` の順に試し、すべて失敗したら切り替えずにそのまま出す
 
-## テスト
+<br>
+
+<a name="テスト"></a>
+<img src="images/headings/development/04.svg" alt="テスト" height="53"><br>
+
 
 ```powershell
 dotnet build Meltype.sln

@@ -1,6 +1,12 @@
-# リリースの手順
+<a name="リリースの手順"></a>
+<img src="images/headings/release/title.svg" alt="リリースの手順" height="80">
 
-## 版を出す (テスト版・公開版共通)
+
+<br>
+
+<a name="版を出す-テスト版公開版共通"></a>
+<img src="images/headings/release/01.svg" alt="版を出す (テスト版・公開版共通)" height="53"><br>
+
 
 1. 版を上げる: `src/Meltype/Meltype.csproj`・`src/Meltype.Core/Meltype.Core.csproj` の `<Version>`、
    `mac/Resources/Info.plist` の `CFBundleShortVersionString`・`CFBundleVersion`、`mac/Sources/MeltypeIME/Converter.swift` の版。
@@ -8,7 +14,11 @@
 3. GitHub Actions が Windows (build.yml)・Mac (mac.yml)・Linux (linux.yml) の zip を作り、リリースに添付する。
 4. 公開版 (1.0.0 以降) なら、利用者の Meltype が自動で更新する (Windows)。
 
-## 同梱の .NET の更新
+<br>
+
+<a name="同梱の-net-の更新"></a>
+<img src="images/headings/release/02.svg" alt="同梱の .NET の更新" height="53"><br>
+
 
 配布物の .NET の版はどこにも固定していない。ビルドのたびに setup-dotnet (`10.0.x`) がその時の最新の SDK・ランタイムを入れ、
 Windows は `Build-Package.ps1` がインストール済みの最新の 10.0 のランタイムを `app\dotnet` に同梱し、Mac・Linux は NativeAOT で組み込む。
@@ -18,7 +28,11 @@ Windows は `Build-Package.ps1` がインストール済みの最新の 10.0 の
 新しい版が出ていれば「同梱の .NET を <版> に更新する (リリースし直す)」の Issue を立てる (Actions の画面から手動でも実行できる)。
 .NET のメジャー版を上げる (net10.0 → net11.0) ときは、`*.csproj` の `TargetFramework` と workflow の `dotnet-version` を手で変える。
 
-## コード署名 (任意。1.0.0 の後でよい)
+<br>
+
+<a name="コード署名-任意100-の後でよい"></a>
+<img src="images/headings/release/03.svg" alt="コード署名 (任意。1.0.0 の後でよい)" height="53"><br>
+
 
 署名しなくても配布できます (README に「詳細情報」→「実行」の案内と、zip の SHA-256 の確かめ方を書いている)。
 費用をかけない方法として、オープンソース向けに無料で署名する SignPath Foundation (要申し込み・審査、GitHub Actions でのビルドが前提) がある。
@@ -53,7 +67,11 @@ Apple Developer Program (年 99 ドル) に入り、「Developer ID Application�
 
 登録すると、mac.yml が配布用に署名し (Hardened Runtime)、公証してから zip にする。
 
-## GitHub の設定 (公開するとき)
+<br>
+
+<a name="github-の設定-公開するとき"></a>
+<img src="images/headings/release/04.svg" alt="GitHub の設定 (公開するとき)" height="53"><br>
+
 
 - リポジトリを Public にする (自動更新・Issue・bot が外から使えるようになる)。
 - Settings → Security → **Private vulnerability reporting** を ON (SECURITY.md の報告先)。
@@ -61,7 +79,11 @@ Apple Developer Program (年 99 ドル) に入り、「Developer ID Application�
 - (任意) bot の名前を変える: GitHub App を作り、変数 `BOT_APP_ID` と秘密 `BOT_APP_PRIVATE_KEY` を登録 (CONTRIBUTING.md の bot の項)。
 - 不具合報告のフォーム: [tools/report-form/README.md](../tools/report-form/README.md) の手順で作り、`src/Meltype.Core/Config/ProjectInfo.cs` の `ReportForm` に URL を書く。
 
-## パッケージマネージャー (公開版)
+<br>
+
+<a name="パッケージマネージャー-公開版"></a>
+<img src="images/headings/release/05.svg" alt="パッケージマネージャー (公開版)" height="53"><br>
+
 
 リリースの zip から、winget・Scoop・Homebrew のマニフェストを作る。
 
@@ -78,7 +100,11 @@ node tools/make-manifests.mjs 1.0.0 dist/Meltype-1.0.0-windows.zip dist/Meltype-
 
 winget・Scoop で入れた場合は Install.cmd を使わないので、Windows の起動時に起動するには、トレイの「Windows の起動時に起動」を ON にしてもらう。
 
-## 公開版 (1.0.0) の前の確認
+<br>
+
+<a name="公開版-100-の前の確認"></a>
+<img src="images/headings/release/06.svg" alt="公開版 (1.0.0) の前の確認" height="53"><br>
+
 
 - [ ] 判定・変換の精度 (v0.3.1〜v0.3.3 で変換のバグ修正・辞書の拡張)
 - [x] 協力者のお名前を載せる (README の「協力してくださった方々」)

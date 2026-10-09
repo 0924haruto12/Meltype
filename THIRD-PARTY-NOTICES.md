@@ -366,4 +366,4 @@ Meltype 本体と同じライセンス (GPL-3.0-or-later) です。
 ### README の画像
 
 - `docs/meltype.jpg`・`docs/images/logo.png` (Meltype のロゴ) は [@Crysta1221](https://github.com/Crysta1221) さんの作品です。
-- `docs/images/headings/*.svg` (README の見出し) の文字は、M PLUS Rounded 1c (Copyright 2016 The M+ Project Authors、SIL Open Font License 1.1) の字形を図形にしたものです。
+- `docs/images/headings/` の画像 (README と docs/ の見出し) の文字は、M PLUS Rounded 1c (Copyright 2016 The M+ Project Authors、SIL Open Font License 1.1) の字形を図形にしたものです。
