@@ -3,6 +3,7 @@
 # README の飾りの画像を作り直す。
 #   docs/images/demo.svg     … kyouhagoogledekensaku を打って「今日はgoogleで検索」になるまでの動き (ライブ変換。SMIL のアニメーション)
 #   docs/images/features.svg … できること のカード 3 枚
+#   docs/images/cards/*.svg  … プライバシー・開発に参加する のカード (1 枚ずつ。カードごとにリンクを付ける)
 #   pip install fonttools
 #   curl -L -o mplus.ttf https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf
 #   python3 tools/make-readme-art.py docs/images
@@ -178,8 +179,45 @@ def features(out):
     open(out, "w", encoding="utf-8").write(svg)
 
 
+def card(icon, title, lines, color, out):
+    """1 枚だけのカード (README の下の方で、カードごとにリンクを付けるため)。"""
+    g = Glyphs()
+    card_w, card_h = 280, 190
+    x, y = 8, 6
+    icon_text, _ = g.text(icon, 0, 0, 26, lambda c: "#ffffff")
+    icon_w = g.width(icon, 26)
+    title_text, _ = g.text(title, x + 24, y + 112, 24, lambda c: INK)
+    body = "".join(g.text(line, x + 24, y + 144 + k * 26, 16, lambda c: GRAY)[0] for k, line in enumerate(lines))
+    width, height = card_w + 16, card_h + 20
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="{title}">
+<title>{title}</title>
+{g.defs_xml()}
+<rect x="{x + 4}" y="{y + 5}" width="{card_w}" height="{card_h}" rx="20" fill="{color}" opacity="0.55"/>
+<rect x="{x}" y="{y}" width="{card_w}" height="{card_h}" rx="20" fill="#ffffff" stroke="{color}" stroke-width="3"/>
+<circle cx="{x + 52}" cy="{y + 50}" r="30" fill="{color}"/>
+<g transform="translate({x + 52 - icon_w / 2:.1f} {y + 59})">{icon_text}</g>
+{title_text}{body}
+</svg>
+'''
+    open(out, "w", encoding="utf-8").write(svg)
+
+
+# README の下の方のカード (ファイル名, アイコン, 題, 説明 2 行, 色)
+MORE_CARDS = [
+    ("privacy-send", "0", "打った文字は送らない", ["判定も変換も PC の中で完結。", "ネットには出しません"], BLUE),
+    ("privacy-network", "2", "通信は 2 つだけ", ["自動更新の確認と、", "自分で開いた報告のフォーム"], PINK),
+    ("privacy-storage", "PC", "保存も PC の中", ["設定・学習データ・辞書は", "%LOCALAPPDATA% の中に"], OUTLINE),
+    ("contribute-issue", "!", "不具合の報告", ["どのアプリで・何と打って・", "どうなったかを教えてください"], PINK),
+    ("contribute-dictionary", "辞", "辞書の追加", ["足りない語・社名は", "Pull Request か Issue で"], BLUE),
+    ("contribute-code", "PR", "コードで協力", ["バグの修正も新しい機能も", "Pull Request で大歓迎！"], OUTLINE),
+]
+
+
 if __name__ == "__main__":
     folder = sys.argv[1] if len(sys.argv) > 1 else "docs/images"
     demo(os.path.join(folder, "demo.svg"))
     features(os.path.join(folder, "features.svg"))
+    os.makedirs(os.path.join(folder, "cards"), exist_ok=True)
+    for name, icon, title, lines, color in MORE_CARDS:
+        card(icon, title, lines, color, os.path.join(folder, "cards", f"{name}.svg"))
     print("ok")

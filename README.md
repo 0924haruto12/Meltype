@@ -164,16 +164,24 @@ SmartScreen の警告とは別のものです。誤検知のこともありま�
 
 <img src="docs/images/headings/privacy.svg" alt="プライバシー" width="480"><br>
 
-**打った内容は、どこにも送りません。**
+<p align="center">
+  <img src="docs/images/cards/privacy-send.svg" alt="打った文字は送らない: 判定も変換も PC の中で完結" width="32%">
+  <img src="docs/images/cards/privacy-network.svg" alt="通信は 2 つだけ: 自動更新の確認と、自分で開いた報告のフォーム" width="32%">
+  <img src="docs/images/cards/privacy-storage.svg" alt="保存も PC の中: 設定・学習データ・辞書は %LOCALAPPDATA% の中に" width="32%">
+</p>
 
-- 通信するのは、自動更新の確認と、自分で開いた不具合報告のフォームだけ
-- 保存するのは `%LOCALAPPDATA%\Meltype` の設定・学習データ・ユーザー辞書 (と、ON にしたときのログ) だけ
-
-セキュリティの方針と脆弱性の連絡先は [SECURITY.md](SECURITY.md)。
+保存するのは `%LOCALAPPDATA%\Meltype` の設定・学習データ・ユーザー辞書 (と、ON にしたときのログ) だけです。
+セキュリティの方針と脆弱性の連絡先は [SECURITY.md](SECURITY.md) にあります。
 
 <br><br>
 
 <img src="docs/images/headings/license.svg" alt="ライセンス" width="480"><br>
+
+<p>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-7a96f0?style=for-the-badge" alt="GPL-3.0"></a>
+  <img src="https://img.shields.io/badge/%E5%80%8B%E4%BA%BA%E3%83%BB%E4%BC%9A%E7%A4%BE-%E7%84%A1%E6%96%99-5ec4f0?style=for-the-badge" alt="個人・会社 無料">
+  <img src="https://img.shields.io/badge/%E6%94%B9%E9%80%A0%E3%83%BB%E5%86%8D%E9%85%8D%E5%B8%83-OK-ff8ab4?style=for-the-badge" alt="改造・再配布 OK">
+</p>
 
 [GNU GPL v3.0](LICENSE)。個人でも会社でも無料。GPL v3 の条件 (改造版もソースを公開) で、改造・再配布も自由です。
 
@@ -217,11 +225,24 @@ General Public License for more details.
 - Ray
 - うぽつです ([@up2ds](https://x.com/up2ds))
 
+<a name="コードで協力してくださった方々"></a>
+<img src="docs/images/headings/readme/s03.svg" alt="コードで協力してくださった方々" height="40">
+
+<a href="https://github.com/yksr-melt/Meltype/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=yksr-melt/Meltype&max=60" alt="コードで協力してくださった方々">
+</a>
+
 <br><br>
 
 <img src="docs/images/headings/develop.svg" alt="開発に参加する" width="480"><br>
 
 不具合の報告、辞書の追加、Pull Request、どれも大歓迎です！
+
+<p align="center">
+  <a href="https://github.com/yksr-melt/Meltype/issues/new/choose"><img src="docs/images/cards/contribute-issue.svg" alt="不具合の報告" width="32%"></a>
+  <a href="CONTRIBUTING.md#辞書の追加"><img src="docs/images/cards/contribute-dictionary.svg" alt="辞書の追加" width="32%"></a>
+  <a href="CONTRIBUTING.md"><img src="docs/images/cards/contribute-code.svg" alt="コードで協力" width="32%"></a>
+</p>
 
 - 送り方 → [CONTRIBUTING.md](CONTRIBUTING.md)
 - ビルド・仕組み → [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
