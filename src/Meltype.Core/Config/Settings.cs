@@ -241,6 +241,10 @@ public sealed class Settings
      Description("変換中に同じ候補で少し (約 1.5 秒) 止まると、その候補の意味をウィクショナリー日本語版から候補の一覧の横に出します (日本語の意味が無い語は JMdict の英訳: 橋 → bridge)。同音異義語を選ぶときの手がかりに。")]
     public bool ShowCandidateMeanings { get; set; } = true;
 
+    [Category("1. 全般"), DisplayName("打ったキーを表示"),
+     Description("変換ボックスの文字の下に、打ったキー (ローマ字: kyouhagoogle) を小さく出します。打ち間違いに気づきやすくなります。Meltype キーボード (変換ボックス) のときだけ。")]
+    public bool ShowTypedKeys { get; set; } = true;
+
     [Category("1. 全般"), DisplayName("打ち間違いを直す"),
      Description("Space・Enter で変換・確定するときに打ち間違いを直します。ローマ字: 読めない子音が残ったとき、隣のキーの押し間違い・入れ替わり・抜けを 1 文字だけ直します (onegaishimsu → お願いします、sumimasne → すみません。よく使う語の読みになるときだけ)。英語: Windows の自動修正の一覧にある打ち間違いを直します (teh → the、recieve → receive)。")]
     public bool CorrectTypos { get; set; } = true;

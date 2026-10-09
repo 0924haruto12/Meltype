@@ -23,7 +23,8 @@ public sealed record CompositionView(
     string? Meaning = null,
     string? Suggestion = null,
     IReadOnlyList<string>? Predictions = null,
-    int SelectedPrediction = -1);
+    int SelectedPrediction = -1,
+    string? Typed = null);
 
 /// <summary>CompositionController が外界とやり取りする口。テストでは偽物に差し替える。</summary>
 public interface ICompositionHost
@@ -120,6 +121,9 @@ public sealed record CompositionOptions
 
     /// <summary>変換中に選んでいる候補の意味 (英訳) を変換ボックスに渡すか (設定)。</summary>
     public Func<bool> CandidateMeanings { get; init; } = () => true;
+
+    /// <summary>打ったキー (ローマ字) を変換ボックスに出すか (設定、issue #224)。</summary>
+    public Func<bool> ShowTypedKeys { get; init; } = () => false;
 
     /// <summary>選んだ英訳の記録 (普通の変換の学習より弱く効かせる)。</summary>
     public TranslationHistory? TranslationHistory { get; init; }
@@ -1889,7 +1893,8 @@ public sealed class CompositionController
                 _selectedClause,
                 CandidateNotes(selected),
                 _options.CandidateMeanings() ? CandidateMeaning(selected) : null,
-                MisspellingSuggestion()));
+                MisspellingSuggestion(),
+                Typed: TypedKeys()));
         }
         else
         {
@@ -1900,9 +1905,12 @@ public sealed class CompositionController
             if (_predictions.Count > 0) hint = "Tab 予測の候補を選ぶ　" + hint;
             var selected = _predictionIndex >= 0 ? _predictions[_predictionIndex] : null;
             _host.Show(new CompositionView(selected ?? CurrentDisplay(final: false), [], -1, false, hint, Suggestion: misspelling,
-                Predictions: _predictions.Count > 0 ? _predictions : null, SelectedPrediction: _predictionIndex));
+                Predictions: _predictions.Count > 0 ? _predictions : null, SelectedPrediction: _predictionIndex, Typed: TypedKeys()));
         }
     }
+
+    /// <summary>変換ボックスに出す、打ったキー (設定が ON のときだけ)。</summary>
+    private string? TypedKeys() => _options.ShowTypedKeys() && _text.Raw is { Length: > 0 } raw ? raw : null;
 
     /// <summary>
     /// 予測変換の候補を、今の打ちかけから作り直す。打った内容が変わったら選んでいた候補は戻す。

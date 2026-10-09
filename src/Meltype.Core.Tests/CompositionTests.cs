@@ -206,7 +206,7 @@ internal static class CompositionTests
         public Keyboard(bool live = false, bool direct = false, ConversionHistory? history = null, IKanjiConverter? converter = null,
             Func<string, IReadOnlyList<string>>? moreCandidates = null, UserDictionary? userDictionary = null, LanguageMemory? languages = null,
             TranslationDictionary? translations = null, TranslationHistory? translationHistory = null, bool slashAsMiddleDot = false, Predictor? predictor = null,
-            Func<DateTime>? now = null)
+            Func<DateTime>? now = null, bool showTypedKeys = false)
         {
             Direct = direct;
             Controller = new CompositionController(Gate, Detector, converter ?? Converter, Host, new CompositionOptions
@@ -234,6 +234,7 @@ internal static class CompositionTests
                 Punctuation = () => Punctuation,
                 SlashAsMiddleDot = () => slashAsMiddleDot,
                 Now = now ?? (() => DateTime.Now),
+                ShowTypedKeys = () => showTypedKeys,
             });
             Controller.Committed += Sigil.Append;
             Host.Replayed += e =>
@@ -446,6 +447,21 @@ internal static class CompositionTests
         Assert.Equal("😄", k.Showing);
     }
   
+    [Test]
+    public static void TypedKeys_ShownWhenEnabled()
+    {
+        // #224: 設定「打ったキーを表示」が ON なら、変換ボックスに打ったキーを渡す (変換中も)
+        var k = new Keyboard(showTypedKeys: true);
+        k.Type("kyouha");
+        Assert.Equal("kyouha", k.Host.View!.Typed);
+        k.Type(" ");
+        Assert.True(k.Host.View!.Converting, "変換中");
+        Assert.Equal("kyouha", k.Host.View!.Typed, "変換中も打ったキーを出す");
+        var off = new Keyboard();
+        off.Type("kyouha");
+        Assert.True(off.Host.View!.Typed is null, "OFF なら出さない");
+    }
+
     [Test]
     public static void Brand_GitHubFromKana()
     {
