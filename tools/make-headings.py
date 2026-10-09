@@ -2,10 +2,11 @@
 # Copyright (C) 2026 Yukishiro
 # README と docs/ の見出しの画像 (ロゴに合わせたステッカー風の SVG) を作り直す。
 # Markdown の中の <img src=".../images/headings/....svg" alt="見出し"> を探し、alt の文字で画像を作る
-# (見出しの文言は Markdown の alt を直せばよい)。ファイル名が title で始まるものは、文書の題名用の大きな画像にする。
+# (見出しの文言は Markdown の alt を直せばよい)。ファイル名が title で始まるものは文書の題名用の大きな画像、
+# s と数字で始まるもの (s01.svg) は小見出し用の小さな画像にする。
 #   pip install fonttools
 #   curl -L -o mplus.ttf https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf
-#   python3 tools/make-headings.py README.md docs/*.md
+#   python3 tools/make-headings.py README.md CODE_OF_CONDUCT.md CONTRIBUTING.md SECURITY.md docs/*.md
 # 文字は M PLUS Rounded 1c (SIL Open Font License 1.1) の字形を図形にして埋め込む (見る人の PC のフォントに左右されない)。
 import math, os, re, sys
 from fontTools.ttLib import TTFont
@@ -103,6 +104,28 @@ def title(text, out, size=58):
     open(out, "w", encoding="utf-8").write(svg)
 
 
+def sub(text, theme, out, size=30):
+    """小見出し: 小さめの文字 + 小さな雪の結晶 (破線は付けない)。"""
+    top, bottom = THEMES[theme]
+    baseline = 42
+    x0 = 44
+    d, x_end = text_path(text, size, x0, baseline)
+    width = int(x_end) + 16
+    height = 56
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="{text}">
+<title>{text}</title>
+<defs><linearGradient id="g" x1="0" y1="{baseline - size * 0.9:.1f}" x2="0" y2="{baseline + 4}" gradientUnits="userSpaceOnUse">
+<stop offset="0" stop-color="{top}"/><stop offset="1" stop-color="{bottom}"/></linearGradient></defs>
+{snowflake(20, 31, 12, top)}
+<path d="{d}" fill="{OUTLINE}" stroke="{OUTLINE}" stroke-width="8" stroke-linejoin="round" transform="translate(0 2)"/>
+<path d="{d}" fill="{OUTLINE}" stroke="{OUTLINE}" stroke-width="8" stroke-linejoin="round"/>
+<path d="{d}" fill="#ffffff" stroke="#ffffff" stroke-width="5" stroke-linejoin="round"/>
+<path d="{d}" fill="url(#g)"/>
+</svg>
+'''
+    open(out, "w", encoding="utf-8").write(svg)
+
+
 IMAGE = re.compile(r'<img src="([^"]*images/headings/[^"]+\.svg)" alt="([^"]+)"')
 
 if __name__ == "__main__":
@@ -112,8 +135,12 @@ if __name__ == "__main__":
         for path, text in IMAGE.findall(open(md, encoding="utf-8").read()):
             out = os.path.normpath(os.path.join(base, path))
             os.makedirs(os.path.dirname(out), exist_ok=True)
-            if os.path.basename(out).startswith("title"):
+            name = os.path.basename(out)
+            if name.startswith("title"):
                 title(text, out)
+            elif re.match(r"s\d", name):
+                # 小見出し (### ・ ####) は、すぐ上の見出しと同じ色にしない
+                sub(text, "pink" if index % 2 == 1 else "blue", out)
             else:
                 heading(text, "blue" if index % 2 == 0 else "pink", out)
                 index += 1

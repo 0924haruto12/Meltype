@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Copyright (C) 2026 Yukishiro
 # README の飾りの画像を作り直す。
-#   docs/images/demo.svg     … kyouhagoogledekensaku を打って「今日はgoogleで検索」になるまでの動き (SMIL のアニメーション)
+#   docs/images/demo.svg     … kyouhagoogledekensaku を打って「今日はgoogleで検索」になるまでの動き (ライブ変換。SMIL のアニメーション)
 #   docs/images/features.svg … できること のカード 3 枚
 #   pip install fonttools
 #   curl -L -o mplus.ttf https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf
@@ -62,16 +62,15 @@ def mixed_color(ch):
     return BLUE if ch.isascii() and ch.isalpha() else INK
 
 
-# 打ったキーと、そのときの変換ボックスの見え方 (--repro で確かめたもの)
+# 打ったキーと、そのときの変換ボックスの見え方。ライブ変換 (既定で ON) なので、4 文字以上の日本語は打つそばから漢字になる。
+# かな・英字の見え方は --repro で確かめたもの。漢字は変換エンジンの結果 (きょうは → 今日は、でけんさく → で検索)。
+# 変換エンジンの結果が読めない途中 (きょうはご・でけんさ など) のコマは入れない。
 TYPING = [
-    ("k", "k"), ("ky", "ky"), ("kyo", "きょ"), ("kyou", "きょう"), ("kyouh", "きょうh"), ("kyouha", "きょうは"),
-    ("kyouhag", "きょうはg"), ("kyouhago", "きょうはご"), ("kyouhagoo", "きょうはごお"), ("kyouhagoog", "きょうはgoog"),
-    ("kyouhagoogl", "きょうはgoogl"), ("kyouhagoogle", "きょうはgoogle"),
-    # kyouhagoogled の一瞬 (きょうはごogled) は、見る人に不具合と思われやすいので省く
-    ("kyouhagooglede", "きょうはgoogleで"), ("kyouhagoogledek", "きょうはgoogleでk"), ("kyouhagoogledeke", "きょうはgoogleでけ"),
-    ("kyouhagoogledeken", "きょうはgoogleでけn"), ("kyouhagoogledekens", "きょうはgoogleでけんs"),
-    ("kyouhagoogledekensa", "きょうはgoogleでけんさ"), ("kyouhagoogledekensak", "きょうはgoogleでけんさk"),
-    ("kyouhagoogledekensaku", "きょうはgoogleでけんさく"),
+    ("k", "k"), ("ky", "ky"), ("kyo", "きょ"), ("kyou", "きょう"), ("kyouh", "きょうh"), ("kyouha", "今日は"),
+    ("kyouhag", "今日はg"), ("kyouhagoog", "今日はgoog"), ("kyouhagoogl", "今日はgoogl"), ("kyouhagoogle", "今日はgoogle"),
+    ("kyouhagooglede", "今日はgoogleで"), ("kyouhagoogledek", "今日はgoogleでk"), ("kyouhagoogledeke", "今日はgoogleでけ"),
+    ("kyouhagoogledeken", "今日はgoogleでけn"), ("kyouhagoogledekens", "今日はgoogleでけんs"),
+    ("kyouhagoogledekensaku", "今日はgoogleで検索"),
 ]
 CONVERTED = "今日はgoogleで検索"
 
@@ -107,10 +106,13 @@ def demo(out):
         return line + body
 
     frames.append((0.7, keys_line("") + f'<rect x="{text_x}" y="{text_base - 36}" width="3" height="44" fill="{PINK}"><animate attributeName="opacity" values="1;0;1" dur="0.8s" repeatCount="indefinite"/></rect>'))
+    typed = 0
     for keys, display in TYPING:
-        frames.append((0.17, keys_line(keys) + composition(display, "typing")))
-    frames.append((0.9, keys_line("kyouhagoogledekensaku") + composition(TYPING[-1][1], "typing")))
-    frames.append((1.8, keys_line("kyouhagoogledekensaku", "Space で変換") + composition(CONVERTED, "converted")))
+        # 次のコマまでに打つ文字数に合わせて見せる (コマを省いたところも、同じ速さで打っているように)
+        frames[-1] = (frames[-1][0] + 0.15 * max(0, len(keys) - typed - 1), frames[-1][1]) if typed else frames[-1]
+        frames.append((0.15, keys_line(keys) + composition(display, "typing")))
+        typed = len(keys)
+    frames.append((1.6, keys_line("kyouhagoogledekensaku", "打つそばから漢字に") + composition(TYPING[-1][1], "typing")))
     frames.append((2.2, keys_line("", "Enter で確定") + composition(CONVERTED, "done")))
 
     # 確かめる用: 環境変数 DEMO_FRAME=番号 なら、そのコマだけを止めて描く

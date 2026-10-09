@@ -37,7 +37,9 @@
   <img src="docs/images/features.svg" alt="混ぜたまま打てる / コードの手も止めない / ぜんぶ PC の中で" width="100%">
 </p>
 
-#### たとえば
+<a name="たとえば"></a>
+<img src="docs/images/headings/readme/s01.svg" alt="たとえば" height="40">
+
 
 ```
 kyouhagoogledekensaku    →  今日はgoogleで検索
@@ -48,7 +50,9 @@ I want to go to the park →  I want to go to the park
 英単語は英字のまま、日本語はかな・漢字に。英文だってそのまま入ります！
 VS Code やターミナルでは英数が基本で、コメントと文字列の中だけ日本語に。AI エージェントの `/command`・`$skill`・`@ファイル名` も、変換されずにそのまま入ります。
 
-#### ほかにも
+<a name="ほかにも"></a>
+<img src="docs/images/headings/readme/s02.svg" alt="ほかにも" height="40">
+
 
 えがお → 😊 の絵文字変換、ブレスレッド → ブレスレット のような書き間違いの指摘、予測変換、アプリごとの設定など。
 
@@ -113,7 +117,7 @@ SmartScreen の警告とは別のものです。誤検知のこともありま�
 | キー | |
 |---|---|
 | <kbd>Enter</kbd> | 確定 |
-| <kbd>Space</kbd> | 漢字に変換 |
+| <kbd>Space</kbd> | 候補を出して選ぶ (4 文字以上は打つそばから漢字になる。短い語は Space で変換) |
 | <kbd>F7</kbd> / <kbd>F10</kbd> | カタカナ / 英字 |
 | <kbd>半角/全角</kbd> | 英数と日本語の切り替え |
 | <kbd>Ctrl</kbd> + <kbd>半角/全角</kbd> | Meltype を一時停止 |
