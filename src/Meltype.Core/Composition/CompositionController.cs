@@ -367,10 +367,21 @@ public sealed class CompositionController
     }
 
     /// <summary>無効化・フォーカス喪失などで、未確定の内容をそのまま確定する。</summary>
-    public void CommitPending()
+    public void CommitPending() => CommitPending(preserveLatinRaw: false, preserveText: false);
+
+    internal void CommitPending(bool preserveLatinRaw, bool preserveText)
     {
         if (_heldLetters.Length > 0) ReleaseHeldAsEnglish();
-        CommitIfAny();
+        // e + 結合アクセントを「え + アクセント」にしない。明示した表示モード・候補・かな入力は尊重する。
+        // ASCII 英字だけの原文に Latin アクセントが続く場合に限り、変換や学習を経由せず確定する。
+        if (preserveLatinRaw && !_converting && _reconversion is null && !_text.KanaInput &&
+            _text.Mode is DisplayMode.Auto or DisplayMode.HalfWidthAlphanumeric &&
+            !_text.IsEmpty && _text.Raw.All(char.IsAsciiLetter))
+        {
+            _correctable.Clear();
+            CommitText(_text.Raw, english: true, preserveText: true);
+        }
+        else CommitIfAny(preserveText);
         UpdateView();
     }
 
@@ -568,6 +579,7 @@ public sealed class CompositionController
                 CommitPrediction(_predictions[_predictionIndex]);
                 return;
             case VirtualKeys.Return:
+                if (IsProtectedInput) { CommitProtected(""); return; }
                 _text.FixTypos();
                 Commit();
                 return;
@@ -578,6 +590,8 @@ public sealed class CompositionController
                 StartConversion(preferJapanese: true);
                 return;
             case VirtualKeys.Space:
+                // 保護区間 (メンション・URL・パス) の末尾は、自動変換せず原文のまま + 半角空白で確定する。
+                if (IsProtectedInput) { CommitProtected(" "); return; }
                 if (_text.PrecedingEnglish != true && PreviewCandidates() is not null)
                 {
                     SelectCandidate(0);
@@ -736,6 +750,7 @@ public sealed class CompositionController
         _followingText = null;
         _text.PrecedingEnglish = _lastCommitEnglish;
         _text.PrecedingEnglishSentence = _lastCommitEnglish == true && IsEnglishSentence(_lastCommitText);
+        _text.PrecedingEnglishName = _lastCommitEnglish == true && IsEnglishNameContext(_lastCommitText);
         _text.FollowingEnglish = null;
         _host.RequestSurroundingText((before, after) =>
         {
@@ -746,6 +761,7 @@ public sealed class CompositionController
                 _precedingText = before;
                 if (LanguageOf(before) is { } english) _text.PrecedingEnglish = english;
                 _text.PrecedingEnglishSentence = IsEnglishSentence(before);
+                _text.PrecedingEnglishName = IsEnglishNameContext(before);
             }
             _followingText = after;
             _text.FollowingEnglish = LanguageOfStart(after);
@@ -778,6 +794,15 @@ public sealed class CompositionController
         // 行の始めの、' で縮めた英語 (I'll・We're・don't) も 1 語で英文の始まり ("I'll " の後の go)。ローマ字には ' が入らない
         if (lineStart && words is [var contraction] && System.Text.RegularExpressions.Regex.IsMatch(contraction, @"^[A-Za-z]+['’][A-Za-z]{1,2}$")) return true;
         return words.Length >= 2 && words.All(w => w.Any(char.IsAsciiLetter) && w.All(c => char.IsAsciiLetterOrDigit(c) || c is ',' or '.' or '\'' or '-' or '!' or '?' or ':' or ';'));
+    }
+
+    internal static bool IsEnglishNameContext(string? text)
+    {
+        if (!IsEnglishSentence(text)) return false;
+        var words = text!.TrimEnd().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var last = words[^1].ToLowerInvariant();
+        return last is "called" or "named" || words.Length >= 2 && last == "is" &&
+            words[^2].ToLowerInvariant() is "name" or "surname" or "nickname";
     }
 
     /// <summary>確定済みの文字列の最後の (空白以外の) 文字が英数字なら英語、かな・漢字・全角記号なら日本語。</summary>
@@ -1046,6 +1071,11 @@ public sealed class CompositionController
             var segment = segments[s];
             if (segment.IsEnglish)
             {
+                if (segment.IsProtected && !preferJapanese)
+                {
+                    clauses.Add(new Clause(segment.Raw, true, [segment.Raw]));
+                    continue;
+                }
                 var english = EnglishCandidates(segment.Raw);
                 var romaji = RomajiCandidates(segment.Raw);
                 clauses.Add(new Clause(segment.Raw, true, preferJapanese && romaji.Count > 0
@@ -1596,13 +1626,21 @@ public sealed class CompositionController
 
     // ---- 確定 ----
 
-    private void CommitIfAny()
+    private void CommitIfAny(bool preserveText = false)
     {
-        if (!_text.IsEmpty) Commit();
+        if (!_text.IsEmpty) Commit(preserveText: preserveText);
     }
 
-    private void Commit(string suffix = "", bool fixEnglish = false)
+    /// <summary>今の未確定入力が、自動では変換してはいけない保護区間か (F9/F10 などの明示指定は除く)。</summary>
+    private bool IsProtectedInput => !_converting && _text.Mode == DisplayMode.Auto && _text.HasProtectedTail;
+
+    private void Commit(string suffix = "", bool fixEnglish = false, bool preserveText = false)
     {
+        if (IsProtectedInput)
+        {
+            CommitProtected(suffix);
+            return;
+        }
         var converting = _converting && _clauses.Count > 0;
         var text = converting ? string.Concat(_clauses.Select(c => c.Text)) : CurrentDisplay(final: true);
         if (fixEnglish && !converting && _text.Mode == DisplayMode.Auto) text = FixEnglishTypo(text);
@@ -1623,7 +1661,22 @@ public sealed class CompositionController
         if (converting) Learn();
         else LearnLanguage();
         RememberPhrase(converting ? string.Concat(_clauses.Select(c => c.IsEnglish ? "" : c.Reading)) : _text.AllKana(final: true), text, english);
-        CommitText(text + suffix, english, _text.Raw, chosen);
+        CommitText(text + suffix, english, _text.Raw, chosen, preserveText);
+    }
+
+    /// <summary>
+    /// 保護区間 (メンション・URL・メール・パス) を、自動変換・かな化・幅変換・誤字補正・学習・確定後補正に
+    /// 渡さず、打った原文のまま確定する。Space は IME が半角空白を 1 つ足し、Enter は足さない。
+    /// </summary>
+    private void CommitProtected(string suffix)
+    {
+        // 表示の再計算に依存せず、打った原文そのものを使う (確定条件で区間分けが変わっても記号を変えない)。
+        var text = (_text.IsProtectedRaw ? _text.Raw : CurrentDisplay(final: true)) + suffix;
+        _converting = false;
+        _clauses = [];
+        _correctable.Clear();
+        // raw を空にして渡し、保護原文を確定後補正・学習の対象にしない (INV-06)。
+        CommitText(text, english: false, preserveText: true);
     }
 
     /// <summary>漢字を含む日本語の語句を確定したら、予測変換のために読みと一緒に覚える (英字だけ・かなのままは覚えない)。</summary>
@@ -1806,7 +1859,7 @@ public sealed class CompositionController
     }
 
     /// <summary>確定して入力する。英語だったか日本語だったか・確定した文字列を、次の入力の文脈として覚えておく。</summary>
-    private void CommitText(string text, bool english, string raw = "", bool chosen = false)
+    private void CommitText(string text, bool english, string raw = "", bool chosen = false, bool preserveText = false)
     {
         var formatEnglish = _options.AutomaticEnglishSpacing() && _text.Mode == DisplayMode.Auto;
         var spaceIntended = _spaceStartedConversion;
@@ -1821,9 +1874,9 @@ public sealed class CompositionController
         _converting = false;
         _clauses = [];
         if (text.Length == 0) return;
-        if (formatEnglish) text = EnglishPhraseSpacing.Format(text);
+        if (formatEnglish && !preserveText) text = EnglishPhraseSpacing.Format(text);
         var corrected = CorrectPreviousCommit(raw, english);
-        if (_options.SpaceAroundEnglish()) text = AddSpacesAroundEnglish(text, corrected ?? _precedingText, _followingText);
+        if (!preserveText && _options.SpaceAroundEnglish()) text = AddSpacesAroundEnglish(text, corrected ?? _precedingText, _followingText);
         // 英語とも日本語とも読める語を、文脈を決めずに (選び直さずに) 確定したときだけ、後で確定し直せるようにしておく。
         if (!chosen && _detector.IsAmbiguousWord(raw))
         {
