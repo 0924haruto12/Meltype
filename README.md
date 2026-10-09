@@ -11,39 +11,58 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-7a96f0" alt="license"></a>
 </p>
 
-日本語の中に英単語を混ぜるたびに 半角/全角 を押すのって、地味に面倒ですよね。
-Meltype は、打っている文字が日本語か英語かを見分けて、自動で切り替える日本語入力です。
+<h3 align="center">半角/全角 キーは、もう押さなくていい。</h3>
 
-```
-kyouhagoogledekensaku  →  今日はgoogleで検索
-```
+<p align="center">
+ローマ字で打つだけ。日本語か英語かは Meltype が見分けて、その場で切り替えます。
+</p>
 
-Windows 10 / 11 で使えます。Mac 版と Linux 版はプレビュー版です。
+<p align="center">
+  <a href="https://github.com/yksr-melt/Meltype/releases/latest"><b>ダウンロード</b></a>
+  &nbsp;·&nbsp;
+  <a href="docs/USAGE.md">使い方</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/yksr-melt/Meltype/issues/new/choose">不具合の報告・提案</a>
+</p>
 
 <br>
 <img src="docs/images/headings/features.svg" alt="できること" width="560">
 
-**ローマ字のまま、日本語と英語を混ぜて打てます。**
-`google` や `github` のような英単語は英字のまま、それ以外はかなや漢字になります。英文を打てば、そのまま英文が入ります。
+#### 日本語と英語を、混ぜたまま打てる
 
-**コードを書くときにも邪魔をしません。**
-VS Code やターミナルでは英数が基本で、コメントや文字列の中だけ日本語を打てます。AI エージェントの `/command` や `@ファイル名` も、変換されずにそのまま入ります。
+```
+kyouhagoogledekensaku    →  今日はgoogleで検索
+ashitanomeetingwotsuika  →  明日のmeetingを追加
+I want to go to the park →  I want to go to the park
+```
 
-**打った内容は外に送りません。**
-判定も変換も、すべて PC の中で行います。
+英単語は英字のまま、日本語はかな・漢字に。英文もそのまま入ります。
 
-ほかにも、絵文字の変換 (えがお → 😊) や、よくある書き間違いの指摘 (ブレスレッド → ブレスレット) ができます。
+#### コードを書く手も止めない
+
+VS Code やターミナルでは英数が基本。コメントと文字列の中だけ日本語になります。
+AI エージェントの `/command`・`$skill`・`@ファイル名` も、変換されずにそのまま入力。
+
+#### ぜんぶ PC の中で
+
+判定も変換もローカルで完結。打った文字を外に送ることはありません。
+
+#### ほかにも
+
+えがお → 😊 の絵文字変換、ブレスレッド → ブレスレット のような書き間違いの指摘、予測変換、アプリごとの設定など。
+
+<sub>Windows 10 / 11 に対応。Mac 版・Linux 版はプレビュー版です。</sub>
 
 <br>
 <img src="docs/images/headings/install.svg" alt="インストール" width="560">
 
-1. [Releases](https://github.com/yksr-melt/Meltype/releases/latest) から `Meltype-<version>-setup.exe` をダウンロードして開く
-2. 画面の案内に沿って進める
-3. タスクトレイに「あ」のアイコンが出たら完了
+1. [Releases](https://github.com/yksr-melt/Meltype/releases/latest) から `Meltype-<version>-setup.exe` をダウンロード
+2. 開いて、案内どおりに進める
+3. タスクトレイに「あ」が出たら準備完了
 
-管理者権限はいりません (Meltype IME を入れるときだけ確認が出ますが、断っても使えます)。新しい版が出たら自動で更新されます。
+管理者権限は不要 (Meltype IME を入れるときだけ確認が出ます。断っても使えます)。新しい版は自動で入ります。
 
-「Windows によって PC が保護されました」と出たときは、「詳細情報」→「実行」で進めてください。コード署名をしていないので、この表示が出ることがあります。
+「Windows によって PC が保護されました」と出たら、「詳細情報」→「実行」。コード署名をしていないため表示されます。
 
 <details>
 <summary>zip 版・Mac 版・Linux 版</summary>
@@ -83,10 +102,10 @@ SmartScreen の警告とは別のものです。誤検知のこともありま�
 <br>
 <img src="docs/images/headings/start.svg" alt="使い始める" width="560">
 
-メモ帳やブラウザーで、そのままローマ字で打ってみてください。
+あとは、いつもどおりローマ字で打つだけ。
 
-Meltype IME を入れた場合は、<kbd>Win</kbd> + <kbd>Space</kbd> で「Meltype」を選びます。文字は入力欄に直接入り、候補は入力位置の下に出ます。
-入れていない場合は、カーソルの下に小さな変換ボックスが出ます。
+- **Meltype IME を入れた場合**: <kbd>Win</kbd> + <kbd>Space</kbd> で「Meltype」を選ぶ。文字は入力欄に直接入り、候補は入力位置の下に
+- **入れていない場合**: カーソルの下に変換ボックスが出る
 
 | キー | |
 |---|---|
@@ -96,9 +115,8 @@ Meltype IME を入れた場合は、<kbd>Win</kbd> + <kbd>Space</kbd> で「Melt
 | <kbd>半角/全角</kbd> | 英数と日本語の切り替え |
 | <kbd>Ctrl</kbd> + <kbd>半角/全角</kbd> | Meltype を一時停止 |
 
-<kbd>F10</kbd> で英字にして確定した語は、次から英字で出るようになります。
-よく使う言葉は、トレイのアイコンの右クリックメニューにある「ユーザー辞書...」で登録できます。
-細かい使い方は [docs/USAGE.md](docs/USAGE.md) にまとめています。
+<kbd>F10</kbd> で英字に直した語は、次から英字で出ます。使うほど自分に合っていきます。
+よく使う言葉は、トレイのメニューの「ユーザー辞書...」から登録。くわしくは [docs/USAGE.md](docs/USAGE.md)。
 
 <br>
 <img src="docs/images/headings/faq.svg" alt="よくある質問" width="560">
@@ -106,8 +124,8 @@ Meltype IME を入れた場合は、<kbd>Win</kbd> + <kbd>Space</kbd> で「Melt
 <details>
 <summary>タスクバーの IME の表示がずっと「A」のまま</summary>
 
-故障ではありません。Meltype が Windows の IME を止めて、代わりに入力を受け持っているためです。
-今のモードは、入力欄に入ったときにカーソルの近くに出る「あ」「A」や、トレイのアイコンで分かります。
+故障ではありません。Meltype が Windows の IME に代わって入力を受け持っているためです。
+今のモードは、カーソルの近くに出る「あ」「A」か、トレイのアイコンで確認できます。
 
 </details>
 
@@ -121,36 +139,35 @@ Meltype IME を入れた場合は、<kbd>Win</kbd> + <kbd>Space</kbd> で「Melt
 <details>
 <summary>英語のつもりがかなに、かなのつもりが英字になった</summary>
 
-<kbd>F10</kbd> (英字) か <kbd>F6</kbd> (ひらがな) で直してから確定すると、次からはその語を直した方で出します。
-トレイの右クリックメニューの「自動判定の強さ」でも調整できます。
+<kbd>F10</kbd> (英字) か <kbd>F6</kbd> (ひらがな) で直して確定すれば、次からはその語を覚えています。
+トレイのメニューの「自動判定の強さ」でも調整できます。
 
 </details>
 
 <details>
 <summary>おかしな動きを見つけた</summary>
 
-トレイのアイコンの右クリックメニューにある「不具合の報告・提案...」から送ってください。
-どのアプリで、何と打って、どうなったかを書いてもらえると助かります。
+トレイのメニューの「不具合の報告・提案...」から送れます。
+「どのアプリで」「何と打って」「どうなったか」があると、すぐに調べられます。
 
 </details>
 
 <br>
 <img src="docs/images/headings/privacy.svg" alt="プライバシー" width="560">
 
-Meltype はキーボードの入力を見て動きますが、打った内容をネットワークに送ることはありません。
+**打った内容は、どこにも送りません。**
 
-通信するのは、自動更新で新しい版があるかを確かめるときと、自分で開いた不具合報告のフォームだけです。
-PC に保存するのは、`%LOCALAPPDATA%\Meltype` の設定・学習データ・ユーザー辞書と、ファイルログを ON にしたときのログだけです。
+- 通信するのは、自動更新の確認と、自分で開いた不具合報告のフォームだけ
+- 保存するのは `%LOCALAPPDATA%\Meltype` の設定・学習データ・ユーザー辞書 (と、ON にしたときのログ) だけ
 
-セキュリティの方針と、脆弱性を見つけたときの連絡先は [SECURITY.md](SECURITY.md) にあります。
+セキュリティの方針と脆弱性の連絡先は [SECURITY.md](SECURITY.md)。
 
 <br>
 <img src="docs/images/headings/license.svg" alt="ライセンス" width="560">
 
-Meltype は [GNU GPL v3.0](LICENSE) で公開しています。
-個人でも会社でも無料で使えますし、GPL v3 の条件 (改造したらソースも公開する) を守れば、改造や再配布も自由です。
+[GNU GPL v3.0](LICENSE)。個人でも会社でも無料。GPL v3 の条件 (改造版もソースを公開) で、改造・再配布も自由です。
 
-ソースを公開せずに製品へ組み込みたいなど、GPL v3 の条件では使えない場合は、メールでご相談ください: ibutya0319@gmail.com
+ソースを公開せずに製品へ組み込みたいなど、GPL v3 で使えない場合はご相談ください: ibutya0319@gmail.com
 
 <details>
 <summary>著作権表示・同梱物</summary>
@@ -177,7 +194,7 @@ General Public License for more details.
 <br>
 <img src="docs/images/headings/thanks.svg" alt="協力してくださった方々" width="560">
 
-テスト版を使って、不具合の報告や意見をくださった方々です。本当にありがとうございました (敬称略)。
+テスト版で不具合の報告や意見をくださった皆さん、ありがとうございました (敬称略)。
 
 くらいど！ ([@Kuraido8888](https://x.com/Kuraido8888)) ・
 しぐれ ([@Akisameee0465](https://x.com/Akisameee0465)) ・
@@ -192,5 +209,7 @@ Ray ・
 <br>
 <img src="docs/images/headings/develop.svg" alt="開発に参加する" width="560">
 
-不具合の報告や辞書の追加、Pull Request はいつでも歓迎です。
-送り方は [CONTRIBUTING.md](CONTRIBUTING.md)、ビルドや仕組みは [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) にまとめています。
+不具合の報告、辞書の追加、Pull Request、どれも大歓迎です。
+
+- 送り方 → [CONTRIBUTING.md](CONTRIBUTING.md)
+- ビルド・仕組み → [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
