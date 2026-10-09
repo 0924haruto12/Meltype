@@ -34,7 +34,7 @@ class IntegrationTests(unittest.TestCase):
         cls.addClassCleanup(cls.data.cleanup)
         os.environ["MELTYPE_DATA_DIR"] = cls.data.name
         (Path(cls.data.name) / "config.json").write_text(json.dumps({
-            "SpaceAroundEnglish": True, "LiveConversion": False}), encoding="utf-8")
+            "SpaceAroundEnglish": True, "LiveConversion": False, "SigilWordsDirect": False}), encoding="utf-8")
         loader = importlib.machinery.SourceFileLoader(
             "meltype_integration_product", str(cls.package / "ibus-engine-meltype"))
         spec = importlib.util.spec_from_loader(loader.name, loader)

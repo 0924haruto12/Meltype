@@ -38,7 +38,7 @@ def main():
         (contents / 'Info.plist').write_bytes(plistlib.dumps({
             'CFBundleExecutable': executable.name, 'CFBundleIdentifier': 'local.meltype.EventTests',
             'CFBundlePackageType': 'APPL'}))
-        filenames = ['NativeCore.swift', 'InputController.swift', 'KeyMapping.swift']
+        filenames = ['NativeCore.swift', 'InputController.swift', 'KeyMapping.swift', 'MacUserDictionary.swift']
         if args.real_converter:
             package = root / 'package'
             target = package / 'Sources/EventTests'
@@ -85,7 +85,7 @@ swiftSettings: [.define("REAL_CONVERTER")], linkerSettings: [.linkedFramework("I
                             '-framework', 'InputMethodKit', '-framework', 'Carbon', '-o', str(executable)], check=True)
         data = root / 'data'
         data.mkdir()
-        (data / 'config.json').write_text(json.dumps({'SpaceAroundEnglish': True, 'LiveConversion': False}))
+        (data / 'config.json').write_text(json.dumps({'SpaceAroundEnglish': True, 'LiveConversion': False, 'SigilWordsDirect': False}))
         env = os.environ.copy()
         env['MELTYPE_DATA_DIR'] = str(data)
         subprocess.run([str(executable)], env=env, check=True)

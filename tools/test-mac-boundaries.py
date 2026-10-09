@@ -35,11 +35,11 @@ def main():
         subprocess.run(["xcrun", "swiftc", "-swift-version", "5",
                         str(repo / "tools/test-mac-boundaries.swift"),
                         *[str(repo / "mac/Sources/MeltypeIME" / name)
-                          for name in ("NativeCore.swift", "InputController.swift", "KeyMapping.swift")],
+                          for name in ("NativeCore.swift", "InputController.swift", "KeyMapping.swift", "MacUserDictionary.swift")],
                         "-framework", "InputMethodKit", "-framework", "Carbon", "-o", str(executable)], check=True)
         data = root / "data"
         data.mkdir()
-        (data / "config.json").write_text(json.dumps({"SpaceAroundEnglish": True}), encoding="utf-8")
+        (data / "config.json").write_text(json.dumps({"SpaceAroundEnglish": True, "SigilWordsDirect": False}), encoding="utf-8")
         env = os.environ.copy()
         env["MELTYPE_DATA_DIR"] = str(data)
         subprocess.run([str(executable)], env=env, check=True)

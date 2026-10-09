@@ -89,7 +89,7 @@ class PrivateDaemonTests(unittest.TestCase):
         cls.socket = cls.root / "ibus.socket"
         cls.set_environment("IBUS_ADDRESS", "unix:path=" + str(cls.socket))
         (cls.root / "settings/config.json").write_text(json.dumps({
-            "LiveConversion": False, "SpaceAroundEnglish": True}), encoding="utf-8")
+            "LiveConversion": False, "SpaceAroundEnglish": True, "SigilWordsDirect": False}), encoding="utf-8")
 
         # Set the private addresses before GI or the native library is initialized.
         import gi
