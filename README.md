@@ -2,7 +2,9 @@
 
 <div align="center">
 
-<img src="docs/images/banner.svg" alt="Meltype — 雪解けのように、半角/全角の壁を溶かす日本語入力。" width="100%">
+<img src="docs/meltype.jpg" alt="Meltype (めるたいぷ) — 半角/全角のかべを、とかす。" width="100%">
+
+<sub>ロゴ: <a href="https://github.com/Crysta1221">@Crysta1221</a></sub>
 
 <br>
 
@@ -150,6 +152,8 @@ Meltype は **GNU General Public License v3.0** ([LICENSE](LICENSE)) で公開�
 - GPL v3 の条件で使えない場合 (製品に組み込んでソースを公開せずに配布したいなど、非公開で利用したい場合) は、メールでご相談ください: ibutya0319@gmail.com
 
 貢献の方法と貢献者ライセンス同意 (CLA) は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+
+Meltype のロゴ ([docs/meltype.jpg](docs/meltype.jpg)) は [@Crysta1221](https://github.com/Crysta1221) さんの作品です。
 
 ソースファイルの先頭には `SPDX-License-Identifier: GPL-3.0-or-later` を付けています。配布用パッケージに同梱している .NET ランタイム (MIT ライセンス) と、実行時に使う Windows の機能は [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) を参照してください。アプリのバージョン・著作権・ライセンスは、トレイの「Meltype について...」で確認できます。
 
