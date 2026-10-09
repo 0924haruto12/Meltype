@@ -213,6 +213,21 @@ General Public License for more details.
 
 <img src="docs/images/headings/thanks.svg" alt="協力してくださった方々" width="480"><br>
 
+<a name="super-thanks"></a>
+<img src="docs/images/headings/readme/s04.svg" alt="Super Thanks" height="40">
+
+<table>
+  <tr>
+    <td align="center">
+      <a href="https://github.com/Crysta1221"><img src="https://github.com/Crysta1221.png?size=200" width="100" alt="@Crysta1221"><br><b>@Crysta1221</b></a><br>
+      <sub>Meltype のロゴ</sub>
+    </td>
+  </tr>
+</table>
+
+<a name="テスト版で協力してくださった方々"></a>
+<img src="docs/images/headings/readme/s05.svg" alt="テスト版で協力してくださった方々" height="40">
+
 テスト版で不具合の報告や意見をくださった皆さん、本当にありがとうございました！ (敬称略)
 
 - くらいど！ ([@Kuraido8888](https://x.com/Kuraido8888))
