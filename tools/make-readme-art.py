@@ -195,6 +195,8 @@ def drawn_icon(kind, cx, cy):
         "bug": f'<ellipse cx="{cx}" cy="{cy + 3}" rx="7" ry="10" {st}/><path d="M{cx} {cy - 7} v20 M{cx - 7} {cy} h-6 M{cx + 7} {cy} h6 M{cx - 7} {cy + 7} l-5 4 M{cx + 7} {cy + 7} l5 4 M{cx - 6} {cy - 4} l-5 -4 M{cx + 6} {cy - 4} l5 -4 M{cx - 3} {cy - 9} l-3 -5 M{cx + 3} {cy - 9} l3 -5" {st}/>',
         # 開いた本
         "book": f'<path d="M{cx} {cy - 7} c-4 -4 -10 -4 -15 -3 v19 c5 -1 11 -1 15 3 c4 -4 10 -4 15 -3 v-19 c-5 -1 -11 -1 -15 3 z M{cx} {cy - 7} v19" {st}/>',
+        # ！ (不具合の報告)
+        "exclaim": f'<path d="M{cx} {cy - 13} v16" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/><circle cx="{cx}" cy="{cy + 12}" r="3" fill="#ffffff"/>',
         # Pull Request の枝分かれ
         "pr": f'<circle cx="{cx - 8}" cy="{cy - 10}" r="3.5" {st}/><circle cx="{cx - 8}" cy="{cy + 11}" r="3.5" {st}/><circle cx="{cx + 9}" cy="{cy + 11}" r="3.5" {st}/><path d="M{cx - 8} {cy - 6} v13 M{cx + 9} {cy + 7} v-9 a5 5 0 0 0 -5 -5 h-5 M{cx + 2} {cy - 10} l-3 3 l3 3" {st}/>',
     }
@@ -231,7 +233,7 @@ MORE_CARDS = [
     ("privacy-send", "lock", "打った文字は送らない", ["判定も変換も PC の中で完結。", "ネットには出しません"], BLUE),
     ("privacy-network", "cloud", "通信は 2 つだけ", ["自動更新の確認と、", "自分で開いた報告のフォーム"], PINK),
     ("privacy-storage", "pc", "保存も PC の中", ["設定・学習データ・辞書は", "%LOCALAPPDATA% の中に"], OUTLINE),
-    ("contribute-issue", "bug", "不具合の報告", ["どのアプリで・何と打って・", "どうなったかを教えてください"], PINK),
+    ("contribute-issue", "exclaim", "不具合の報告", ["どのアプリで・何と打って・", "どうなったかを教えてください"], PINK),
     ("contribute-dictionary", "book", "辞書の追加", ["足りない語・社名は", "Pull Request か Issue で"], BLUE),
     ("contribute-code", "pr", "コードで協力", ["バグの修正も新しい機能も", "Pull Request で大歓迎！"], OUTLINE),
 ]
