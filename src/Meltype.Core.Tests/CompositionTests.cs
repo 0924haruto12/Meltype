@@ -448,6 +448,22 @@ internal static class CompositionTests
     }
   
     [Test]
+    public static void Now_ChosenTimeIsNotLearned()
+    {
+        // いま → 17:22 を選んで確定しても覚えない (覚えると、次の いま で古い時刻が最初に出る)
+        var history = new ConversionHistory(null);
+        var k = new Keyboard(history: history, now: () => new DateTime(2026, 10, 8, 17, 22, 0));
+        k.Type("ima ");
+        var first = k.Showing;
+        for (var i = 0; i < 30 && k.Showing != "17:22"; i++) k.Press(VirtualKeys.Space);
+        Assert.Equal("17:22", k.Showing, "時刻の候補まで進める");
+        k.Type("\n");
+        var next = new Keyboard(history: history, now: () => new DateTime(2026, 10, 8, 18, 5, 0));
+        next.Type("ima ");
+        Assert.Equal(first, next.Showing, "最初の候補は前と同じ (時刻を覚えていない)");
+    }
+
+    [Test]
     public static void TypedKeys_ShownWhenEnabled()
     {
         // #224: 設定「打ったキーを表示」が ON なら、変換ボックスに打ったキーを渡す (変換中も)

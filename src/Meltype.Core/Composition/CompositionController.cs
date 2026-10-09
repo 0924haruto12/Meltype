@@ -1374,12 +1374,21 @@ public sealed class CompositionController
         var day = WeekDays[(int)now.DayOfWeek];
         var date = $"{now.Year}年{now.Month}月{now.Day}日";
         var monthDay = $"{now.Month}月{now.Day}日";
+        // 区切りの / と : は、Windows の地域の設定に左右されないように数字から組み立てる (DateTime の書式の / : は地域の区切りになる)
+        var slashDate = $"{now.Year:D4}/{now.Month:D2}/{now.Day:D2}";
+        var clock = $"{now.Hour:D2}:{now.Minute:D2}";
         if (!isNow)
-            return [date, $"{date}({day})", monthDay, $"{monthDay}({day})", $"{now:yyyy/MM/dd}", $"{now:yyyy-MM-dd}", $"{day}曜日"];
+            return [date, $"{date}({day})", monthDay, $"{monthDay}({day})", slashDate, $"{now.Year:D4}-{now.Month:D2}-{now.Day:D2}", $"{day}曜日"];
         var time = $"{now.Hour}時{now.Minute}分";
-        return [$"{now:HH:mm}", time, $"{(now.Hour < 12 ? "午前" : "午後")}{now.Hour % 12}時{now.Minute}分",
-            $"{date}({day}) {time}", $"{monthDay}({day}) {time}", $"{date}({day}) {now:HH:mm}", $"{now:yyyy/MM/dd HH:mm}"];
+        return [clock, time, $"{(now.Hour < 12 ? "午前" : "午後")}{now.Hour % 12}時{now.Minute}分",
+            $"{date}({day}) {time}", $"{monthDay}({day}) {time}", $"{date}({day}) {clock}", $"{slashDate} {clock}"];
     }
+
+    /// <summary>
+    /// 日付・時刻の候補 (いま → 17:22、きょう → 10月9日) を選んだ文節か。学習しない (覚えると、次に打ったときに古い日時が最初に出る)。
+    /// </summary>
+    private static bool IsDateTimeChoice(Clause clause) =>
+        (NowReadings.Contains(clause.Reading) || clause.Reading == "きょう") && (clause.Text.Any(char.IsAsciiDigit) || clause.Text.EndsWith("曜日", StringComparison.Ordinal));
 
     /// <summary>絵文字・顔文字の候補を、最後に並べる順 (逆順: いちばんよく使うものが最後) で。</summary>
     private IEnumerable<string> EmojiBlock(string reading) =>
@@ -1763,6 +1772,7 @@ public sealed class CompositionController
             if (clause.Text == clause.Reading || clause.Text == CompositionText.ToKatakana(clause.Reading) || clause.Text == clause.Raw) continue;
             // 英訳は上で英訳の記録に入れた (ここで覚えると次から 1 番目に出てしまう)。
             if (clause.Translations.Contains(clause.Text)) continue;
+            if (IsDateTimeChoice(clause)) continue;
             history.Remember(clause.Reading, clause.Text);
         }
     }
@@ -1785,7 +1795,7 @@ public sealed class CompositionController
         }
         foreach (var clause in _clauses)
         {
-            if (clause.IsEnglish || clause.Text == clause.Raw || clause.Translations.Contains(clause.Text) || clause.Reading.Any(char.IsAsciiLetterOrDigit))
+            if (clause.IsEnglish || clause.Text == clause.Raw || clause.Translations.Contains(clause.Text) || clause.Reading.Any(char.IsAsciiLetterOrDigit) || IsDateTimeChoice(clause))
             {
                 Flush();
                 continue;
