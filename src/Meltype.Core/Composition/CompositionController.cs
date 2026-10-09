@@ -45,6 +45,15 @@ public interface ICompositionHost
     void DeleteBackward(int count);
 
     /// <summary>
+    /// キャレットの前の count 文字を text に置き換える (確定し直すとき)。消すのと入れるのを、間に何も挟まらないようにまとめて送る。
+    /// </summary>
+    void ReplaceBackward(int count, string text)
+    {
+        DeleteBackward(count);
+        CommitText(text);
+    }
+
+    /// <summary>
     /// 入力欄の確定済みの文字を消せるか。消せない入力欄 (Linux で周りの文字の削除に対応していないアプリ) では、
     /// 確定し直すと元の文字が残ったまま書き足されてしまう (api → apiあぴ) ので、確定し直さない。
     /// </summary>
@@ -1708,8 +1717,7 @@ public sealed class CompositionController
         if (replacement is null || replacement == original) return;
 
         Diagnostics.Log.Decision($"前後の文脈に合わせて確定し直しました: {Diagnostics.Log.Text(original)}→{Diagnostics.Log.Text(replacement)}");
-        _host.DeleteBackward(original.Length);
-        _host.CommitText(replacement);
+        _host.ReplaceBackward(original.Length, replacement);
         _lastCommitText = replacement;
         _correctable.Clear();
     }
