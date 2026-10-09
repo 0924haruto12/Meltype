@@ -11,10 +11,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-7a96f0" alt="license"></a>
 </p>
 
-<h3 align="center">半角/全角 キーは、もう押さなくていい。</h3>
+<h3 align="center">半角/全角 キーは、もう押さなくていい！</h3>
 
 <p align="center">
-ローマ字で打つだけ。日本語か英語かは Meltype が見分けて、その場で切り替えます。
+ローマ字で打つだけ。日本語か英語かは Meltype が見分けて、その場で切り替えます！
 </p>
 
 <p align="center">
@@ -29,7 +29,7 @@
 
 <img src="docs/images/headings/features.svg" alt="できること" width="480"><br>
 
-#### 日本語と英語を、混ぜたまま打てる
+#### 日本語と英語を、混ぜたまま打てる！
 
 ```
 kyouhagoogledekensaku    →  今日はgoogleで検索
@@ -37,9 +37,9 @@ ashitanomeetingwotsuika  →  明日のmeetingを追加
 I want to go to the park →  I want to go to the park
 ```
 
-英単語は英字のまま、日本語はかな・漢字に。英文もそのまま入ります。
+英単語は英字のまま、日本語はかな・漢字に。英文だってそのまま入ります。
 
-#### コードを書く手も止めない
+#### コードを書く手も止めない！
 
 VS Code やターミナルでは英数が基本。コメントと文字列の中だけ日本語になります。
 AI エージェントの `/command`・`$skill`・`@ファイル名` も、変換されずにそのまま入力。
@@ -60,7 +60,7 @@ AI エージェントの `/command`・`$skill`・`@ファイル名` も、変換
 
 1. [Releases](https://github.com/yksr-melt/Meltype/releases/latest) から `Meltype-<version>-setup.exe` をダウンロード
 2. 開いて、案内どおりに進める
-3. タスクトレイに「あ」が出たら準備完了
+3. タスクトレイに「あ」が出たら準備完了！
 
 管理者権限は不要 (Meltype IME を入れるときだけ確認が出ます。断っても使えます)。新しい版は自動で入ります。
 
@@ -105,7 +105,7 @@ SmartScreen の警告とは別のものです。誤検知のこともありま�
 
 <img src="docs/images/headings/start.svg" alt="使い始める" width="480"><br>
 
-あとは、いつもどおりローマ字で打つだけ。
+あとは、いつもどおりローマ字で打つだけ！
 
 - **Meltype IME を入れた場合**: <kbd>Win</kbd> + <kbd>Space</kbd> で「Meltype」を選ぶ。文字は入力欄に直接入り、候補は入力位置の下に
 - **入れていない場合**: カーソルの下に変換ボックスが出る
@@ -118,7 +118,7 @@ SmartScreen の警告とは別のものです。誤検知のこともありま�
 | <kbd>半角/全角</kbd> | 英数と日本語の切り替え |
 | <kbd>Ctrl</kbd> + <kbd>半角/全角</kbd> | Meltype を一時停止 |
 
-<kbd>F10</kbd> で英字に直した語は、次から英字で出ます。使うほど自分に合っていきます。
+<kbd>F10</kbd> で英字に直した語は、次から英字で出ます。使うほど自分に合っていきます！
 よく使う言葉は、トレイのメニューの「ユーザー辞書...」から登録。くわしくは [docs/USAGE.md](docs/USAGE.md)。
 
 <br><br>
@@ -201,23 +201,23 @@ General Public License for more details.
 
 <img src="docs/images/headings/thanks.svg" alt="協力してくださった方々" width="480"><br>
 
-テスト版で不具合の報告や意見をくださった皆さん、ありがとうございました (敬称略)。
+テスト版で不具合の報告や意見をくださった皆さん、本当にありがとうございました！ (敬称略)
 
-くらいど！ ([@Kuraido8888](https://x.com/Kuraido8888)) ・
-しぐれ ([@Akisameee0465](https://x.com/Akisameee0465)) ・
-琴音Link ・
-あげちゃ ・
-うな ([@una08142009](https://x.com/una08142009)) ・
-かふぇらて ([@cafely_latte](https://x.com/cafely_latte)) ・
-ウパー ([@upah_setu](https://x.com/upah_setu)) ・
-Ray ・
-うぽつです ([@up2ds](https://x.com/up2ds))
+- くらいど！ ([@Kuraido8888](https://x.com/Kuraido8888))
+- しぐれ ([@Akisameee0465](https://x.com/Akisameee0465))
+- 琴音Link
+- あげちゃ
+- うな ([@una08142009](https://x.com/una08142009))
+- かふぇらて ([@cafely_latte](https://x.com/cafely_latte))
+- ウパー ([@upah_setu](https://x.com/upah_setu))
+- Ray
+- うぽつです ([@up2ds](https://x.com/up2ds))
 
 <br><br>
 
 <img src="docs/images/headings/develop.svg" alt="開発に参加する" width="480"><br>
 
-不具合の報告、辞書の追加、Pull Request、どれも大歓迎です。
+不具合の報告、辞書の追加、Pull Request、どれも大歓迎です！
 
 - 送り方 → [CONTRIBUTING.md](CONTRIBUTING.md)
 - ビルド・仕組み → [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
