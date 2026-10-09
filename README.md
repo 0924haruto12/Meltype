@@ -213,3 +213,14 @@ Ray ・
 
 - 送り方 → [CONTRIBUTING.md](CONTRIBUTING.md)
 - ビルド・仕組み → [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+
+<br>
+<img src="docs/images/headings/stars.svg" alt="Star History" width="560">
+
+<a href="https://www.star-history.com/?repos=yksr-melt%2FMeltype&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=yksr-melt/Meltype&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=yksr-melt/Meltype&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=yksr-melt/Meltype&type=date&legend=top-left" />
+ </picture>
+</a>
