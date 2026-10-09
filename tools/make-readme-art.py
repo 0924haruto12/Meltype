@@ -1,0 +1,183 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2026 Yukishiro
+# README の飾りの画像を作り直す。
+#   docs/images/demo.svg     … kyouhagoogledekensaku を打って「今日はgoogleで検索」になるまでの動き (SMIL のアニメーション)
+#   docs/images/features.svg … できること のカード 3 枚
+#   pip install fonttools
+#   curl -L -o mplus.ttf https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/mplusrounded1c/MPLUSRounded1c-ExtraBold.ttf
+#   python3 tools/make-readme-art.py docs/images
+# 文字は M PLUS Rounded 1c (SIL Open Font License 1.1) の字形を図形にして埋め込む。
+# デモの途中の表示は、Meltype の本物の判定で打ったときの見え方 (src/Meltype.Core.Tests の --repro で確かめたもの)。
+import os, sys
+from fontTools.ttLib import TTFont
+from fontTools.pens.svgPathPen import SVGPathPen
+from fontTools.pens.transformPen import TransformPen
+
+font = TTFont(os.environ.get("MPLUS_FONT", "mplus.ttf"))
+glyph_set = font.getGlyphSet()
+cmap = font.getBestCmap()
+upm = font["head"].unitsPerEm
+hmtx = font["hmtx"]
+
+BLUE, PINK, OUTLINE, INK, GRAY = "#3aaee8", "#ff6f9f", "#7391ee", "#33415c", "#8a94a8"
+
+
+class Glyphs:
+    """使った字形を 1 回だけ <defs> に入れ、<use> で並べる (同じ字を何度も描くアニメーションを小さくするため)。"""
+
+    def __init__(self):
+        self.defs = {}
+
+    def glyph_id(self, ch):
+        name = cmap.get(ord(ch))
+        if name is None:
+            return None, 0
+        gid = "g%x" % ord(ch)
+        if gid not in self.defs:
+            pen = SVGPathPen(glyph_set)
+            glyph_set[name].draw(TransformPen(pen, (1, 0, 0, -1, 0, 0)))
+            self.defs[gid] = f'<path id="{gid}" d="{pen.getCommands()}"/>'
+        return gid, hmtx[name][0]
+
+    def width(self, text, size):
+        return sum(hmtx[cmap[ord(c)]][0] for c in text if ord(c) in cmap) * size / upm
+
+    def text(self, text, x, baseline, size, color_of):
+        """文字列を <use> で並べる。color_of(文字) で 1 文字ずつ色を決める。終わりの x を返す。"""
+        scale = size / upm
+        parts = []
+        for ch in text:
+            gid, advance = self.glyph_id(ch)
+            if gid:
+                parts.append(f'<use href="#{gid}" transform="translate({x:.1f} {baseline}) scale({scale:.4f})" fill="{color_of(ch)}"/>')
+            x += advance * scale
+        return "".join(parts), x
+
+    def defs_xml(self):
+        return "<defs>" + "".join(self.defs.values()) + "</defs>"
+
+
+def mixed_color(ch):
+    # 英字は水色、かな・漢字は濃い紺 (日本語と英語が見分けられているのが分かるように)
+    return BLUE if ch.isascii() and ch.isalpha() else INK
+
+
+# 打ったキーと、そのときの変換ボックスの見え方 (--repro で確かめたもの)
+TYPING = [
+    ("k", "k"), ("ky", "ky"), ("kyo", "きょ"), ("kyou", "きょう"), ("kyouh", "きょうh"), ("kyouha", "きょうは"),
+    ("kyouhag", "きょうはg"), ("kyouhago", "きょうはご"), ("kyouhagoo", "きょうはごお"), ("kyouhagoog", "きょうはgoog"),
+    ("kyouhagoogl", "きょうはgoogl"), ("kyouhagoogle", "きょうはgoogle"),
+    # kyouhagoogled の一瞬 (きょうはごogled) は、見る人に不具合と思われやすいので省く
+    ("kyouhagooglede", "きょうはgoogleで"), ("kyouhagoogledek", "きょうはgoogleでk"), ("kyouhagoogledeke", "きょうはgoogleでけ"),
+    ("kyouhagoogledeken", "きょうはgoogleでけn"), ("kyouhagoogledekens", "きょうはgoogleでけんs"),
+    ("kyouhagoogledekensa", "きょうはgoogleでけんさ"), ("kyouhagoogledekensak", "きょうはgoogleでけんさk"),
+    ("kyouhagoogledekensaku", "きょうはgoogleでけんさく"),
+]
+CONVERTED = "今日はgoogleで検索"
+
+
+def demo(out):
+    g = Glyphs()
+    width, height = 760, 210
+    frames = []  # (秒, 中身)
+    card_x, card_y, card_w, card_h = 20, 18, width - 40, height - 40
+    text_x, text_base, size = 56, 128, 40
+    keys_base, keys_size = 72, 20
+
+    def keys_line(keys, note=""):
+        label, x = g.text("打ったキー", card_x + 28, keys_base, 16, lambda c: GRAY)
+        typed, x = g.text(keys, x + 14, keys_base, keys_size, lambda c: PINK)
+        badge = ""
+        if note:
+            nw = g.width(note, 18) + 28
+            bx = width - card_x - 28 - nw
+            badge_text, _ = g.text(note, bx + 14, keys_base, 18, lambda c: "#ffffff")
+            badge = f'<rect x="{bx:.0f}" y="{keys_base - 21}" width="{nw:.0f}" height="28" rx="14" fill="{PINK}"/>{badge_text}'
+        return label + typed + badge
+
+    def composition(display, style):
+        body, x_end = g.text(display, text_x, text_base, size, mixed_color if style != "converted" else lambda c: BLUE if c.isascii() else INK)
+        line = ""
+        if style == "typing":
+            line = f'<path d="M{text_x} {text_base + 12} H{x_end:.0f}" stroke="{INK}" stroke-width="2" stroke-dasharray="3 5" stroke-linecap="round"/>'
+            line += f'<rect x="{x_end + 4:.0f}" y="{text_base - 36}" width="3" height="44" fill="{PINK}"><animate attributeName="opacity" values="1;0;1" dur="0.8s" repeatCount="indefinite"/></rect>'
+        elif style == "converted":
+            line = f'<rect x="{text_x - 6}" y="{text_base - 40}" width="{x_end - text_x + 12:.0f}" height="54" rx="10" fill="{BLUE}" opacity="0.14"/>'
+            line += f'<path d="M{text_x} {text_base + 12} H{x_end:.0f}" stroke="{BLUE}" stroke-width="4" stroke-linecap="round"/>'
+        return line + body
+
+    frames.append((0.7, keys_line("") + f'<rect x="{text_x}" y="{text_base - 36}" width="3" height="44" fill="{PINK}"><animate attributeName="opacity" values="1;0;1" dur="0.8s" repeatCount="indefinite"/></rect>'))
+    for keys, display in TYPING:
+        frames.append((0.17, keys_line(keys) + composition(display, "typing")))
+    frames.append((0.9, keys_line("kyouhagoogledekensaku") + composition(TYPING[-1][1], "typing")))
+    frames.append((1.8, keys_line("kyouhagoogledekensaku", "Space で変換") + composition(CONVERTED, "converted")))
+    frames.append((2.2, keys_line("", "Enter で確定") + composition(CONVERTED, "done")))
+
+    # 確かめる用: 環境変数 DEMO_FRAME=番号 なら、そのコマだけを止めて描く
+    if os.environ.get("DEMO_FRAME"):
+        frames = [(1.0, frames[int(os.environ["DEMO_FRAME"])][1])]
+    total = sum(t for t, _ in frames)
+    layers = []
+    start = 0.0
+    for duration, body in frames:
+        a, b = start / total, (start + duration) / total
+        if a == 0:
+            values, times = "1;0;0", f"0;{b:.4f};1"
+        elif b >= 0.9999:
+            values, times = "0;1;1", f"0;{a:.4f};1"
+        else:
+            values, times = "0;1;0;0", f"0;{a:.4f};{b:.4f};1"
+        layers.append(f'<g opacity="{1 if a == 0 else 0}"><animate attributeName="opacity" calcMode="discrete" values="{values}" keyTimes="{times}" dur="{total:.2f}s" repeatCount="indefinite"/>{body}</g>')
+        start += duration
+
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="kyouhagoogledekensaku と打つと、今日はgoogleで検索 になる">
+<title>kyouhagoogledekensaku → 今日はgoogleで検索</title>
+{g.defs_xml()}
+<rect x="{card_x + 4}" y="{card_y + 6}" width="{card_w}" height="{card_h}" rx="22" fill="{OUTLINE}"/>
+<rect x="{card_x}" y="{card_y}" width="{card_w}" height="{card_h}" rx="22" fill="#ffffff" stroke="{OUTLINE}" stroke-width="3"/>
+<path d="M{card_x + 24} {keys_base + 18} H{card_x + card_w - 24}" stroke="#e3e8f8" stroke-width="2"/>
+{"".join(layers)}
+</svg>
+'''
+    open(out, "w", encoding="utf-8").write(svg)
+
+
+CARDS = [
+    ("あ A", "混ぜたまま打てる", ["英単語は英字のまま、", "日本語はかな・漢字に。"], BLUE),
+    ("</>", "コードの手も止めない", ["コメントと文字列だけ日本語に。", "/command もそのまま入る"], PINK),
+    ("PC", "ぜんぶ PC の中で", ["判定も変換もローカルで完結。", "打った文字を外に送りません"], OUTLINE),
+]
+
+
+def features(out):
+    g = Glyphs()
+    card_w, card_h, gap = 280, 190, 20
+    width = card_w * 3 + gap * 2 + 16
+    height = card_h + 20
+    cards = []
+    for i, (icon, title, lines, color) in enumerate(CARDS):
+        x = 8 + i * (card_w + gap)
+        y = 6
+        icon_text, _ = g.text(icon, 0, 0, 26, lambda c: "#ffffff")
+        icon_w = g.width(icon, 26)
+        title_text, _ = g.text(title, x + 24, y + 112, 24, lambda c: INK)
+        body = "".join(g.text(line, x + 24, y + 144 + k * 26, 16, lambda c: GRAY)[0] for k, line in enumerate(lines))
+        cards.append(f'''<rect x="{x + 4}" y="{y + 5}" width="{card_w}" height="{card_h}" rx="20" fill="{color}" opacity="0.55"/>
+<rect x="{x}" y="{y}" width="{card_w}" height="{card_h}" rx="20" fill="#ffffff" stroke="{color}" stroke-width="3"/>
+<circle cx="{x + 52}" cy="{y + 50}" r="30" fill="{color}"/>
+<g transform="translate({x + 52 - icon_w / 2:.1f} {y + 59})">{icon_text}</g>
+{title_text}{body}''')
+    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="混ぜたまま打てる / コードの手も止めない / ぜんぶ PC の中で">
+<title>できること</title>
+{g.defs_xml()}
+{"".join(cards)}
+</svg>
+'''
+    open(out, "w", encoding="utf-8").write(svg)
+
+
+if __name__ == "__main__":
+    folder = sys.argv[1] if len(sys.argv) > 1 else "docs/images"
+    demo(os.path.join(folder, "demo.svg"))
+    features(os.path.join(folder, "features.svg"))
+    print("ok")

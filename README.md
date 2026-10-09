@@ -25,11 +25,19 @@
   <a href="https://github.com/yksr-melt/Meltype/issues/new/choose">不具合の報告・提案</a>
 </p>
 
+<p align="center">
+  <img src="docs/images/demo.svg" alt="kyouhagoogledekensaku と打つと、今日はgoogleで検索 になる" width="640">
+</p>
+
 <br><br>
 
 <img src="docs/images/headings/features.svg" alt="できること" width="480"><br>
 
-#### 日本語と英語を、混ぜたまま打てる！
+<p align="center">
+  <img src="docs/images/features.svg" alt="混ぜたまま打てる / コードの手も止めない / ぜんぶ PC の中で" width="100%">
+</p>
+
+#### たとえば
 
 ```
 kyouhagoogledekensaku    →  今日はgoogleで検索
@@ -37,16 +45,8 @@ ashitanomeetingwotsuika  →  明日のmeetingを追加
 I want to go to the park →  I want to go to the park
 ```
 
-英単語は英字のまま、日本語はかな・漢字に。英文だってそのまま入ります。
-
-#### コードを書く手も止めない！
-
-VS Code やターミナルでは英数が基本。コメントと文字列の中だけ日本語になります。
-AI エージェントの `/command`・`$skill`・`@ファイル名` も、変換されずにそのまま入力。
-
-#### ぜんぶ PC の中で
-
-判定も変換もローカルで完結。打った文字を外に送ることはありません。
+英単語は英字のまま、日本語はかな・漢字に。英文だってそのまま入ります！
+VS Code やターミナルでは英数が基本で、コメントと文字列の中だけ日本語に。AI エージェントの `/command`・`$skill`・`@ファイル名` も、変換されずにそのまま入ります。
 
 #### ほかにも
 
