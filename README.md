@@ -3,6 +3,8 @@
   <sub>Logo by <a href="https://github.com/Crysta1221">@Crysta1221</a></sub>
 </p>
 
+<p align="center"><b>雪解けのように、半角/全角の壁を溶かす日本語入力。</b></p>
+
 <p align="center">
   <a href="https://github.com/yksr-melt/Meltype/releases/latest"><img src="https://img.shields.io/github/v/release/yksr-melt/Meltype?color=5ec4f0" alt="release"></a>
   <a href="https://github.com/yksr-melt/Meltype/releases"><img src="https://img.shields.io/github/downloads/yksr-melt/Meltype/total?color=ff8ab4" alt="downloads"></a>
@@ -10,11 +12,11 @@
 </p>
 
 半角/全角 キーを押さなくても、日本語と英語を打ち分けられるようにする Windows 常駐ツールです。
-(開発中は AutoIME という仮の名前でした。以前の設定と学習データは、Meltype の初回起動時に自動で引き継ぎます)
 
 Windows 版のほか、Mac 版・Linux 版のプレビュー版があります ([mac/README.md](mac/README.md)。Linux 版は IBus / fcitx5 のエンジン)。プレビュー版は、まだ一部の機能が無く、動きも変わることがあります。
 
-## できること
+<br>
+<img src="docs/images/headings/features.svg" alt="できること" width="560">
 
 - 半角/全角 キーを押さずに、ローマ字のまま日本語と英語を混ぜて打てます (`kyouhagoogledekensaku` → 今日はgoogleで検索)
 - 日本語は変換ボックスでかな・漢字に変換し、英単語 (`google` `github` `hello` …) は自動で英字のまま
@@ -24,7 +26,8 @@ Windows 版のほか、Mac 版・Linux 版のプレビュー版があります (
 - AI エージェントの `/command`・`$skill`・`@ファイル名` は変換せずにそのまま入力 (アプリの補完を選べる)
 - 打った内容をネットワークに送りません。判定・変換はすべて PC の中で行います
 
-## インストール
+<br>
+<img src="docs/images/headings/install.svg" alt="インストール" width="560">
 
 1. [Releases](https://github.com/yksr-melt/Meltype/releases) から、インストーラー `Meltype-<version>-setup.exe` をダウンロードして実行する (管理者権限は不要)
 2. インストーラーの案内に従う。Meltype IME を入れるときだけ管理者権限の確認が出ます。断っても変換ボックス方式は使えます。
@@ -59,7 +62,8 @@ Meltype はコード署名をしていないので、「Windows によって PC 
 
 </details>
 
-## 使い始める
+<br>
+<img src="docs/images/headings/start.svg" alt="使い始める" width="560">
 
 メモ帳やブラウザーの入力欄で、IME を気にせずそのままローマ字で打ってください。
 
@@ -79,7 +83,8 @@ Meltype はコード署名をしていないので、「Windows によって PC 
 よく使う言葉は、トレイのアイコンを右クリック →「ユーザー辞書...」で登録できます。
 詳しい使い方 (キー操作・判定の強さ・かな入力・コードエディター・設定など) は [docs/USAGE.md](docs/USAGE.md) にあります。
 
-## よくある質問
+<br>
+<img src="docs/images/headings/faq.svg" alt="よくある質問" width="560">
 
 <details>
 <summary><b>タスクバーの IME の表示がずっと「A」のまま</b></summary>
@@ -109,12 +114,14 @@ F10 (英字) / F6 (ひらがな) で直して確定すると、次からその�
 
 </details>
 
-## プライバシー
+<br>
+<img src="docs/images/headings/privacy.svg" alt="プライバシー" width="560">
 
 Meltype はキーボードの入力を監視して動くツールですが、打った内容をネットワークに送ることはありません。セキュリティの方針と脆弱性の報告先は [SECURITY.md](SECURITY.md)。通信するのは、自動更新で GitHub に新しい版があるかを確かめるとき (送るのは今の版だけ) と、自分で開いた不具合報告のフォームだけです。
 保存するのは `%LOCALAPPDATA%\Meltype` の設定・学習データ・ユーザー辞書と、ファイルログを ON にしたときのログだけです。
 
-## ライセンス
+<br>
+<img src="docs/images/headings/license.svg" alt="ライセンス" width="560">
 
 Meltype は **GNU General Public License v3.0** ([LICENSE](LICENSE)) で公開しています。
 
@@ -140,7 +147,8 @@ even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE
 General Public License for more details.
 ```
 
-## 協力してくださった方々
+<br>
+<img src="docs/images/headings/thanks.svg" alt="協力してくださった方々" width="560">
 
 テスト版を使って、不具合の報告や意見をくださった方々です。ありがとうございました (敬称略)。
 
@@ -154,6 +162,7 @@ General Public License for more details.
 - Ray
 - うぽつです ([@up2ds](https://x.com/up2ds))
 
-## 開発に参加する
+<br>
+<img src="docs/images/headings/develop.svg" alt="開発に参加する" width="560">
 
 ソースからのビルド・テスト・動作の仕組みは [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)、不具合の報告・辞書の追加・Pull Request の送り方は [CONTRIBUTING.md](CONTRIBUTING.md) を見てください。

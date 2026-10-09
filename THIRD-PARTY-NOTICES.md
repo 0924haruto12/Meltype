@@ -360,3 +360,8 @@ SPDX-License-Identifier: Unicode-3.0
 `dictionaries/` の辞書 (日本語・英語の単語、固有名詞、同音異義語の候補、文脈の手がかり) は Meltype のために作成したもので、
 Meltype 本体と同じライセンス (GPL-3.0-or-later) です。
 固有名詞の辞書に含まれる製品名・会社名は各社の商標です。
+
+### README の画像
+
+- `docs/meltype.jpg`・`docs/images/logo.png` (Meltype のロゴ) は [@Crysta1221](https://github.com/Crysta1221) さんの作品です。
+- `docs/images/headings/*.svg` (README の見出し) の文字は、M PLUS Rounded 1c (Copyright 2016 The M+ Project Authors、SIL Open Font License 1.1) の字形を図形にしたものです。
