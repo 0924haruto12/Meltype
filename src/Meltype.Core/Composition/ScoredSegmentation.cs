@@ -6,7 +6,7 @@ using Meltype.Config;
 namespace Meltype.Composition;
 
 /// <summary>
-/// 区切りを点数で選ぶ (試作)。
+/// 区切りを点数で選ぶ (α版。設定「区切りを点数で選ぶ (α版)」、既定 OFF)。
 ///
 /// 今までの FindSpans は、先頭から見て最初に「英語と言える」区間を見つけたら、そこで区切りを決めてしまう。
 /// 後ろにもっと良い区切りがあっても戻れない (some|teal|coholic と alcoholic、reflect|sa の tsa など)。

@@ -91,7 +91,7 @@ dotnet run --project src/Meltype.Core.Tests -- --repro kyouhagoogle enter   # �
 dotnet run --project src/Meltype.Core.Tests -- --mixed-bench out.json       # 日本語の文の中の英単語が正しく分かれるか (約 550 例)
 ```
 
-環境変数 `MELTYPE_SCORED=1` を付けると、区切りを点数で選ぶ試作 (設定「区切りを点数で選ぶ (試作)」、`ScoredSegmentation.cs`) で動かせます。
+環境変数 `MELTYPE_SCORED=1` を付けると、区切りを点数で選ぶ α版 (設定「区切りを点数で選ぶ (α版)」、`ScoredSegmentation.cs`) で動かせます。
 今までの区切りと比べるときは、同じコマンドを `MELTYPE_SCORED=0` と `1` で 2 回動かします。`--mixed-bench` は `MELTYPE_BENCH_OFFSET=31` などで調べる語を変えられます。
 
 <a name="品質テスト"></a>

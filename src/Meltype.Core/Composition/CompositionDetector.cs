@@ -67,7 +67,7 @@ public sealed partial class CompositionDetector
     public ProperNouns ProperNouns => _proper;
 
     /// <summary>
-    /// 区切りを点数で選ぶか (試作。設定「区切りを点数で選ぶ」)。null か false なら今までどおり、先頭から順に最長の英語の区間を取る。
+    /// 区切りを点数で選ぶか (α版。設定「区切りを点数で選ぶ (α版)」)。null か false なら今までどおり、先頭から順に最長の英語の区間を取る。
     /// 環境変数 MELTYPE_SCORED=1 でも ON にできる (品質テストを両方で比べるため)。
     /// </summary>
     public Func<bool>? UseScoredSegmentation { get; set; }

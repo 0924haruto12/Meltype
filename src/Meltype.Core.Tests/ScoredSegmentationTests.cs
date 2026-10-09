@@ -7,7 +7,7 @@ using Meltype.Input;
 
 namespace Meltype.Tests;
 
-/// <summary>区切りを点数で選ぶ (試作、設定「区切りを点数で選ぶ」) のテスト。</summary>
+/// <summary>区切りを点数で選ぶ (α版、設定「区切りを点数で選ぶ (α版)」) のテスト。</summary>
 internal static class ScoredSegmentationTests
 {
     private static readonly CompositionDetector Detector = CreateDetector();

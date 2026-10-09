@@ -314,8 +314,8 @@ public sealed class Settings
      Description("積極的 = 英語らしければすぐ英字 / 標準 = 短い語 (no, to, ga) は前後が英語のときだけ英字 / 慎重 = 確信度が高いときだけ英字 / 手動 = 自動では切り替えず提案だけ (変換ボックスで Tab を押すと提案どおり英字に)。Meltype キーボード・IME 自動切替・英数状態の検知・かな入力のすべてに効きます。")]
     public DetectionLevel DetectionLevel { get; set; } = DetectionLevel.Balanced;
 
-    [Category("2. 判定"), DisplayName("区切りを点数で選ぶ (試作)"),
-     Description("変換ボックスの中で英語と日本語をどこで区切るかを、あり得る区切り方を全部比べて一番自然なもので決めます (試作)。英単語の後ろの「は」(medalsha → medalsは、presidentha → presidentは) などが正しく分かれやすくなります。OFF なら今までどおり、先頭から順に決めます。")]
+    [Category("2. 判定"), DisplayName("区切りを点数で選ぶ (α版)"),
+     Description("変換ボックスの中で英語と日本語をどこで区切るかを、あり得る区切り方を全部比べて一番自然なもので決めます (α版: 試験中)。英単語の後ろの「は」(medalsha → medalsは、presidentha → presidentは) などが正しく分かれやすくなります。OFF なら今までどおり、先頭から順に決めます。")]
     public bool ScoredSegmentation { get; set; }
 
     /// <summary>判定の強さを反映した日本語判定の閾値 (IME 自動切替・英数状態の検知)。</summary>
