@@ -14,7 +14,7 @@ namespace Meltype.Composition;
 /// 未確定のうちは何度でも表示を作り直せるので、ここでの判定は IME 自動切替より積極的でよいが、
 /// 既定は日本語で、英語と判断できる根拠があるときだけ英字にする。
 /// </summary>
-public sealed class CompositionDetector
+public sealed partial class CompositionDetector
 {
     private readonly RomajiDetector _romaji;
     private readonly DictionaryDetector _japanese;
@@ -65,6 +65,16 @@ public sealed class CompositionDetector
     public Func<string, bool>? IsCommonJapanese { get; set; }
 
     public ProperNouns ProperNouns => _proper;
+
+    /// <summary>
+    /// 区切りを点数で選ぶか (α版。設定「区切りを点数で選ぶ (α版)」)。null か false なら今までどおり、先頭から順に最長の英語の区間を取る。
+    /// 環境変数 MELTYPE_SCORED=1 でも ON にできる (品質テストを両方で比べるため)。
+    /// </summary>
+    public Func<bool>? UseScoredSegmentation { get; set; }
+
+    private static readonly bool ScoredByEnvironment = Environment.GetEnvironmentVariable("MELTYPE_SCORED") == "1";
+
+    private bool ScoredSegmentation => ScoredByEnvironment || UseScoredSegmentation?.Invoke() == true;
 
     /// <summary>
     /// 単位列 (+ 入力途中の子音) を英語区間と日本語区間に分ける。
@@ -119,7 +129,9 @@ public sealed class CompositionDetector
                     return [new CompositionSegment(true, "", word), new CompositionSegment(false, analysis.Kana + analysis.Partial, raw[end..])];
             }
         }
-        var segments = FindSpans(units, pending, precedingEnglish, followingEnglish, level, englishSentence && precedingEnglish == true, kanaInput, final);
+        var segments = ScoredSegmentation && !kanaInput
+            ? FindSpansScored(units, pending, precedingEnglish, followingEnglish, level, englishSentence && precedingEnglish == true, final)
+            : FindSpans(units, pending, precedingEnglish, followingEnglish, level, englishSentence && precedingEnglish == true, kanaInput, final);
         if (kanaInput) return segments;
         // 辞書にない英単語 (stackoverflow など) を最初から打っているなら全体を英語にする。
         // 途中の区間 (… flow) だけを英語にすると「sたcこvえrflow」のようになってしまう。
@@ -307,7 +319,7 @@ public sealed class CompositionDetector
     }
 
     /// <summary>スペルチェッカーが正しいと言う英単語か、よくある打ち間違い (teh、recieve) か。</summary>
-    private bool IsSpellWord(string lower) => SpellChecker is { } checker && (checker.IsWord(lower) || checker.AutoCorrection(lower) is not null);
+    internal bool IsSpellWord(string lower) => SpellChecker is { } checker && (checker.IsWord(lower) || checker.AutoCorrection(lower) is not null);
 
     /// <summary>よくある英語の打ち間違いなら正しい綴り (teh → the)。大文字で始まる語は大文字で始める。</summary>
     public string? EnglishAutoCorrection(string word)

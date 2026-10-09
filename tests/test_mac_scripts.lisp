@@ -1,5 +1,5 @@
 ;;; SPDX-License-Identifier: GPL-3.0-or-later
-;;; Copyright (C) 2026 Yukishiro
+;;; Copyright (C) 2026 hrmcngs
 
 ;;; Run with: sbcl --script tests/test_mac_scripts.lisp
 ;;; Exercise routing with fake tools; never touch the installed input method.

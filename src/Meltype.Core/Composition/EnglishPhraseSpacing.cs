@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// Copyright (C) 2026 Yukishiro
+// Copyright (C) 2026 hrmcngs
 
 using System.Text;
 using Meltype.Detection;
@@ -23,6 +23,9 @@ internal static class EnglishPhraseSpacing
         }
         return result;
     }
+
+    /// <summary>つなげて打った英語の決まり文句 (seeyou、thankyou) か。</summary>
+    public static bool IsPhrase(string token) => Boundaries.ContainsKey(token);
 
     public static string Format(string text)
     {
