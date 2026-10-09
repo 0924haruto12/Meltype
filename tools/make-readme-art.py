@@ -148,7 +148,7 @@ def demo(out):
 CARDS = [
     ("あ A", "混ぜたまま打てる", ["英単語は英字のまま、", "日本語はかな・漢字に。"], BLUE),
     ("</>", "コードの手も止めない", ["コメントと文字列だけ日本語に。", "/command もそのまま入る"], PINK),
-    ("PC", "ぜんぶ PC の中で", ["判定も変換もローカルで完結。", "打った文字を外に送りません"], OUTLINE),
+    ("pc", "ぜんぶ PC の中で", ["判定も変換もローカルで完結。", "打った文字を外に送りません"], OUTLINE),
 ]
 
 
@@ -161,14 +161,16 @@ def features(out):
     for i, (icon, title, lines, color) in enumerate(CARDS):
         x = 8 + i * (card_w + gap)
         y = 6
-        icon_text, _ = g.text(icon, 0, 0, 26, lambda c: "#ffffff")
-        icon_w = g.width(icon, 26)
+        picture = drawn_icon(icon, x + 52, y + 50)
+        if picture is None:
+            icon_text, _ = g.text(icon, 0, 0, 26, lambda c: "#ffffff")
+            picture = f'<g transform="translate({x + 52 - g.width(icon, 26) / 2:.1f} {y + 59})">{icon_text}</g>'
         title_text, _ = g.text(title, x + 24, y + 112, 24, lambda c: INK)
         body = "".join(g.text(line, x + 24, y + 144 + k * 26, 16, lambda c: GRAY)[0] for k, line in enumerate(lines))
         cards.append(f'''<rect x="{x + 4}" y="{y + 5}" width="{card_w}" height="{card_h}" rx="20" fill="{color}" opacity="0.55"/>
 <rect x="{x}" y="{y}" width="{card_w}" height="{card_h}" rx="20" fill="#ffffff" stroke="{color}" stroke-width="3"/>
 <circle cx="{x + 52}" cy="{y + 50}" r="30" fill="{color}"/>
-<g transform="translate({x + 52 - icon_w / 2:.1f} {y + 59})">{icon_text}</g>
+{picture}
 {title_text}{body}''')
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="混ぜたまま打てる / コードの手も止めない / ぜんぶ PC の中で">
 <title>できること</title>
@@ -179,13 +181,35 @@ def features(out):
     open(out, "w", encoding="utf-8").write(svg)
 
 
+def drawn_icon(kind, cx, cy):
+    """カードの丸の中の絵 (白い線)。kind が絵の名前でなければ、文字のアイコンとして扱う (None を返す)。"""
+    st = 'fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"'
+    shapes = {
+        # 鍵: 体と、上のつる
+        "lock": f'<rect x="{cx - 11}" y="{cy - 3}" width="22" height="17" rx="4" {st}/><path d="M{cx - 6} {cy - 3} v-5 a6 6 0 0 1 12 0 v5" {st}/><circle cx="{cx}" cy="{cy + 5}" r="1.8" fill="#ffffff"/>',
+        # 雲
+        "cloud": f'<path d="M{cx - 11} {cy + 9} h22 a7 7 0 0 0 0 -14 a9 9 0 0 0 -17 -2 a6 6 0 0 0 -5 16 z" {st}/>',
+        # パソコン: 画面と台
+        "pc": f'<rect x="{cx - 14}" y="{cy - 12}" width="28" height="19" rx="3" {st}/><path d="M{cx - 6} {cy + 13} h12 M{cx} {cy + 7} v6" {st}/>',
+        # 虫: 体・頭・脚・触角
+        "bug": f'<ellipse cx="{cx}" cy="{cy + 3}" rx="7" ry="10" {st}/><path d="M{cx} {cy - 7} v20 M{cx - 7} {cy} h-6 M{cx + 7} {cy} h6 M{cx - 7} {cy + 7} l-5 4 M{cx + 7} {cy + 7} l5 4 M{cx - 6} {cy - 4} l-5 -4 M{cx + 6} {cy - 4} l5 -4 M{cx - 3} {cy - 9} l-3 -5 M{cx + 3} {cy - 9} l3 -5" {st}/>',
+        # 開いた本
+        "book": f'<path d="M{cx} {cy - 7} c-4 -4 -10 -4 -15 -3 v19 c5 -1 11 -1 15 3 c4 -4 10 -4 15 -3 v-19 c-5 -1 -11 -1 -15 3 z M{cx} {cy - 7} v19" {st}/>',
+        # Pull Request の枝分かれ
+        "pr": f'<circle cx="{cx - 8}" cy="{cy - 10}" r="3.5" {st}/><circle cx="{cx - 8}" cy="{cy + 11}" r="3.5" {st}/><circle cx="{cx + 9}" cy="{cy + 11}" r="3.5" {st}/><path d="M{cx - 8} {cy - 6} v13 M{cx + 9} {cy + 7} v-9 a5 5 0 0 0 -5 -5 h-5 M{cx + 2} {cy - 10} l-3 3 l3 3" {st}/>',
+    }
+    return shapes.get(kind)
+
+
 def card(icon, title, lines, color, out):
     """1 枚だけのカード (README の下の方で、カードごとにリンクを付けるため)。"""
     g = Glyphs()
     card_w, card_h = 280, 190
     x, y = 8, 6
-    icon_text, _ = g.text(icon, 0, 0, 26, lambda c: "#ffffff")
-    icon_w = g.width(icon, 26)
+    picture = drawn_icon(icon, x + 52, y + 50)
+    if picture is None:
+        icon_text, _ = g.text(icon, 0, 0, 26, lambda c: "#ffffff")
+        picture = f'<g transform="translate({x + 52 - g.width(icon, 26) / 2:.1f} {y + 59})">{icon_text}</g>'
     title_text, _ = g.text(title, x + 24, y + 112, 24, lambda c: INK)
     body = "".join(g.text(line, x + 24, y + 144 + k * 26, 16, lambda c: GRAY)[0] for k, line in enumerate(lines))
     width, height = card_w + 16, card_h + 20
@@ -195,21 +219,21 @@ def card(icon, title, lines, color, out):
 <rect x="{x + 4}" y="{y + 5}" width="{card_w}" height="{card_h}" rx="20" fill="{color}" opacity="0.55"/>
 <rect x="{x}" y="{y}" width="{card_w}" height="{card_h}" rx="20" fill="#ffffff" stroke="{color}" stroke-width="3"/>
 <circle cx="{x + 52}" cy="{y + 50}" r="30" fill="{color}"/>
-<g transform="translate({x + 52 - icon_w / 2:.1f} {y + 59})">{icon_text}</g>
+{picture}
 {title_text}{body}
 </svg>
 '''
     open(out, "w", encoding="utf-8").write(svg)
 
 
-# README の下の方のカード (ファイル名, アイコン, 題, 説明 2 行, 色)
+# README の下の方のカード (ファイル名, アイコン (drawn_icon の絵の名前), 題, 説明 2 行, 色)
 MORE_CARDS = [
-    ("privacy-send", "0", "打った文字は送らない", ["判定も変換も PC の中で完結。", "ネットには出しません"], BLUE),
-    ("privacy-network", "2", "通信は 2 つだけ", ["自動更新の確認と、", "自分で開いた報告のフォーム"], PINK),
-    ("privacy-storage", "PC", "保存も PC の中", ["設定・学習データ・辞書は", "%LOCALAPPDATA% の中に"], OUTLINE),
-    ("contribute-issue", "!", "不具合の報告", ["どのアプリで・何と打って・", "どうなったかを教えてください"], PINK),
-    ("contribute-dictionary", "辞", "辞書の追加", ["足りない語・社名は", "Pull Request か Issue で"], BLUE),
-    ("contribute-code", "PR", "コードで協力", ["バグの修正も新しい機能も", "Pull Request で大歓迎！"], OUTLINE),
+    ("privacy-send", "lock", "打った文字は送らない", ["判定も変換も PC の中で完結。", "ネットには出しません"], BLUE),
+    ("privacy-network", "cloud", "通信は 2 つだけ", ["自動更新の確認と、", "自分で開いた報告のフォーム"], PINK),
+    ("privacy-storage", "pc", "保存も PC の中", ["設定・学習データ・辞書は", "%LOCALAPPDATA% の中に"], OUTLINE),
+    ("contribute-issue", "bug", "不具合の報告", ["どのアプリで・何と打って・", "どうなったかを教えてください"], PINK),
+    ("contribute-dictionary", "book", "辞書の追加", ["足りない語・社名は", "Pull Request か Issue で"], BLUE),
+    ("contribute-code", "pr", "コードで協力", ["バグの修正も新しい機能も", "Pull Request で大歓迎！"], OUTLINE),
 ]
 
 
