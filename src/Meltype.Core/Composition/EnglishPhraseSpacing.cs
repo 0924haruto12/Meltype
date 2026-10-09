@@ -24,6 +24,9 @@ internal static class EnglishPhraseSpacing
         return result;
     }
 
+    /// <summary>つなげて打った英語の決まり文句 (seeyou、thankyou) か。</summary>
+    public static bool IsPhrase(string token) => Boundaries.ContainsKey(token);
+
     public static string Format(string text)
     {
         var result = new StringBuilder(text.Length + 8);

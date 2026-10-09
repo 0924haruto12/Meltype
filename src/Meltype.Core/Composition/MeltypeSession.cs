@@ -148,6 +148,7 @@ public sealed class MeltypeSession
         detector.SpellChecker = wordChecker is { IsAvailable: true } ? wordChecker : Detection.BuiltInWordChecker.Shared;
         var languages = new LanguageMemory(AppPaths.LanguageMemoryFile);
         detector.Memory = languages;
+        detector.UseScoredSegmentation = () => settings.ScoredSegmentation;
         var options = new CompositionOptions
         {
             LiveConversion = () => settings.LiveConversion,

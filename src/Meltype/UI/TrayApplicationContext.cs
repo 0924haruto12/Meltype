@@ -45,6 +45,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _invoker.CreateControl();
         var detector = Composition.CompositionDetector.CreateDefault(AppPaths.UserDictionaryDirectory);
         detector.SpellChecker = Detection.WindowsSpellChecker.Shared;
+        detector.UseScoredSegmentation = () => _engine.AppSettings.ScoredSegmentation;
         _composition = new Composition.CompositionService(_invoker, detector, new Composition.CompositionOptions
         {
             LiveConversion = () => _engine.AppSettings.LiveConversion,
