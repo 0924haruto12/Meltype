@@ -447,6 +447,19 @@ internal static class CompositionTests
     }
   
     [Test]
+    public static void Brand_GitHubFromKana()
+    {
+        // #231: ぎっとはぶ・ギットハブ を変換すると GitHub が候補に出る
+        foreach (var keys in new[] { "gittohabu ", "gittohabude " })
+        {
+            var k = new Keyboard();
+            k.Type(keys);
+            var candidates = k.Host.View!.Candidates;
+            Assert.True(candidates.Any(c => c.StartsWith("GitHub")), keys + ": " + string.Join(" ", candidates));
+        }
+    }
+
+    [Test]
     public static void Now_ShowsCurrentTime()
     {
         // #208: いま・なう を変換すると、今の時刻 (17:22 / 17時22分 / 午後5時22分) も候補に出る
