@@ -74,6 +74,7 @@ def heading(text, theme, out, width=760, height=84, size=42):
 
 if __name__ == "__main__":
     outdir = sys.argv[1]
-    items = [("features", "できること"), ("install", "インストール"), ("start", "使い方"), ("faq", "困ったときは"), ("about", "Meltype について")]
+    items = [("features", "できること"), ("install", "インストール"), ("start", "使い始める"), ("faq", "よくある質問"),
+             ("privacy", "プライバシー"), ("license", "ライセンス"), ("thanks", "協力してくださった方々"), ("develop", "開発に参加する"), ("stars", "Star History")]
     for i, (name, text) in enumerate(items):
         heading(text, "blue" if i % 2 == 0 else "pink", f"{outdir}/{name}.svg")

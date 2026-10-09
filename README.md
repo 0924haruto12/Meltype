@@ -1,22 +1,35 @@
 <p align="center">
-  <img src="docs/images/logo.png" alt="Meltype" width="420"><br>
+  <img src="docs/images/logo.png" alt="Meltype" width="480"><br>
   <sub>Logo by <a href="https://github.com/Crysta1221">@Crysta1221</a></sub>
 </p>
 
-<p align="center">
-  <b>雪解けのように、半角/全角の壁を溶かす日本語入力。</b><br>
-  ローマ字で打つだけ。日本語か英語かは Meltype が見分けて、その場で切り替えます。
-</p>
+<p align="center"><b>雪解けのように、半角/全角の壁を溶かす日本語入力。</b></p>
 
 <p align="center">
-  <a href="https://github.com/yksr-melt/Meltype/releases/latest"><img src="https://img.shields.io/github/v/release/yksr-melt/Meltype?color=5ec4f0&label=download" alt="download"></a>
+  <a href="https://github.com/yksr-melt/Meltype/releases/latest"><img src="https://img.shields.io/github/v/release/yksr-melt/Meltype?color=5ec4f0" alt="release"></a>
   <a href="https://github.com/yksr-melt/Meltype/releases"><img src="https://img.shields.io/github/downloads/yksr-melt/Meltype/total?color=ff8ab4" alt="downloads"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-7a96f0" alt="license"></a>
 </p>
 
-<br>
+<h3 align="center">半角/全角 キーは、もう押さなくていい。</h3>
 
-<img src="docs/images/headings/features.svg" alt="できること" width="400">
+<p align="center">
+ローマ字で打つだけ。日本語か英語かは Meltype が見分けて、その場で切り替えます。
+</p>
+
+<p align="center">
+  <a href="https://github.com/yksr-melt/Meltype/releases/latest"><b>ダウンロード</b></a>
+  &nbsp;·&nbsp;
+  <a href="docs/USAGE.md">使い方</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/yksr-melt/Meltype/issues/new/choose">不具合の報告・提案</a>
+</p>
+
+<br><br>
+
+<img src="docs/images/headings/features.svg" alt="できること" width="480"><br>
+
+#### 日本語と英語を、混ぜたまま打てる
 
 ```
 kyouhagoogledekensaku    →  今日はgoogleで検索
@@ -24,27 +37,46 @@ ashitanomeetingwotsuika  →  明日のmeetingを追加
 I want to go to the park →  I want to go to the park
 ```
 
-- **混ぜたまま打てる** — 英単語は英字のまま、日本語はかな・漢字に。英文もそのまま
-- **コードを書く手も止めない** — VS Code やターミナルでは英数が基本。コメントと文字列の中だけ日本語に
-- **ぜんぶ PC の中で** — 判定も変換もローカルで完結。打った文字を外に送りません
+英単語は英字のまま、日本語はかな・漢字に。英文もそのまま入ります。
 
-絵文字の変換 (えがお → 😊)、予測変換、書き間違いの指摘などもあります。
-Windows 10 / 11 に対応。Mac 版・Linux 版はプレビュー版です。
+#### コードを書く手も止めない
 
-<br>
+VS Code やターミナルでは英数が基本。コメントと文字列の中だけ日本語になります。
+AI エージェントの `/command`・`$skill`・`@ファイル名` も、変換されずにそのまま入力。
 
-<img src="docs/images/headings/install.svg" alt="インストール" width="400">
+#### ぜんぶ PC の中で
+
+判定も変換もローカルで完結。打った文字を外に送ることはありません。
+
+#### ほかにも
+
+えがお → 😊 の絵文字変換、ブレスレッド → ブレスレット のような書き間違いの指摘、予測変換、アプリごとの設定など。
+
+<sub>Windows 10 / 11 に対応。Mac 版・Linux 版はプレビュー版です。</sub>
+
+<br><br>
+
+<img src="docs/images/headings/install.svg" alt="インストール" width="480"><br>
 
 1. [Releases](https://github.com/yksr-melt/Meltype/releases/latest) から `Meltype-<version>-setup.exe` をダウンロード
 2. 開いて、案内どおりに進める
 3. タスクトレイに「あ」が出たら準備完了
 
-管理者権限は不要。新しい版は自動で入ります。
+管理者権限は不要 (Meltype IME を入れるときだけ確認が出ます。断っても使えます)。新しい版は自動で入ります。
+
+「Windows によって PC が保護されました」と出たら、「詳細情報」→「実行」。コード署名をしていないため表示されます。
 
 <details>
-<summary>「Windows によって PC が保護されました」と出たとき</summary>
+<summary>zip 版・Mac 版・Linux 版</summary>
 
-「詳細情報」→「実行」で進められます。コード署名をしていないため表示されます。
+| | ファイル |
+|---|---|
+| Windows (zip) | `Meltype-<version>-windows.zip` を展開して `Install.cmd` をダブルクリック |
+| Mac (プレビュー版) | `Meltype-<version>-mac.zip` ([mac/README.md](mac/README.md)) |
+| Linux (プレビュー版) | `Meltype-<version>-linux.zip` (IBus / fcitx5) |
+
+インストーラーでも zip でも、入る場所は同じ `%LOCALAPPDATA%\Programs\Meltype` です。
+Windows 版に必要なのは Windows 10 / 11 (64bit) と Microsoft IME だけで、.NET は同梱しています。
 
 </details>
 
@@ -62,20 +94,6 @@ SmartScreen の警告とは別のものです。誤検知のこともありま�
 </details>
 
 <details>
-<summary>zip 版・Mac 版・Linux 版</summary>
-
-| | ファイル |
-|---|---|
-| Windows (zip) | `Meltype-<version>-windows.zip` を展開して `Install.cmd` をダブルクリック |
-| Mac (プレビュー版) | `Meltype-<version>-mac.zip` ([mac/README.md](mac/README.md)) |
-| Linux (プレビュー版) | `Meltype-<version>-linux.zip` (IBus / fcitx5) |
-
-インストーラーでも zip でも、入る場所は同じ `%LOCALAPPDATA%\Programs\Meltype` です。
-Windows 版に必要なのは Windows 10 / 11 (64bit) と Microsoft IME だけで、.NET は同梱しています。
-
-</details>
-
-<details>
 <summary>アンインストール</summary>
 
 トレイのアイコンを右クリックして「アンインストール...」を選ぶか、Windows の「設定」→「アプリ」から消せます。
@@ -83,25 +101,29 @@ Windows 版に必要なのは Windows 10 / 11 (64bit) と Microsoft IME だけ�
 
 </details>
 
-<br>
+<br><br>
 
-<img src="docs/images/headings/start.svg" alt="使い方" width="400">
+<img src="docs/images/headings/start.svg" alt="使い始める" width="480"><br>
 
-いつもどおりローマ字で打つだけ。
+あとは、いつもどおりローマ字で打つだけ。
+
+- **Meltype IME を入れた場合**: <kbd>Win</kbd> + <kbd>Space</kbd> で「Meltype」を選ぶ。文字は入力欄に直接入り、候補は入力位置の下に
+- **入れていない場合**: カーソルの下に変換ボックスが出る
 
 | キー | |
 |---|---|
-| <kbd>Space</kbd> / <kbd>Enter</kbd> | 変換 / 確定 |
-| <kbd>F7</kbd> / <kbd>F10</kbd> | カタカナ / 英字 (英字に直した語は次から英字に) |
+| <kbd>Enter</kbd> | 確定 |
+| <kbd>Space</kbd> | 漢字に変換 |
+| <kbd>F7</kbd> / <kbd>F10</kbd> | カタカナ / 英字 |
 | <kbd>半角/全角</kbd> | 英数と日本語の切り替え |
 | <kbd>Ctrl</kbd> + <kbd>半角/全角</kbd> | Meltype を一時停止 |
 
-Meltype IME を入れた場合は、<kbd>Win</kbd> + <kbd>Space</kbd> で「Meltype」を選ぶと入力欄に直接入力できます。
-くわしくは [docs/USAGE.md](docs/USAGE.md) へ。
+<kbd>F10</kbd> で英字に直した語は、次から英字で出ます。使うほど自分に合っていきます。
+よく使う言葉は、トレイのメニューの「ユーザー辞書...」から登録。くわしくは [docs/USAGE.md](docs/USAGE.md)。
 
-<br>
+<br><br>
 
-<img src="docs/images/headings/faq.svg" alt="困ったときは" width="400">
+<img src="docs/images/headings/faq.svg" alt="よくある質問" width="480"><br>
 
 <details>
 <summary>タスクバーの IME の表示がずっと「A」のまま</summary>
@@ -134,39 +156,24 @@ Meltype IME を入れた場合は、<kbd>Win</kbd> + <kbd>Space</kbd> で「Melt
 
 </details>
 
-<details>
-<summary>打った内容はどこかに送られる?</summary>
+<br><br>
 
-送りません。通信するのは、自動更新の確認と、自分で開いた不具合報告のフォームだけです。
-保存するのは `%LOCALAPPDATA%\Meltype` の設定・学習データ・ユーザー辞書 (と、ON にしたときのログ) だけ。
-セキュリティの方針と脆弱性の連絡先は [SECURITY.md](SECURITY.md) にあります。
+<img src="docs/images/headings/privacy.svg" alt="プライバシー" width="480"><br>
 
-</details>
+**打った内容は、どこにも送りません。**
 
-<br>
+- 通信するのは、自動更新の確認と、自分で開いた不具合報告のフォームだけ
+- 保存するのは `%LOCALAPPDATA%\Meltype` の設定・学習データ・ユーザー辞書 (と、ON にしたときのログ) だけ
 
-<img src="docs/images/headings/about.svg" alt="Meltype について" width="400">
+セキュリティの方針と脆弱性の連絡先は [SECURITY.md](SECURITY.md)。
 
-[GNU GPL v3.0](LICENSE) で公開しています。個人でも会社でも無料。ソースを公開せずに製品へ組み込みたいなど、GPL v3 で使えない場合はご相談ください: ibutya0319@gmail.com
+<br><br>
 
-不具合の報告、辞書の追加、Pull Request はいつでも大歓迎です → [CONTRIBUTING.md](CONTRIBUTING.md) ・ [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+<img src="docs/images/headings/license.svg" alt="ライセンス" width="480"><br>
 
-<details>
-<summary>協力してくださった方々</summary>
+[GNU GPL v3.0](LICENSE)。個人でも会社でも無料。GPL v3 の条件 (改造版もソースを公開) で、改造・再配布も自由です。
 
-テスト版で不具合の報告や意見をくださった皆さん、ありがとうございました (敬称略)。
-
-くらいど！ ([@Kuraido8888](https://x.com/Kuraido8888)) ・
-しぐれ ([@Akisameee0465](https://x.com/Akisameee0465)) ・
-琴音Link ・
-あげちゃ ・
-うな ([@una08142009](https://x.com/una08142009)) ・
-かふぇらて ([@cafely_latte](https://x.com/cafely_latte)) ・
-ウパー ([@upah_setu](https://x.com/upah_setu)) ・
-Ray ・
-うぽつです ([@up2ds](https://x.com/up2ds))
-
-</details>
+ソースを公開せずに製品へ組み込みたいなど、GPL v3 で使えない場合はご相談ください: ibutya0319@gmail.com
 
 <details>
 <summary>著作権表示・同梱物</summary>
@@ -190,12 +197,39 @@ General Public License for more details.
 
 </details>
 
-<br>
+<br><br>
+
+<img src="docs/images/headings/thanks.svg" alt="協力してくださった方々" width="480"><br>
+
+テスト版で不具合の報告や意見をくださった皆さん、ありがとうございました (敬称略)。
+
+くらいど！ ([@Kuraido8888](https://x.com/Kuraido8888)) ・
+しぐれ ([@Akisameee0465](https://x.com/Akisameee0465)) ・
+琴音Link ・
+あげちゃ ・
+うな ([@una08142009](https://x.com/una08142009)) ・
+かふぇらて ([@cafely_latte](https://x.com/cafely_latte)) ・
+ウパー ([@upah_setu](https://x.com/upah_setu)) ・
+Ray ・
+うぽつです ([@up2ds](https://x.com/up2ds))
+
+<br><br>
+
+<img src="docs/images/headings/develop.svg" alt="開発に参加する" width="480"><br>
+
+不具合の報告、辞書の追加、Pull Request、どれも大歓迎です。
+
+- 送り方 → [CONTRIBUTING.md](CONTRIBUTING.md)
+- ビルド・仕組み → [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)
+
+<br><br>
+
+<img src="docs/images/headings/stars.svg" alt="Star History" width="480"><br>
 
 <a href="https://www.star-history.com/?repos=yksr-melt%2FMeltype&type=date&legend=top-left">
  <picture>
    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=yksr-melt/Meltype&type=date&theme=dark&legend=top-left" />
    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=yksr-melt/Meltype&type=date&legend=top-left" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=yksr-melt/Meltype&type=date&legend=top-left" width="600" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=yksr-melt/Meltype&type=date&legend=top-left" />
  </picture>
 </a>
