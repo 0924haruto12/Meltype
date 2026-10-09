@@ -314,6 +314,11 @@ public sealed class CompositionText
     /// 英単語は単位の区切りから始まるものだけを見る。音の途中から始まる語 (から|な|l の anal、だ|め|x の amex) は、
     /// ローマ字で打っている日本語 (からなぁ・だめぇ) の一部なので英単語とみなさない。
     /// </summary>
+    /// <summary>単位 i が、前の かな (o・u の段) を伸ばす う (そう・きょう・ほんとう・くう の u) か。</summary>
+    private bool IsLongVowelU(int i) =>
+        i > 0 && _units[i] is { Raw: "u", Kana: "う" } && _units[i - 1] is { Kana: [.., var kana], Raw: [.., var vowel] } &&
+        kana is >= 'ぁ' and <= 'ゖ' && vowel is 'o' or 'u';
+
     private bool EndsWithEnglishWordFromUnit(int count, string extra = "")
     {
         var letters = extra;
@@ -322,6 +327,8 @@ public sealed class CompositionText
             letters = _units[i].Raw + letters;
             // 大文字の略語の途中 (AI の I) から始まる語 (Init) は見ない (AInitsuite の t と s を つ にまとめるように: issue #129)
             if (i > 0 && char.IsAsciiLetterUpper(_units[i].Raw[0]) && _units[i - 1].Raw is [.., var before] && char.IsAsciiLetterUpper(before)) continue;
+            // 伸ばす音の う (そう・きょう・ほんとう の u) から始まる語 (unit) は見ない (sounitsuite の t と s を つ にまとめるように)
+            if (IsLongVowelU(i)) continue;
             if (letters.Length >= 4 && _detector.IsKnownEnglishWord(letters)) return true;
         }
         return false;
