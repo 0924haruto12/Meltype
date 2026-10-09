@@ -226,6 +226,14 @@ General Public License for more details.
       <a href="https://github.com/Crysta1221"><img src="https://github.com/Crysta1221.png?size=200" width="100" alt="@Crysta1221"><br><b>@Crysta1221</b></a><br>
       <sub>Meltype のロゴ</sub>
     </td>
+    <td align="center">
+      <a href="https://github.com/lnkiai"><img src="https://github.com/lnkiai.png?size=200" width="100" alt="@lnkiai"><br><b>@lnkiai</b></a><br>
+      <sub>Meltype IME</sub>
+    </td>
+    <td align="center">
+      <a href="https://github.com/MuNeNiCK"><img src="https://github.com/MuNeNiCK.png?size=200" width="100" alt="@MuNeNiCK"><br><b>@MuNeNiCK</b></a><br>
+      <sub>Meltype IME の登録 (インストーラー)</sub>
+    </td>
   </tr>
 </table>
 
