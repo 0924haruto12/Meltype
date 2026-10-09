@@ -1301,7 +1301,7 @@ public sealed class CompositionController
 
     /// <summary>
     /// 文節の候補: 文の中での変換結果 → その文節だけでの変換結果 → 補助辞書の同音異義語 → ひらがな → 全角カタカナ → 半角カタカナ
-    /// → 絵文字・顔文字 (逆順)。
+    /// → 日付・時刻 (いま・きょう) → 絵文字・顔文字 (逆順)。
     /// 絵文字・顔文字は最後に逆順で並べるので、変換してすぐ ↑ を押すと、いちばんよく使う絵文字 (えがお → 😊) になる (issue #133)。
     /// </summary>
     private List<string> JapaneseCandidates(string reading, string? inContext)
@@ -1310,7 +1310,7 @@ public sealed class CompositionController
         var candidates = Distinct(inContext);
         foreach (var word in _options.UserDictionary?.Lookup(reading) ?? []) if (!candidates.Contains(word)) candidates.Add(word);
         if (Convert(reading) is var standalone && !candidates.Contains(standalone)) candidates.Add(standalone);
-        foreach (var extra in _options.Candidates?.LookupWords(reading).Concat(TimeCandidates(reading)) ?? TimeCandidates(reading))
+        foreach (var extra in _options.Candidates?.LookupWords(reading) ?? [])
         {
             if (!candidates.Contains(extra)) candidates.Add(extra);
         }
@@ -1319,6 +1319,11 @@ public sealed class CompositionController
         {
             if (!candidates.Contains(kana)) candidates.Add(kana);
         }
+        // 日付・時刻 (いま・なう・きょう) は、かなの後ろに出す (いつもの候補の並びは変えない)
+        foreach (var time in TimeCandidates(reading))
+        {
+            if (!candidates.Contains(time)) candidates.Add(time);
+        }
         foreach (var emoji in EmojiBlock(reading))
         {
             if (!candidates.Contains(emoji)) candidates.Add(emoji);
@@ -1326,16 +1331,29 @@ public sealed class CompositionController
         return candidates;
     }
 
-    /// <summary>今の時刻を表す読み (issue #208)。きょう → 日付 は変換エンジンが出す。</summary>
+    /// <summary>今の時刻を表す読み (issue #208)。</summary>
     private static readonly HashSet<string> NowReadings = ["いま", "なう"];
 
-    /// <summary>いま・なう の文節に、今の時刻 (17:22 / 17時22分 / 午後5時22分) を候補として出す。</summary>
+    private static readonly string[] WeekDays = ["日", "月", "火", "水", "木", "金", "土"];
+
+    /// <summary>
+    /// いま・なう の文節に今の日時、きょう の文節に今日の日付を候補として出す (issue #208)。
+    /// いま → 17:22 / 17時22分 / 午後5時22分 / 2026年10月9日(金) 17時22分 / 10月9日(金) 17:22 …
+    /// きょう → 2026年10月9日 / 2026年10月9日(金) / 10月9日(金) / 2026/10/09 / 2026-10-09 / 金曜日 …
+    /// </summary>
     private IEnumerable<string> TimeCandidates(string reading)
     {
-        if (!NowReadings.Contains(reading)) return [];
+        var isNow = NowReadings.Contains(reading);
+        if (!isNow && reading != "きょう") return [];
         var now = _options.Now();
-        var hour12 = now.Hour % 12;
-        return [$"{now:HH:mm}", $"{now.Hour}時{now.Minute}分", $"{(now.Hour < 12 ? "午前" : "午後")}{hour12}時{now.Minute}分"];
+        var day = WeekDays[(int)now.DayOfWeek];
+        var date = $"{now.Year}年{now.Month}月{now.Day}日";
+        var monthDay = $"{now.Month}月{now.Day}日";
+        if (!isNow)
+            return [date, $"{date}({day})", monthDay, $"{monthDay}({day})", $"{now:yyyy/MM/dd}", $"{now:yyyy-MM-dd}", $"{day}曜日"];
+        var time = $"{now.Hour}時{now.Minute}分";
+        return [$"{now:HH:mm}", time, $"{(now.Hour < 12 ? "午前" : "午後")}{now.Hour % 12}時{now.Minute}分",
+            $"{date}({day}) {time}", $"{monthDay}({day}) {time}", $"{date}({day}) {now:HH:mm}", $"{now:yyyy/MM/dd HH:mm}"];
     }
 
     /// <summary>絵文字・顔文字の候補を、最後に並べる順 (逆順: いちばんよく使うものが最後) で。</summary>

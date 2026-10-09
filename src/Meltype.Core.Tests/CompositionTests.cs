@@ -462,6 +462,16 @@ internal static class CompositionTests
         morning.Type("ima ");
         Assert.True(morning.Host.View!.Candidates.Contains("09:05") && morning.Host.View!.Candidates.Contains("午前9時5分"),
             string.Join(" ", morning.Host.View!.Candidates));
+        // 日付と曜日つき (2026/10/8 は木曜日)
+        var dated = new Keyboard(now: () => new DateTime(2026, 10, 8, 17, 22, 0));
+        dated.Type("ima ");
+        foreach (var expected in new[] { "2026年10月8日(木) 17時22分", "10月8日(木) 17時22分", "2026/10/08 17:22" })
+            Assert.True(dated.Host.View!.Candidates.Contains(expected), string.Join(" ", dated.Host.View!.Candidates));
+        // きょう → 今日の日付
+        var today = new Keyboard(now: () => new DateTime(2026, 10, 8, 17, 22, 0));
+        today.Type("kyou ");
+        foreach (var expected in new[] { "2026年10月8日", "2026年10月8日(木)", "10月8日(木)", "2026/10/08", "2026-10-08", "木曜日" })
+            Assert.True(today.Host.View!.Candidates.Contains(expected), string.Join(" ", today.Host.View!.Candidates));
         var other = new Keyboard(now: () => new DateTime(2026, 10, 8, 17, 22, 0));
         other.Type("imada ");
         Assert.True(!other.Host.View!.Candidates.Contains("17:22"), "いま だけの文節のとき");
